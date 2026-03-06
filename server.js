@@ -1,5 +1,4 @@
 const express = require('express');
-const cors    = require('cors');
 const helmet  = require('helmet');
 
 const app    = express();
@@ -16,10 +15,23 @@ if (!API_KEY) { console.error('ANTHROPIC_API_KEY not set'); process.exit(1); }
 
 // ── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({
-  origin: ALLOWED_ORIGIN === '*' ? '*' : ALLOWED_ORIGIN,
-  methods: ['GET', 'POST', 'OPTIONS'],
-}));
+
+// Handle CORS — must come before all routes
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowed = ALLOWED_ORIGIN === '*' || origin === ALLOWED_ORIGIN;
+  if (allowed && origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (ALLOWED_ORIGIN === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') { res.sendStatus(204); return; }
+  next();
+});
+
 app.use(express.json({ limit: '8kb' }));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
