@@ -137,14 +137,24 @@ async function proxy(req, res, stream) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering on Railway
     const reader = anthropicRes.body.getReader();
+    // Send a keepalive comment every 15s to prevent Railway/proxy idle timeouts
+    const keepalive = setInterval(() => {
+      try { res.write(new TextEncoder().encode(": keepalive\n\n")); } catch {}
+    }, 15000);
+
     const pump = async () => {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) { res.end(); return; }
-        res.write(value);
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+        }
+      } finally {
+        clearInterval(keepalive);
+        res.end();
       }
     };
-    pump().catch(e => { console.error('Stream pump error:', e.message); res.end(); });
+    pump().catch(e => { console.error('Stream pump error:', e.message); clearInterval(keepalive); res.end(); });
   } else {
     const data = await anthropicRes.json();
     res.json(data);
@@ -152,6 +162,52 @@ async function proxy(req, res, stream) {
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+// ── Botanical data routes ────────────────────────────────────────────────────
+// GBIF species match — resolves common/scientific name to accepted taxon
+// Source: Global Biodiversity Information Facility (GBIF) · CC BY 4.0
+// Underpins: Plants of the World Online / WCVP names backbone (Royal Botanic Gardens, Kew)
+app.get('/api/species', async (req, res) => {
+  const name = req.query.name;
+  if (!name || typeof name !== 'string' || name.length > 120) {
+    return res.status(400).json({ error: 'invalid_query' });
+  }
+  try {
+    const upstream = await fetch(
+      `https://api.gbif.org/v1/species/match?name=${encodeURIComponent(name)}&verbose=false`,
+      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(5000) }
+    );
+    if (!upstream.ok) return res.status(upstream.status).json({ error: 'gbif_error' });
+    const data = await upstream.json();
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: 'gbif_unreachable', message: e.message });
+  }
+});
+
+// GBIF occurrence count — regional suitability evidence for a given plant + location
+// Returns count of recorded occurrences within a bounding box
+// Source: GBIF occurrence data · CC BY 4.0 / CC0 (per dataset)
+app.get('/api/occurrences', async (req, res) => {
+  const { name, lat, lng, radius } = req.query;
+  if (!name || !lat || !lng) return res.status(400).json({ error: 'missing_params' });
+  const r = Math.min(parseFloat(radius) || 0.5, 2.0); // cap at 2 degrees (~220km)
+  const latMin = (parseFloat(lat) - r).toFixed(3);
+  const latMax = (parseFloat(lat) + r).toFixed(3);
+  const lngMin = (parseFloat(lng) - r).toFixed(3);
+  const lngMax = (parseFloat(lng) + r).toFixed(3);
+  try {
+    const upstream = await fetch(
+      `https://api.gbif.org/v1/occurrence/search?scientificName=${encodeURIComponent(name)}&decimalLatitude=${latMin},${latMax}&decimalLongitude=${lngMin},${lngMax}&limit=1`,
+      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) }
+    );
+    if (!upstream.ok) return res.status(upstream.status).json({ error: 'gbif_error' });
+    const data = await upstream.json();
+    res.json({ count: data.count || 0, name });
+  } catch (e) {
+    res.status(502).json({ error: 'gbif_unreachable', message: e.message });
+  }
+});
+
 app.get('/api/health', (_, res) => {
   res.json({ ok: true, globalGenToday: globalGen.count, cap: DAILY_GEN_CAP });
 });
