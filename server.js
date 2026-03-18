@@ -31,7 +31,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '8kb' }));
+app.use(express.json({ limit: '2mb' }));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
