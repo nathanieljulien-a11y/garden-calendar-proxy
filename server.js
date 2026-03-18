@@ -260,3 +260,4 @@ app.listen(PORT, () => {
   console.log(`Allowed origin: ${ALLOWED_ORIGIN}`);
   console.log(`Daily gen cap: ${DAILY_GEN_CAP}, IP daily gen: ${IP_DAILY_GEN}, IP hourly: ${IP_HOURLY_CAP}`);
 });
+
