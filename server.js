@@ -208,6 +208,26 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
+// iNat captive observations proxy (avoids CORS on frontend)
+app.get('/api/inat', async (req, res) => {
+  const { taxon, lat, lng } = req.query;
+  if (!taxon || !lat || !lng) return res.status(400).json({ error: 'Missing params' });
+  try {
+    const url = new URL('https://api.inaturalist.org/v1/observations');
+    url.searchParams.set('taxon_name', taxon);
+    url.searchParams.set('lat',        lat);
+    url.searchParams.set('lng',        lng);
+    url.searchParams.set('radius',     '50');
+    url.searchParams.set('captive',    'true');
+    url.searchParams.set('per_page',   '1');
+    const r = await fetch(url.toString());
+    const data = await r.json();
+    res.json({ total_results: data.total_results ?? 0 });
+  } catch (e) {
+    res.json({ total_results: 0 });
+  }
+});
+
 app.get('/api/health', (_, res) => {
   res.json({ ok: true, globalGenToday: globalGen.count, cap: DAILY_GEN_CAP });
 });
