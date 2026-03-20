@@ -163,6 +163,55 @@ async function proxy(req, res, stream) {
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+// ── Geocoding ────────────────────────────────────────────────────────────────
+// Nominatim (OpenStreetMap) — city string → lat, lng, country_code
+// Source: OpenStreetMap contributors · ODbL  https://www.openstreetmap.org/copyright
+//
+// Why proxied rather than called directly from the browser:
+//   Nominatim's usage policy requires a meaningful User-Agent header identifying
+//   the application. Browsers strip or anonymise User-Agent on cross-origin requests,
+//   so the call must come from the server where we can set it explicitly.
+//
+// Rate limit: Nominatim enforces 1 request/second per IP. The frontend caches
+// results in localStorage keyed by normalised city string, so in practice this
+// route is only hit on first lookup for each city per browser — repeated lookups
+// for the same city are served from cache with no network call.
+app.get('/api/geocode', async (req, res) => {
+  const q = req.query.q;
+  if (!q || typeof q !== 'string' || q.trim().length === 0 || q.length > 200) {
+    return res.status(400).json({ error: 'invalid_query', message: 'q parameter required (max 200 chars)' });
+  }
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q.trim())}&format=json&addressdetails=1&limit=1`;
+    const upstream = await fetch(url, {
+      headers: {
+        // Nominatim policy: identify your application and provide contact info
+        'User-Agent': 'GardenCalendar/1.0 nathanieljulien@gmail.com',
+        'Accept': 'application/json',
+        'Accept-Language': 'en',
+      },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: 'nominatim_error', message: `Nominatim returned ${upstream.status}` });
+    }
+    const data = await upstream.json();
+    const r = data[0];
+    if (!r) {
+      return res.status(404).json({ error: 'not_found', message: `Location not found: "${q}"` });
+    }
+    res.json({
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lon),
+      country_code: r.address?.country_code || null,   // lowercase ISO 3166-1 alpha-2, e.g. "gb", "fr"
+      display_name: r.display_name,
+    });
+  } catch (e) {
+    console.error('Nominatim fetch error:', e.message);
+    res.status(502).json({ error: 'nominatim_unreachable', message: 'Could not reach geocoding service' });
+  }
+});
+
 // ── Botanical data routes ────────────────────────────────────────────────────
 // GBIF species match — resolves common/scientific name to accepted taxon
 // Source: Global Biodiversity Information Facility (GBIF) · CC BY 4.0
