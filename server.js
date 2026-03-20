@@ -163,55 +163,6 @@ async function proxy(req, res, stream) {
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-// ── Geocoding ────────────────────────────────────────────────────────────────
-// Nominatim (OpenStreetMap) — city string → lat, lng, country_code
-// Source: OpenStreetMap contributors · ODbL  https://www.openstreetmap.org/copyright
-//
-// Why proxied rather than called directly from the browser:
-//   Nominatim's usage policy requires a meaningful User-Agent header identifying
-//   the application. Browsers strip or anonymise User-Agent on cross-origin requests,
-//   so the call must come from the server where we can set it explicitly.
-//
-// Rate limit: Nominatim enforces 1 request/second per IP. The frontend caches
-// results in localStorage keyed by normalised city string, so in practice this
-// route is only hit on first lookup for each city per browser — repeated lookups
-// for the same city are served from cache with no network call.
-app.get('/api/geocode', async (req, res) => {
-  const q = req.query.q;
-  if (!q || typeof q !== 'string' || q.trim().length === 0 || q.length > 200) {
-    return res.status(400).json({ error: 'invalid_query', message: 'q parameter required (max 200 chars)' });
-  }
-  try {
-    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q.trim())}&format=json&addressdetails=1&limit=1`;
-    const upstream = await fetch(url, {
-      headers: {
-        // Nominatim policy: identify your application and provide contact info
-        'User-Agent': 'GardenCalendar/1.0 nathanieljulien@gmail.com',
-        'Accept': 'application/json',
-        'Accept-Language': 'en',
-      },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: 'nominatim_error', message: `Nominatim returned ${upstream.status}` });
-    }
-    const data = await upstream.json();
-    const r = data[0];
-    if (!r) {
-      return res.status(404).json({ error: 'not_found', message: `Location not found: "${q}"` });
-    }
-    res.json({
-      lat: parseFloat(r.lat),
-      lng: parseFloat(r.lon),
-      country_code: r.address?.country_code || null,   // lowercase ISO 3166-1 alpha-2, e.g. "gb", "fr"
-      display_name: r.display_name,
-    });
-  } catch (e) {
-    console.error('Nominatim fetch error:', e.message);
-    res.status(502).json({ error: 'nominatim_unreachable', message: 'Could not reach geocoding service' });
-  }
-});
-
 // ── Botanical data routes ────────────────────────────────────────────────────
 // GBIF species match — resolves common/scientific name to accepted taxon
 // Source: Global Biodiversity Information Facility (GBIF) · CC BY 4.0
@@ -258,58 +209,56 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
-app.get('/api/health', (_, res) => {
-  res.json({ ok: true, globalGenToday: globalGen.count, cap: DAILY_GEN_CAP });
-});
-// OpenFarm crop data — sowing/harvest timing for vegetables and herbs
-// Source: OpenFarm (openfarm.cc) · CC BY licence
-// Proxied to avoid CORS. Server-side cache avoids repeated upstream calls.
-const openFarmCache = {}; // { lowerCaseName: { data, cachedAt } }
-const OPENFARM_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days in ms — crop data is stable
- 
-app.get('/api/openfarm', async (req, res) => {
+// Trefle plant hardiness & bloom period data
+// Source: Trefle.io botanical API · CC BY · trefle.io
+// Token stored as TREFLE_TOKEN env var on Render — never exposed to frontend.
+// Returns minimum_temperature (°C), bloom_months, fruit_months for a given scientific name.
+// Proxied here so the token stays server-side and we can add caching later if needed.
+const TREFLE_TOKEN = process.env.TREFLE_TOKEN || '';
+const TREFLE_URL   = 'https://trefle.io/api/v1/plants/search';
+
+app.get('/api/trefle', async (req, res) => {
   const q = req.query.q;
   if (!q || typeof q !== 'string' || q.length > 120) {
     return res.status(400).json({ error: 'invalid_query' });
   }
-  const key = q.trim().toLowerCase();
- 
-  // Serve from cache if fresh
-  const cached = openFarmCache[key];
-  if (cached && Date.now() - cached.cachedAt < OPENFARM_TTL) {
-    res.setHeader('X-Cache', 'HIT');
-    return res.json(cached.data);
+  if (!TREFLE_TOKEN) {
+    // Graceful degradation: proxy configured but no token set — tell the frontend to skip
+    return res.status(503).json({ error: 'trefle_not_configured', message: 'TREFLE_TOKEN not set' });
   }
- 
   try {
     const upstream = await fetch(
-      `https://openfarm.cc/api/v1/crops?q=${encodeURIComponent(q)}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        redirect: 'follow',
-        signal: AbortSignal.timeout(5000),
-      }
+      `${TREFLE_URL}?q=${encodeURIComponent(q)}&token=${TREFLE_TOKEN}`,
+      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) }
     );
-    if (!upstream.ok) return res.status(upstream.status).json({ error: 'openfarm_error' });
-    const raw = await upstream.json();
- 
-    // Extract only the fields we need — keep payload small
-    const attrs = raw.data?.[0]?.attributes;
-    const data = attrs ? {
-      found: true,
-      name:          attrs.name          || null,
-      sowing_method: attrs.sowing_method || null,
-      sun:           attrs.sun_requirements || null,
-      description:   attrs.description   ? attrs.description.slice(0, 300) : null,
-    } : { found: false };
- 
-    openFarmCache[key] = { data, cachedAt: Date.now() };
-    res.setHeader('X-Cache', 'MISS');
-    res.json(data);
+    if (!upstream.ok) {
+      const body = await upstream.json().catch(() => ({}));
+      return res.status(upstream.status).json({ error: 'trefle_error', ...body });
+    }
+    const data = await upstream.json();
+    // Return only the first match and only the fields we use — keeps payload small
+    const plant = data?.data?.[0];
+    if (!plant) return res.json({ found: false, q });
+    const species = plant.main_species || plant;
+    res.json({
+      found:          true,
+      q,
+      scientific_name: plant.scientific_name,
+      common_name:    plant.common_name,
+      min_temp_c:     species?.growth?.minimum_temperature?.deg_c ?? null,
+      bloom_months:   species?.growth?.bloom_months   ?? null,
+      fruit_months:   species?.growth?.fruit_months   ?? null,
+    });
   } catch (e) {
-    res.status(502).json({ error: 'openfarm_unreachable', message: e.message });
+    // Network failure or timeout — frontend will fall back to hardcoded CLIMATE_MARGINAL
+    res.status(502).json({ error: 'trefle_unreachable', message: e.message });
   }
 });
+
+app.get('/api/health', (_, res) => {
+  res.json({ ok: true, globalGenToday: globalGen.count, cap: DAILY_GEN_CAP });
+});
+
 // Non-streaming: meta, inspiration, insights
 app.post('/api/call', (req, res) => {
   const ip = req.ip;
