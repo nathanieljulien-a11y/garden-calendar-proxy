@@ -32,7 +32,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '8kb' }));
+// Body limit raised to 64kb — calendar prompts with full climate context can reach ~8-10kb
+app.use(express.json({ limit: '64kb' }));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
@@ -94,12 +95,12 @@ function validateBody(body) {
   if (!body || typeof body !== 'object') return 'Invalid body';
   if (body.model && body.model !== MODEL) return 'Invalid model';
   if (!Array.isArray(body.messages) || body.messages.length === 0) return 'Missing messages';
-  // Check combined prompt length
+  // Check combined prompt length — raised to 40k chars to accommodate climate context
   const totalLen = body.messages.reduce((s, m) => {
     const c = m.content;
     return s + (typeof c === 'string' ? c.length : JSON.stringify(c).length);
   }, 0);
-  if (totalLen > 20_000) return 'Prompt too long';
+  if (totalLen > 40_000) return 'Prompt too long';
   return null;
 }
 
@@ -205,26 +206,6 @@ app.get('/api/occurrences', async (req, res) => {
     res.json({ count: data.count || 0, name });
   } catch (e) {
     res.status(502).json({ error: 'gbif_unreachable', message: e.message });
-  }
-});
-
-// iNat captive observations proxy (avoids CORS on frontend)
-app.get('/api/inat', async (req, res) => {
-  const { taxon, lat, lng } = req.query;
-  if (!taxon || !lat || !lng) return res.status(400).json({ error: 'Missing params' });
-  try {
-    const url = new URL('https://api.inaturalist.org/v1/observations');
-    url.searchParams.set('taxon_name', taxon);
-    url.searchParams.set('lat',        lat);
-    url.searchParams.set('lng',        lng);
-    url.searchParams.set('radius',     '50');
-    url.searchParams.set('captive',    'true');
-    url.searchParams.set('per_page',   '1');
-    const r = await fetch(url.toString());
-    const data = await r.json();
-    res.json({ total_results: data.total_results ?? 0 });
-  } catch (e) {
-    res.json({ total_results: 0 });
   }
 });
 
