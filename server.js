@@ -250,6 +250,54 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
+// OpenFarm crop data — sowing method, sun requirements, description
+// Source: OpenFarm · openfarm.cc · CC BY
+// Proxied here because OpenFarm blocks direct browser requests (CORS + redirect).
+// Server-side in-memory cache (30-day TTL) keeps upstream calls minimal.
+app.get('/api/openfarm', async (req, res) => {
+  const q = req.query.q;
+  if (!q || typeof q !== 'string' || q.length > 120) {
+    return res.status(400).json({ error: 'invalid_query' });
+  }
+  const key = q.trim().toLowerCase();
+
+  // Serve from cache if fresh
+  const cached = openFarmCache[key];
+  if (cached && Date.now() - cached.cachedAt < OPENFARM_TTL) {
+    res.setHeader('X-Cache', 'HIT');
+    return res.json(cached.data);
+  }
+
+  try {
+    const upstream = await fetch(
+      `https://openfarm.cc/api/v1/crops?q=${encodeURIComponent(q)}`,
+      {
+        headers: { 'Accept': 'application/json' },
+        redirect: 'follow',
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+    if (!upstream.ok) return res.status(upstream.status).json({ error: 'openfarm_error' });
+    const raw = await upstream.json();
+
+    // Extract only the fields we need — keep payload small
+    const attrs = raw.data?.[0]?.attributes;
+    const data = attrs ? {
+      found:         true,
+      name:          attrs.name             || null,
+      sowing_method: attrs.sowing_method    || null,
+      sun:           attrs.sun_requirements || null,
+      description:   attrs.description      ? attrs.description.slice(0, 300) : null,
+    } : { found: false };
+
+    openFarmCache[key] = { data, cachedAt: Date.now() };
+    res.setHeader('X-Cache', 'MISS');
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: 'openfarm_unreachable', message: e.message });
+  }
+});
+
 // Trefle plant hardiness & bloom period data
 // Source: Trefle.io botanical API · CC BY · trefle.io
 // Token stored as TREFLE_TOKEN env var on Render — never exposed to frontend.
@@ -259,6 +307,11 @@ app.get('/api/occurrences', async (req, res) => {
 // not call it until data quality improves. Token not required for startup.
 const TREFLE_TOKEN = process.env.TREFLE_TOKEN || '';
 const TREFLE_URL   = 'https://trefle.io/api/v1/plants/search';
+
+// OpenFarm server-side cache — avoids repeat upstream calls for the same plant
+// within a single server process lifetime. TTL matches the client-side localStorage TTL.
+const OPENFARM_TTL   = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
+const openFarmCache  = {}; // { lowerCaseName: { data, cachedAt } }
 
 app.get('/api/trefle', async (req, res) => {
   const q = req.query.q;
