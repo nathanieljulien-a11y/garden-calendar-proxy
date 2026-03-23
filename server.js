@@ -36,8 +36,11 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '64kb' }));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
-const ipHourly  = {}; // { ip: { count, resetAt } }
+// Per-IP hourly requests
+const ipHourly = {}; // { ip: { count, resetAt } }
+// Per-IP daily generations
 const ipDailyGen = {}; // { ip: { count, date } }
+// Global daily generations
 let globalGen = { count: 0, date: todayStr() };
 
 function todayStr() { return new Date().toISOString().slice(0, 10); }
@@ -57,7 +60,7 @@ function checkAndIncrementIpHourly(ip) {
 function checkIpDailyGen(ip) {
   const today = todayStr();
   const rec = ipDailyGen[ip];
-  if (!rec || rec.date !== today) return true;
+  if (!rec || rec.date !== today) return true; // fresh day
   return rec.count < IP_DAILY_GEN;
 }
 
@@ -92,6 +95,7 @@ function validateBody(body) {
   if (!body || typeof body !== 'object') return 'Invalid body';
   if (body.model && body.model !== MODEL) return 'Invalid model';
   if (!Array.isArray(body.messages) || body.messages.length === 0) return 'Missing messages';
+  // Check combined prompt length — raised to 40k chars to accommodate climate context
   const totalLen = body.messages.reduce((s, m) => {
     const c = m.content;
     return s + (typeof c === 'string' ? c.length : JSON.stringify(c).length);
@@ -132,11 +136,13 @@ async function proxy(req, res, stream) {
   if (stream) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering on Railway
     const reader = anthropicRes.body.getReader();
+    // Send a keepalive comment every 15s to prevent Railway/proxy idle timeouts
     const keepalive = setInterval(() => {
       try { res.write(new TextEncoder().encode(": keepalive\n\n")); } catch {}
     }, 15000);
+
     const pump = async () => {
       try {
         while (true) {
@@ -157,22 +163,52 @@ async function proxy(req, res, stream) {
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-
-// ── Geocoding ─────────────────────────────────────────────────────────────────
-// Nominatim (OpenStreetMap) — city string → lat, lng, country_code
+// ── Geocoding ────────────────────────────────────────────────────────────────
+// Photon (komoot) — city string → lat, lng, country_code
 // Source: OpenStreetMap contributors · ODbL  https://www.openstreetmap.org/copyright
+// Photon is an open-source geocoder built on OpenStreetMap data, hosted by komoot.
+// It has no rate limit for reasonable use and requires no API key.
+// Same OSM data and ODbL licence as Nominatim — attribution is identical.
 //
-// Why proxied: Nominatim's usage policy requires a meaningful User-Agent identifying
-// the application. Browsers strip/anonymise User-Agent on cross-origin requests,
-// so the call must come from the server where we can set it explicitly.
+// Why proxied: keeps the data source abstracted server-side so we can swap
+// geocoders without touching the frontend, and avoids any CORS issues.
 //
-// Rate limit: 1 req/sec. Frontend caches in localStorage by city string, so this
-// route is only hit on first lookup per city per browser.
+// Fallback: if Photon fails, we retry once with Nominatim.
 app.get('/api/geocode', async (req, res) => {
   const q = req.query.q;
   if (!q || typeof q !== 'string' || q.trim().length === 0 || q.length > 200) {
     return res.status(400).json({ error: 'invalid_query', message: 'q parameter required (max 200 chars)' });
   }
+
+  // Attempt 1: Photon (no rate limit)
+  try {
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q.trim())}&limit=1&lang=en`;
+    const upstream = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      signal: AbortSignal.timeout(6000),
+    });
+    if (upstream.ok) {
+      const data = await upstream.json();
+      const f = data.features?.[0];
+      if (f) {
+        const [lng, lat] = f.geometry.coordinates;
+        const props = f.properties || {};
+        // Photon returns country_code as ISO 3166-1 alpha-2 uppercase — normalise to lowercase
+        const country_code = (props.countrycode || props.country_code || '').toLowerCase() || null;
+        return res.json({
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          country_code,
+          display_name: [props.name, props.city, props.state, props.country].filter(Boolean).join(', '),
+        });
+      }
+      // Photon returned no results — fall through to Nominatim
+    }
+  } catch (e) {
+    console.warn('Photon geocode failed, trying Nominatim fallback:', e.message);
+  }
+
+  // Fallback: Nominatim (1 req/sec limit — only reached if Photon fails)
   try {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q.trim())}&format=json&addressdetails=1&limit=1`;
     const upstream = await fetch(url, {
@@ -184,27 +220,31 @@ app.get('/api/geocode', async (req, res) => {
       signal: AbortSignal.timeout(6000),
     });
     if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: 'nominatim_error', message: `Nominatim returned ${upstream.status}` });
+      // If Nominatim also rate-limits, return 404 (location not found) rather than
+      // exposing the 429 to the client — the user should just try again
+      if (upstream.status === 429) {
+        return res.status(404).json({ error: 'not_found', message: `Location not found: "${q}" — please try again` });
+      }
+      return res.status(upstream.status).json({ error: 'nominatim_error', message: `Geocoding returned ${upstream.status}` });
     }
     const data = await upstream.json();
     const r = data[0];
     if (!r) {
       return res.status(404).json({ error: 'not_found', message: `Location not found: "${q}"` });
     }
-    res.json({
-      lat:          parseFloat(r.lat),
-      lng:          parseFloat(r.lon),
-      country_code: r.address?.country_code || null,  // lowercase ISO 3166-1 alpha-2, e.g. "gb", "fr"
+    return res.json({
+      lat: parseFloat(r.lat),
+      lng: parseFloat(r.lon),
+      country_code: r.address?.country_code || null,
       display_name: r.display_name,
     });
   } catch (e) {
-    console.error('Nominatim fetch error:', e.message);
-    res.status(502).json({ error: 'nominatim_unreachable', message: 'Could not reach geocoding service' });
+    console.error('Nominatim fallback error:', e.message);
+    return res.status(502).json({ error: 'geocode_unreachable', message: 'Could not reach geocoding service — please try again' });
   }
 });
 
-// ── Botanical data routes ─────────────────────────────────────────────────────
-
+// ── Botanical data routes ────────────────────────────────────────────────────
 // GBIF species match — resolves common/scientific name to accepted taxon
 // Source: Global Biodiversity Information Facility (GBIF) · CC BY 4.0
 // Underpins: Plants of the World Online / WCVP names backbone (Royal Botanic Gardens, Kew)
@@ -232,7 +272,7 @@ app.get('/api/species', async (req, res) => {
 app.get('/api/occurrences', async (req, res) => {
   const { name, lat, lng, radius } = req.query;
   if (!name || !lat || !lng) return res.status(400).json({ error: 'missing_params' });
-  const r = Math.min(parseFloat(radius) || 0.5, 2.0);
+  const r = Math.min(parseFloat(radius) || 0.5, 2.0); // cap at 2 degrees (~220km)
   const latMin = (parseFloat(lat) - r).toFixed(3);
   const latMax = (parseFloat(lat) + r).toFixed(3);
   const lngMin = (parseFloat(lng) - r).toFixed(3);
@@ -247,104 +287,6 @@ app.get('/api/occurrences', async (req, res) => {
     res.json({ count: data.count || 0, name });
   } catch (e) {
     res.status(502).json({ error: 'gbif_unreachable', message: e.message });
-  }
-});
-
-// OpenFarm crop data — sowing method, sun requirements, description
-// Source: OpenFarm · openfarm.cc · CC BY
-// Proxied here because OpenFarm blocks direct browser requests (CORS + redirect).
-// Server-side in-memory cache (30-day TTL) keeps upstream calls minimal.
-app.get('/api/openfarm', async (req, res) => {
-  const q = req.query.q;
-  if (!q || typeof q !== 'string' || q.length > 120) {
-    return res.status(400).json({ error: 'invalid_query' });
-  }
-  const key = q.trim().toLowerCase();
-
-  // Serve from cache if fresh
-  const cached = openFarmCache[key];
-  if (cached && Date.now() - cached.cachedAt < OPENFARM_TTL) {
-    res.setHeader('X-Cache', 'HIT');
-    return res.json(cached.data);
-  }
-
-  try {
-    const upstream = await fetch(
-      `https://openfarm.cc/api/v1/crops?q=${encodeURIComponent(q)}`,
-      {
-        headers: { 'Accept': 'application/json' },
-        redirect: 'follow',
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-    if (!upstream.ok) return res.status(upstream.status).json({ error: 'openfarm_error' });
-    const raw = await upstream.json();
-
-    // Extract only the fields we need — keep payload small
-    const attrs = raw.data?.[0]?.attributes;
-    const data = attrs ? {
-      found:         true,
-      name:          attrs.name             || null,
-      sowing_method: attrs.sowing_method    || null,
-      sun:           attrs.sun_requirements || null,
-      description:   attrs.description      ? attrs.description.slice(0, 300) : null,
-    } : { found: false };
-
-    openFarmCache[key] = { data, cachedAt: Date.now() };
-    res.setHeader('X-Cache', 'MISS');
-    res.json(data);
-  } catch (e) {
-    res.status(502).json({ error: 'openfarm_unreachable', message: e.message });
-  }
-});
-
-// Trefle plant hardiness & bloom period data
-// Source: Trefle.io botanical API · CC BY · trefle.io
-// Token stored as TREFLE_TOKEN env var on Render — never exposed to frontend.
-// Returns minimum_temperature (°C), bloom_months, fruit_months for a given scientific name.
-// NOTE: Trefle growth attribute data (min_temp, bloom_months) is currently unpopulated
-// for most species — verified March 2026. Route retained for future use; frontend does
-// not call it until data quality improves. Token not required for startup.
-const TREFLE_TOKEN = process.env.TREFLE_TOKEN || '';
-const TREFLE_URL   = 'https://trefle.io/api/v1/plants/search';
-
-// OpenFarm server-side cache — avoids repeat upstream calls for the same plant
-// within a single server process lifetime. TTL matches the client-side localStorage TTL.
-const OPENFARM_TTL   = 30 * 24 * 60 * 60 * 1000; // 30 days in ms
-const openFarmCache  = {}; // { lowerCaseName: { data, cachedAt } }
-
-app.get('/api/trefle', async (req, res) => {
-  const q = req.query.q;
-  if (!q || typeof q !== 'string' || q.length > 120) {
-    return res.status(400).json({ error: 'invalid_query' });
-  }
-  if (!TREFLE_TOKEN) {
-    return res.status(503).json({ error: 'trefle_not_configured', message: 'TREFLE_TOKEN not set' });
-  }
-  try {
-    const upstream = await fetch(
-      `${TREFLE_URL}?q=${encodeURIComponent(q)}&token=${TREFLE_TOKEN}`,
-      { headers: { 'Accept': 'application/json' }, signal: AbortSignal.timeout(6000) }
-    );
-    if (!upstream.ok) {
-      const body = await upstream.json().catch(() => ({}));
-      return res.status(upstream.status).json({ error: 'trefle_error', ...body });
-    }
-    const data = await upstream.json();
-    const plant = data?.data?.[0];
-    if (!plant) return res.json({ found: false, q });
-    const species = plant.main_species || plant;
-    res.json({
-      found:           true,
-      q,
-      scientific_name: plant.scientific_name,
-      common_name:     plant.common_name,
-      min_temp_c:      species?.growth?.minimum_temperature?.deg_c ?? null,
-      bloom_months:    species?.growth?.bloom_months  ?? null,
-      fruit_months:    species?.growth?.fruit_months  ?? null,
-    });
-  } catch (e) {
-    res.status(502).json({ error: 'trefle_unreachable', message: e.message });
   }
 });
 
@@ -367,6 +309,7 @@ app.post('/api/call', (req, res) => {
 // Streaming: calendar generation — stricter limits
 app.post('/api/stream', (req, res) => {
   const ip = req.ip;
+
   if (!checkAndIncrementIpHourly(ip)) {
     return res.status(429).json({
       error: 'rate_limit',
@@ -385,9 +328,11 @@ app.post('/api/stream', (req, res) => {
       message: `You've used your ${IP_DAILY_GEN} free generations for today. Come back tomorrow!`,
     });
   }
+
   incrementGlobalGen();
   incrementIpDailyGen(ip);
   console.log(`[gen] ip=${ip} globalToday=${globalGen.count}/${DAILY_GEN_CAP}`);
+
   proxy(req, res, true);
 });
 
