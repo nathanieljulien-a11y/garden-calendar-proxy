@@ -290,6 +290,46 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
+// OpenFarm crop data — sowing/harvest timing for vegetables and herbs
+// Source: OpenFarm (openfarm.cc) · CC BY licence
+// Proxied to avoid CORS. Server-side cache avoids repeated upstream calls.
+const openFarmCache = {}; // { lowerCaseName: { data, cachedAt } }
+const OPENFARM_TTL  = 30 * 24 * 60 * 60 * 1000; // 30 days — crop data is stable
+
+app.get('/api/openfarm', async (req, res) => {
+  const q = req.query.q;
+  if (!q || typeof q !== 'string' || q.length > 120) {
+    return res.status(400).json({ error: 'invalid_query' });
+  }
+  const key = q.trim().toLowerCase();
+  const cached = openFarmCache[key];
+  if (cached && Date.now() - cached.cachedAt < OPENFARM_TTL) {
+    res.setHeader('X-Cache', 'HIT');
+    return res.json(cached.data);
+  }
+  try {
+    const upstream = await fetch(
+      `https://openfarm.cc/api/v1/crops?q=${encodeURIComponent(q)}`,
+      { headers: { 'Accept': 'application/json' }, redirect: 'follow', signal: AbortSignal.timeout(5000) }
+    );
+    if (!upstream.ok) return res.status(upstream.status).json({ error: 'openfarm_error' });
+    const raw = await upstream.json();
+    const attrs = raw.data?.[0]?.attributes;
+    const data = attrs ? {
+      found: true,
+      name:          attrs.name             || null,
+      sowing_method: attrs.sowing_method    || null,
+      sun:           attrs.sun_requirements || null,
+      description:   attrs.description ? attrs.description.slice(0, 300) : null,
+    } : { found: false };
+    openFarmCache[key] = { data, cachedAt: Date.now() };
+    res.setHeader('X-Cache', 'MISS');
+    res.json(data);
+  } catch (e) {
+    res.status(502).json({ error: 'openfarm_unreachable', message: e.message });
+  }
+});
+
 app.get('/api/health', (_, res) => {
   res.json({ ok: true, globalGenToday: globalGen.count, cap: DAILY_GEN_CAP });
 });
