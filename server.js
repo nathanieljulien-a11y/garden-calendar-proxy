@@ -347,33 +347,95 @@ app.post('/api/stream', (req, res) => {
 });
 
 // ─── Add to server.js ────────────────────────────────────────────────────────
-// YouTube search endpoint — requires YOUTUBE_API_KEY in Render env vars.
-// Returns top 3 results filtered to embeddable videos only.
-// YouTube Data API v3: search.list costs 100 units. Free quota: 10,000/day = ~100 searches.
+// Replaces the old GET /api/youtube endpoint.
+// Two-step: ask Claude for a clean search query, then call YouTube.
+//
+// Requires env vars:
+//   ANTHROPIC_API_KEY  — already set for the proxy
+//   YOUTUBE_API_KEY    — YouTube Data API v3 key
 
-app.get('/api/youtube', async (req, res) => {
-  const q = req.query.q;
-  if (!q) return res.status(400).json({ error: 'Missing q parameter' });
+const REGION_SUFFIX = {
+  'uk':            'UK',
+  'mediterranean': 'Mediterranean garden',
+  'australasian':  'Australia garden',
+  'north-american': '',
+};
 
-  const apiKey = process.env.YOUTUBE_API_KEY;
-  if (!apiKey) return res.status(503).json({ error: 'YouTube search not configured' });
+app.post('/api/youtube-search', async (req, res) => {
+  const { task, region = 'uk' } = req.body || {};
+  if (!task) return res.status(400).json({ message: 'Missing task' });
 
+  const ytKey = process.env.YOUTUBE_API_KEY;
+  if (!ytKey) return res.status(503).json({ message: 'YouTube search not configured' });
+
+  // ── Step 1: Ask Claude for a clean search query ────────────────────────────
+  let query;
+  try {
+    const regionSuffix = REGION_SUFFIX[region] || '';
+    const prompt = `You are helping find a YouTube gardening tutorial.
+
+Garden task: "${task}"
+Region: ${region}
+
+Write a short YouTube search query (4-7 words) that will find the best instructional video for this specific task.
+Rules:
+- Start with "how to"
+- Include the specific plant name (use the most common name, not scientific)
+- Include the specific action (prune, divide, take cuttings, plant, etc.)
+- End with "${regionSuffix || 'gardening'}" if it helps specificity
+- Do NOT include measurements, timing details, or method specifics
+- Return ONLY the search query, nothing else
+
+Examples:
+Task: "Hard prune roses to outward-facing bud 15cm above ground" → "how to hard prune roses UK"
+Task: "Divide established heuchera clumps, replanting outer sections" → "how to divide heuchera UK"
+Task: "Take softwood cuttings from pelargonium new growth, 10cm long" → "how to take softwood cuttings pelargonium UK"
+Task: "Summer prune wisteria laterals back to 5 leaves" → "how to summer prune wisteria UK"`;
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type':    'application/json',
+        'x-api-key':       process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-haiku-4-5-20251001',  // cheapest — this is a tiny task
+        max_tokens: 30,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (claudeRes.ok) {
+      const data = await claudeRes.json();
+      query = data.content?.[0]?.text?.trim().replace(/^["']|["']$/g, '') || null;
+    }
+  } catch (e) {
+    // Claude call failed — fall back to simple extraction below
+  }
+
+  // ── Fallback: simple verb + first noun extraction if Claude failed ──────────
+  if (!query) {
+    const regionSuffix = REGION_SUFFIX[region] || '';
+    query = `how to ${task.split(',')[0].trim().toLowerCase()} ${regionSuffix}`.slice(0, 80);
+  }
+
+  // ── Step 2: Search YouTube ─────────────────────────────────────────────────
   try {
     const params = new URLSearchParams({
-      part:       'snippet',
-      q:          q,
-      type:       'video',
-      videoEmbeddable: 'true',
-      maxResults: 5,          // fetch 5, return 3 — gives headroom to filter
-      relevanceLanguage: 'en',
-      key:        apiKey,
+      part:             'snippet',
+      q:                query,
+      type:             'video',
+      videoEmbeddable:  'true',
+      maxResults:       5,
+      relevanceLanguage:'en',
+      key:              ytKey,
     });
 
     const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
     if (!ytRes.ok) {
       const err = await ytRes.json();
-      const msg = err?.error?.message || `YouTube API ${ytRes.status}`;
-      return res.status(502).json({ error: msg });
+      return res.status(502).json({ message: err?.error?.message || `YouTube API ${ytRes.status}` });
     }
 
     const data = await ytRes.json();
@@ -385,13 +447,12 @@ app.get('/api/youtube', async (req, res) => {
         title:        item.snippet?.title || '',
         channel:      item.snippet?.channelTitle || '',
         thumbnailUrl: item.snippet?.thumbnails?.medium?.url
-                   || item.snippet?.thumbnails?.default?.url
                    || `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
       }));
 
-    res.json({ results });
+    res.json({ query, results });
   } catch (e) {
-    res.status(500).json({ error: e.message || 'YouTube search failed' });
+    res.status(500).json({ message: e.message || 'YouTube search failed' });
   }
 });
 
