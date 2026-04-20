@@ -346,6 +346,55 @@ app.post('/api/stream', (req, res) => {
   proxy(req, res, true);
 });
 
+// ─── Add to server.js ────────────────────────────────────────────────────────
+// YouTube search endpoint — requires YOUTUBE_API_KEY in Render env vars.
+// Returns top 3 results filtered to embeddable videos only.
+// YouTube Data API v3: search.list costs 100 units. Free quota: 10,000/day = ~100 searches.
+
+app.get('/api/youtube', async (req, res) => {
+  const q = req.query.q;
+  if (!q) return res.status(400).json({ error: 'Missing q parameter' });
+
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return res.status(503).json({ error: 'YouTube search not configured' });
+
+  try {
+    const params = new URLSearchParams({
+      part:       'snippet',
+      q:          q,
+      type:       'video',
+      videoEmbeddable: 'true',
+      maxResults: 5,          // fetch 5, return 3 — gives headroom to filter
+      relevanceLanguage: 'en',
+      key:        apiKey,
+    });
+
+    const ytRes = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
+    if (!ytRes.ok) {
+      const err = await ytRes.json();
+      const msg = err?.error?.message || `YouTube API ${ytRes.status}`;
+      return res.status(502).json({ error: msg });
+    }
+
+    const data = await ytRes.json();
+    const results = (data.items || [])
+      .filter(item => item.id?.videoId)
+      .slice(0, 3)
+      .map(item => ({
+        videoId:      item.id.videoId,
+        title:        item.snippet?.title || '',
+        channel:      item.snippet?.channelTitle || '',
+        thumbnailUrl: item.snippet?.thumbnails?.medium?.url
+                   || item.snippet?.thumbnails?.default?.url
+                   || `https://img.youtube.com/vi/${item.id.videoId}/mqdefault.jpg`,
+      }));
+
+    res.json({ results });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'YouTube search failed' });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Garden Calendar proxy running on port ${PORT}`);
