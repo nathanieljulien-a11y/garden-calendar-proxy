@@ -1,6 +1,6 @@
 const express = require('express');
 const helmet  = require('helmet');
-
+const pdfRouter = require('./pdfService.js');   // ← add this line
 const app    = express();
 const PORT   = process.env.PORT || 3001;
 const API_KEY       = process.env.ANTHROPIC_API_KEY;
@@ -34,7 +34,7 @@ app.use((req, res, next) => {
 
 // Body limit raised to 64kb — calendar prompts with full climate context can reach ~8-10kb
 app.use(express.json({ limit: '64kb' }));
-
+app.use(pdfRouter);
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
 const ipHourly = {}; // { ip: { count, resetAt } }
@@ -161,10 +161,6 @@ async function proxy(req, res, stream) {
     res.json(data);
   }
 }
-
-// added for pdf service
-      import pdfRouter from './pdfService.js';
-app.use(pdfRouter);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 // ── Geocoding ────────────────────────────────────────────────────────────────
