@@ -1,4 +1,4 @@
-name: Download Botanical Artwork
+name: Download Botanical Artwork (Pass 2)
 
 on:
   workflow_dispatch:
@@ -6,13 +6,15 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Pillow
         run: pip install pillow -q
 
-      - name: Download Köhler plates
+      - name: Download remaining Köhler plates
         run: |
           python3 << 'PYEOF'
           import requests, hashlib, time, sys, os, io
@@ -26,52 +28,23 @@ jobs:
               return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
 
           def kp(species, plate):
-              """Build Köhler plate filename"""
               return f"{species}_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-{plate:03d}.jpg"
 
-          # Plate numbers verified from Hamburg Botanical Archive index
-          # (www-archiv.fdm.uni-hamburg.de/b-online/koehler/koeh-lat.htm)
-          # Hamburg koeh-NNN = Köhler original plate number for Vol 1-2 plants
+          # Second pass: corrected filenames for plants that 404'd in pass 1
+          # mint needs × (U+00D7) in species name, and olive has plate 229 not 130
           PLATES = {
-              # === CONFIRMED from Hamburg index ===
-              'thyme':       kp('Thymus_vulgaris', 271),        # TESTED WORKING
-              'lavender':    kp('Lavandula_angustifolia', 87),  # Hamburg koeh-087
-              'mint':        kp('Mentha_piperita', 95),         # Hamburg koeh-095
-              'sage':        kp('Salvia_officinalis', 126),     # Hamburg koeh-126
-              'elderflower': kp('Sambucus_nigra', 127),         # Hamburg koeh-127
-              'valerian':    kp('Valeriana_officinalis', 143),  # Hamburg koeh-143
-              'grape':       kp('Vitis_vinifera', 145),         # Hamburg koeh-145
-              'cherry':      kp('Prunus_cerasus', 113),         # Hamburg koeh-113
-              'raspberry':   kp('Rubus_idaeus', 124),           # Hamburg koeh-124
-              'rose':        kp('Rosa_centifolia', 122),        # Hamburg koeh-122
-              'foxglove':    kp('Digitalis_purpurea', 53),      # Hamburg koeh-053
-              'iris':        kp('Iris_germanica', 78),          # Hamburg koeh-078
-              'lemon':       kp('Citrus_limon', 41),            # Hamburg koeh-041
-              'quince':      kp('Cydonia_oblonga', 49),         # Hamburg koeh-049
-              # === IN KÖHLER SPECIES LIST, plate numbers from sequential numbering ===
-              'olive':       kp('Olea_europaea', 130),
-              'rosemary':    kp('Rosmarinus_officinalis', 244),
-              'fennel':      kp('Foeniculum_vulgare', 63),
-              'fig':         kp('Ficus_carica', 57),
-              'peach':       kp('Prunus_persica', 183),
-              'strawberry':  kp('Fragaria_vesca', 65),
-              'almond':      kp('Prunus_dulcis', 177),
-              'apricot':     kp('Prunus_armeniaca', 179),
-              'mulberry':    kp('Morus_nigra', 119),
-              'pansy':       kp('Viola_tricolor', 278),
-              'nasturtium':  kp('Tropaeolum_majus', 273),
-              'borage':      kp('Borago_officinalis', 23),
-              'snapdragon':  kp('Antirrhinum_majus', 13),
-              # === ORNAMENTALS — try but expect some 404s ===
-              'wisteria':    kp('Wisteria_sinensis', 285),
-              'tulip':       kp('Tulipa_gesneriana', 272),
-              'sunflower':   kp('Helianthus_annuus', 78),   # conflicts with iris - try anyway
-              'camellia':    kp('Camellia_japonica', 25),
-              'magnolia':    kp('Magnolia_grandiflora', 97),
-              'oleander':    kp('Nerium_oleander', 124),    # conflicts with raspberry - try anyway
-              'peony':       kp('Paeonia_officinalis', 164),
-              # === PNG ===
-              'hydrangea':   'Hydrangea_macrophylla_SZ85.png',
+              'mint':      'Mentha_\u00d7_piperita_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-095.jpg',
+              'olive':     kp('Olea_europaea', 229),
+              'iris':      'Iris_\u00d7_germanica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-078.jpg',
+              'lemon':     kp('Citrus_limon', 196),
+              'rosemary':  kp('Rosmarinus_officinalis', 243),
+              'fennel':    kp('Foeniculum_vulgare', 200),
+              'fig':       kp('Ficus_carica', 201),
+              'peach':     kp('Prunus_persica', 173),
+              'strawberry': kp('Fragaria_vesca', 202),
+              'almond':    kp('Prunus_dulcis', 172),
+              'apricot':   kp('Prunus_armeniaca', 174),
+              'mulberry':  kp('Morus_nigra', 228),
           }
 
           headers = {
@@ -81,20 +54,16 @@ jobs:
           }
 
           os.makedirs('artwork', exist_ok=True)
-          ok = skip = hard_fail = 0
+          ok = skip = 0
 
           for name, filename in PLATES.items():
-              is_png = filename.endswith('.png')
-              ext = '.png' if is_png else '.jpg'
-              dest = f'artwork/{name}{ext}'
-
+              dest = f'artwork/{name}.jpg'
               if os.path.exists(dest) and os.path.getsize(dest) > 5000:
                   print(f'  skip {name} (exists)')
                   ok += 1
                   continue
 
               u = url(filename)
-              success = False
               for attempt in range(3):
                   try:
                       r = requests.get(u, headers=headers, timeout=30)
@@ -103,35 +72,26 @@ jobs:
                           if img.width > 800:
                               h = int(img.height * 800 / img.width)
                               img = img.resize((800, h), Image.LANCZOS)
-                          if is_png:
-                              img.save(dest, 'PNG', optimize=True)
-                          else:
-                              if img.mode == 'RGBA': img = img.convert('RGB')
-                              img.save(dest, 'JPEG', quality=85, optimize=True)
-                          kb = os.path.getsize(dest) // 1024
-                          print(f'  OK   {name} ({kb}KB)')
+                          if img.mode == 'RGBA': img = img.convert('RGB')
+                          img.save(dest, 'JPEG', quality=85, optimize=True)
+                          print(f'  OK   {name} ({os.path.getsize(dest)//1024}KB)')
                           ok += 1
-                          success = True
                           break
                       elif r.status_code == 429:
                           print(f'  429  {name} - waiting 20s...')
                           time.sleep(20)
                       elif r.status_code == 404:
-                          print(f'  404  {name} - not in collection, skipping')
+                          print(f'  404  {name} - {filename[:60]}')
                           skip += 1
                           break
                       else:
                           print(f'  FAIL {name} HTTP {r.status_code}')
-                          hard_fail += 1
                           break
                   except Exception as e:
                       print(f'  ERR  {name}: {e}')
-                      if attempt < 2: time.sleep(3)
                   time.sleep(1)
 
-          print(f'\nDone: {ok} downloaded, {skip} not in collection, {hard_fail} errors')
-          if hard_fail > 0:
-              sys.exit(1)
+          print(f'\nDone: {ok} OK, {skip} not found')
           PYEOF
 
       - name: Commit artwork to repo
@@ -139,5 +99,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add artwork/
-          git diff --staged --quiet || git commit -m "Add Köhler botanical artwork plates [automated]"
+          git diff --staged --quiet || git commit -m "Add Köhler botanical artwork plates pass 2 [automated]"
           git push
