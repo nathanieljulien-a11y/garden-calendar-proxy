@@ -1,0 +1,104 @@
+name: Download Botanical Artwork (Pass 2b - probe plate numbers)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: pip install pillow requests -q
+
+      - name: Probe and download remaining Köhler plates
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, time, os, io
+          from urllib.parse import quote
+          from PIL import Image
+
+          def url(filename):
+              md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              enc = quote(filename, safe='')
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
+
+          def kp(species, plate):
+              return f"{species}_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-{plate:03d}.jpg"
+
+          def try_download(name, filename, dest):
+              headers = {
+                  'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)',
+                  'Accept': 'image/jpeg,image/png,image/*',
+                  'Referer': 'https://commons.wikimedia.org/',
+              }
+              r = requests.get(url(filename), headers=headers, timeout=20)
+              if r.ok and len(r.content) > 5000:
+                  img = Image.open(io.BytesIO(r.content))
+                  if img.width > 800:
+                      h = int(img.height * 800 / img.width)
+                      img = img.resize((800, h), Image.LANCZOS)
+                  if img.mode == 'RGBA': img = img.convert('RGB')
+                  img.save(dest, 'JPEG', quality=85, optimize=True)
+                  return True
+              return r.status_code
+
+          os.makedirs('artwork', exist_ok=True)
+
+          # For each plant, try a range of plausible plate numbers
+          # Vol 3 plates continue sequentially from ~195 based on confirmed:
+          # olive=229, thyme=271
+          # Plants in Vol 3 alphabetically between O(229) and T(271):
+          # P plants (Prunus persica, Prunus dulcis, Prunus armeniaca) ~235-260
+          # R plants (Rosmarinus) ~240-250
+          # F plants (Ficus, Foeniculum, Fragaria, Fraxinus) ~200-215
+          # I plants (Iris) - could be vol 1 (078 exists?) or vol 3 (~220-225)
+
+          PROBES = {
+              # plant: (species, [plate numbers to try])
+              'iris':       ('Iris_germanica',         list(range(78,82)) + list(range(220,230))),
+              'lemon':      ('Citrus_limon',            list(range(195,210))),
+              'rosemary':   ('Rosmarinus_officinalis',  list(range(238,250))),
+              'fennel':     ('Foeniculum_vulgare',      list(range(200,215))),
+              'fig':        ('Ficus_carica',            list(range(200,215))),
+              'peach':      ('Prunus_persica',          list(range(233,250))),
+              'strawberry': ('Fragaria_vesca',          list(range(200,215))),
+              'almond':     ('Prunus_dulcis',           list(range(233,250))),
+              'apricot':    ('Prunus_armeniaca',        list(range(233,250))),
+              'mulberry':   ('Morus_nigra',             list(range(220,232))),
+          }
+
+          for name, (species, plates) in PROBES.items():
+              dest = f'artwork/{name}.jpg'
+              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+                  print(f'  skip {name} (exists)')
+                  continue
+              found = False
+              for plate in plates:
+                  filename = kp(species, plate)
+                  result = try_download(name, filename, dest)
+                  if result is True:
+                      print(f'  OK   {name} = plate {plate:03d} ({os.path.getsize(dest)//1024}KB)')
+                      found = True
+                      break
+                  elif result == 429:
+                      print(f'  429  rate limited, waiting 20s...')
+                      time.sleep(20)
+                  time.sleep(0.3)
+              if not found:
+                  print(f'  MISS {name}: tried plates {plates[0]}-{plates[-1]}')
+
+          print('\nDone')
+          PYEOF
+
+      - name: Commit artwork to repo
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add artwork/
+          git diff --staged --quiet || git commit -m "Add Köhler botanical artwork pass 2b [automated]"
+          git push
