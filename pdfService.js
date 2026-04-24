@@ -1,6 +1,6 @@
 // pdfService.js (CommonJS)
 // POST /generate-pdf — 24-page PDF, 2 pages per month
-// Page A: artwork + hardcoded commentary + Claude inspo garden + climate data
+// Page A: artwork + plantCommentary.json notes + Claude inspo garden + climate data
 // Page B: full calendar grid with key dates and holidays
 
 var express   = require('express');
@@ -9,6 +9,19 @@ var chromium  = require('@sparticuz/chromium');
 var https     = require('https');
 var http      = require('http');
 var tpl       = require('./calendarTemplate.js');
+var fs        = require('fs');
+var path      = require('path');
+
+// Load plant commentary once at startup
+try {
+  var _commentary = JSON.parse(
+    fs.readFileSync(path.join(__dirname, 'data', 'plantCommentary.json'), 'utf8')
+  );
+  tpl.setPlantCommentary(_commentary);
+  console.log('[pdfService] plantCommentary loaded:', Object.keys(_commentary).length, 'plants');
+} catch(e) {
+  console.warn('[pdfService] plantCommentary not found — plant notes will be empty:', e.message);
+}
 
 var router = express.Router();
 
