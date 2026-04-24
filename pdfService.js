@@ -28,29 +28,35 @@ function fetchImageAsBase64(url, hops) {
       'Accept': 'image/jpeg,image/png,image/*',
       'Referer': 'https://commons.wikimedia.org/',
     } };
+    console.log('[IMG] Fetching (hop ' + hops + '):', url.slice(0, 100));
     var req = client.get(url, opts, function(res) {
+      console.log('[IMG] Response:', res.statusCode, 'content-type:', res.headers['content-type'], 'location:', res.headers.location || '');
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         var loc = res.headers.location;
         if (!loc.startsWith('http')) {
           var u = new URL(url);
           loc = u.protocol + '//' + u.host + loc;
         }
-        res.resume(); // drain
+        res.resume();
         fetchImageAsBase64(loc, hops + 1).then(resolve);
         return;
       }
-      if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
+      if (res.statusCode !== 200) {
+        console.log('[IMG] Non-200, giving up:', res.statusCode);
+        res.resume(); resolve(null); return;
+      }
       var chunks = [];
       res.on('data', function(c) { chunks.push(c); });
       res.on('end', function() {
         var buf = Buffer.concat(chunks);
         var ct  = (res.headers['content-type'] || 'image/jpeg').split(';')[0].trim();
+        console.log('[IMG] OK:', Math.round(buf.length/1024) + 'KB', ct);
         resolve('data:' + ct + ';base64,' + buf.toString('base64'));
       });
-      res.on('error', function() { resolve(null); });
+      res.on('error', function(e) { console.log('[IMG] Stream error:', e.message); resolve(null); });
     });
-    req.on('error', function() { resolve(null); });
-    req.setTimeout(15000, function() { req.destroy(); resolve(null); });
+    req.on('error', function(e) { console.log('[IMG] Request error:', e.message); resolve(null); });
+    req.setTimeout(15000, function() { console.log('[IMG] Timeout'); req.destroy(); resolve(null); });
   });
 }
 
