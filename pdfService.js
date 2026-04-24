@@ -136,6 +136,30 @@ function fetchInspo(plant, monthName, climate, lat, lng, apiKey) {
   });
 }
 
+
+// ── Fetch Wikipedia thumbnail for inspo garden (same as web app) ─────────────
+function fetchWikipediaPhoto(title) {
+  return new Promise(function(resolve) {
+    if (!title) { resolve(null); return; }
+    var enc = encodeURIComponent(title.replace(/ /g,'_'));
+    var url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + enc;
+    https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
+      var data = '';
+      res.on('data', function(c) { data += c; });
+      res.on('end', function() {
+        try {
+          var d = JSON.parse(data);
+          var thumb = d.thumbnail && d.thumbnail.source;
+          if (!thumb) { resolve(null); return; }
+          // Fetch the actual image as base64
+          fetchImageAsBase64(thumb).then(resolve);
+        } catch(e) { resolve(null); }
+      });
+    }).on('error', function() { resolve(null); })
+      .setTimeout(8000, function() { resolve(null); });
+  });
+}
+
 // ── Validation ────────────────────────────────────────────────────────────────
 function validateOrder(body) {
   var errors = [];
@@ -175,7 +199,7 @@ async function buildFullHTML(order, apiKey) {
 
   // Read artwork from disk (downloaded at build time)
   console.log('[PDF] Reading artwork from disk...');
-  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); });
+  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); }); // reads from artwork/ dir committed to repo
   console.log('[PDF] Artwork loaded: ' + artworks.filter(Boolean).length + '/12');
 
   // Fetch all 12 inspo gardens in parallel
@@ -186,7 +210,14 @@ async function buildFullHTML(order, apiKey) {
     inspoPromises.push(fetchInspo(plants[i], MONTH_NAMES[mIdx], climate, geo && geo.lat, geo && geo.lng, apiKey));
   }
   var inspos = await Promise.all(inspoPromises);
-  console.log('[PDF] Inspo gardens done.');
+  console.log('[PDF] Inspo gardens done. Fetching Wikipedia photos...');
+  var inspoPhotoPromises = inspos.map(function(inspo) {
+    if (!inspo || !inspo.name) return Promise.resolve(null);
+    var wikiTitle = inspo.wikipedia || inspo.name;
+    return fetchWikipediaPhoto(wikiTitle);
+  });
+  var inspoPhotos = await Promise.all(inspoPhotoPromises);
+  console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found.');
 
   // Build all 24 pages
   var pages = [];
@@ -209,6 +240,7 @@ async function buildFullHTML(order, apiKey) {
       monthName: mName, monthIdx: mIdx, year: mYear,
       plant: plt, artworkB64: artworks[j] || '',
       inspo: inspos[j] || null,
+      inspoPhotoB64: inspoPhotos[j] || '',
       climate: climate, climateData: climateData,
       recipientName: recipientName,
     }));
