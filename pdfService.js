@@ -23,7 +23,11 @@ function fetchImageAsBase64(url, hops) {
   if (!url || hops > 4) return Promise.resolve(null);
   return new Promise(function(resolve) {
     var client = url.startsWith('https') ? https : http;
-    var opts = { headers: { 'User-Agent': 'GardenCalendar/1.0 (contact@gardencalendar.app)' } };
+    var opts = { headers: {
+      'User-Agent': 'GardenCalendarApp/1.0 (educational project; contact@gardencalendar.app)',
+      'Accept': 'image/jpeg,image/png,image/*',
+      'Referer': 'https://commons.wikimedia.org/',
+    } };
     var req = client.get(url, opts, function(res) {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         var loc = res.headers.location;
