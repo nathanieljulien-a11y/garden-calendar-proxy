@@ -100,7 +100,7 @@ function getFirstDayOfWeek(year, month) {
 }
 
 // ─── Main template function ───────────────────────────────────────────────────
-export function buildCalendarPageHTML({
+function buildCalendarPageHTML(...) {
   monthName, monthIdx, year, plant, climate,
   recipientName, keyDates = [], holidays = [],
   isFirstPage = false, bleedMm = 3,
@@ -625,3 +625,4 @@ export const SHARED_CSS = `
   letter-spacing: 0.04em;
 }
 `;
+module.exports = { buildCalendarPageHTML, SHARED_CSS };
