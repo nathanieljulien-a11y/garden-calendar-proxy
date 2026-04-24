@@ -1,7 +1,3 @@
-/**
- * calendarTemplate.js — Garden Calendar page HTML builder (CommonJS)
- */
-
 const ARTWORK = {
   'rose':        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Rosa_centifolia_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-257.jpg/500px-Rosa_centifolia_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-257.jpg',
   'wisteria':    'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/Wisteria_sinensis_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-285.jpg/500px-Wisteria_sinensis_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-285.jpg',
@@ -38,49 +34,45 @@ const ARTWORK = {
   'quince':      'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Cydonia_oblonga_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-047.jpg/500px-Cydonia_oblonga_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-047.jpg',
 };
 
-const PLANT_FACTS = {
+var PLANT_FACTS = {
   'rose':       { fact: 'Rosa has been cultivated for over 5,000 years, with evidence of cultivation in China as far back as 500 BC.', care: 'Deadhead regularly to encourage continuous flowering. Feed fortnightly with a high-potash fertiliser from spring to late summer.' },
-  'iris':       { fact: 'The word "iris" means rainbow in Greek — fitting for a genus with over 300 species spanning almost every colour.', care: 'Divide congested clumps every 3–4 years after flowering. Plant rhizomes shallowly, half-exposed to the sun.' },
-  'lavender':   { fact: 'Lavender has been used medicinally since ancient Rome. The name derives from the Latin lavare — to wash.', care: 'Trim after flowering to prevent woodiness. Excellent drainage is essential — more lavender dies from wet feet than drought.' },
+  'iris':       { fact: 'The word "iris" means rainbow in Greek — fitting for a genus with over 300 species spanning almost every colour.', care: 'Divide congested clumps every 3-4 years after flowering. Plant rhizomes shallowly, half-exposed to the sun.' },
+  'lavender':   { fact: 'Lavender has been used medicinally since ancient Rome. The name derives from the Latin lavare — to wash.', care: 'Trim after flowering to prevent woodiness, but never cut into old wood. Excellent drainage is essential.' },
   'tulip':      { fact: "Tulip mania in 1630s Holland saw single bulbs sell for more than a skilled craftsman's annual wage.", care: 'Plant in autumn, 15cm deep. Allow foliage to die back naturally after flowering to replenish the bulb.' },
   'peony':      { fact: 'Peonies can live for over 100 years. A single specimen planted in the right spot rarely needs moving.', care: 'Plant crowns no deeper than 5cm below soil surface. Too-deep planting is the most common reason for non-flowering.' },
-  'wisteria':   { fact: 'The oldest living wisteria in Japan, planted in 1870, covers nearly 2,000 square metres.', care: 'Prune twice a year — cut new growth back to 5 leaves in summer, then to 2–3 buds in late winter.' },
-  'camellia':   { fact: 'Camellias are closely related to the tea plant (Camellia sinensis). Both originate in East Asia.', care: 'Never let camellias dry out when buds are forming in autumn. Mulch generously to retain moisture.' },
+  'wisteria':   { fact: 'The oldest living wisteria is in Japan, planted in 1870, and covers nearly 2,000 square metres.', care: 'Prune twice a year: cut new growth to 5 leaves in summer, then to 2-3 buds in late winter.' },
+  'camellia':   { fact: 'Camellias are closely related to the tea plant (Camellia sinensis). Both originate in East Asia.', care: 'Never let camellias dry out, especially when buds are forming in autumn. Mulch generously to retain moisture.' },
   'magnolia':   { fact: 'Magnolias predate bees — they evolved to be pollinated by beetles, which is why the flowers are so robust.', care: 'Avoid planting in frost pockets. Prune only when necessary, immediately after flowering.' },
-  'hydrangea':  { fact: 'Hydrangea flower colour is influenced by soil pH — acid soils produce blue flowers, alkaline soils produce pink.', care: 'Prune mophead varieties in spring, cutting to fat buds. Leave old flowerheads over winter for frost protection.' },
+  'hydrangea':  { fact: 'Hydrangea flower colour is influenced by soil pH: acid soils produce blue flowers, alkaline soils produce pink.', care: 'Prune mophead and lacecap varieties in spring, cutting to fat buds. Leave old flowerheads over winter for frost protection.' },
   'foxglove':   { fact: 'Digitalis, derived from foxglove, remains one of medicine\'s most important heart drugs — used since 1785.', care: 'Biennial by nature — sow in June for flowers the following year. Self-seeds prolifically in the right conditions.' },
-  'rosemary':   { fact: "Rosemary has been associated with memory since ancient Greece — sprigs were worn by students during exams.", care: 'Requires excellent drainage and full sun. Trim lightly after flowering, never cutting into old leafless wood.' },
-  'sunflower':  { fact: 'Sunflowers track the sun — young plants move east to west during the day and reset overnight.', care: 'Sow direct after last frost, in full sun. Tall varieties need staking. Deadhead to prolong flowering.' },
-  'thyme':      { fact: 'Ancient Egyptians used thyme in embalming. The Romans used it to purify rooms and flavour cheese.', care: 'Trim lightly after flowering to keep compact. Thrives in poor, well-drained soil — avoid overwatering.' },
-  'sage':       { fact: 'The Romans so valued sage they had a special ritual for harvesting it, performed without iron tools.', care: 'Cut back hard in spring to prevent woodiness. Replace plants every 3–4 years when they become straggly.' },
-  'fig':        { fact: 'Figs are botanically a syconium — an inverted flower structure. The "fruit" contains hundreds of tiny flowers inside.', care: 'Restrict roots to encourage fruiting. In cool climates, fan-train against a south-facing wall.' },
-  'peach':      { fact: 'Peaches originate in China, where they have been cultivated for at least 2,000 years.', care: 'Fan-train against a warm wall in cooler climates. Thin fruits to one per 15cm for best size.' },
-  'cherry':     { fact: 'Japan celebrates cherry blossom (hanami) as a national tradition dating back over 1,200 years.', care: 'Prune only in summer to avoid silver leaf disease. Net fruiting varieties against birds.' },
+  'rosemary':   { fact: 'Rosemary has been associated with memory since ancient Greece — sprigs were worn by students during exams.', care: 'Requires excellent drainage and full sun. Trim lightly after flowering, but never cut into old leafless wood.' },
+  'sunflower':  { fact: 'Sunflowers track the sun across the sky — a phenomenon called heliotropism — but only while they are young.', care: 'Sow direct after last frost in full sun. Tall varieties need staking. Leave seedheads for birds in autumn.' },
+  'fig':        { fact: 'Figs are botanically a syconium — an inverted flower structure. The "fruit" contains hundreds of tiny flowers inside.', care: 'Restrict roots to encourage fruiting. In cool climates, fan-train against a south-facing wall for best results.' },
   'strawberry': { fact: 'Strawberries are not true berries botanically — the red flesh is the receptacle, and the seeds are the actual fruits.', care: 'Replace plants every 3 years. Remove runners unless propagating. Mulch with straw to protect fruits.' },
-  'olive':      { fact: 'Some olive trees in the Mediterranean are believed to be over 2,000 years old and still producing fruit.', care: 'Extremely drought-tolerant once established. In cooler climates, protect from hard frost below -10°C.' },
-  'grape':      { fact: 'Grapes have been cultivated for winemaking for at least 8,000 years, originating in the South Caucasus.', care: 'Prune hard in winter — grapevines fruit on new wood. Train on wires and thin bunches in summer.' },
-  'raspberry':  { fact: 'Raspberries are one of the most complex fruits in terms of flavour, containing over 200 volatile compounds.', care: 'Cut all fruited canes to the ground after harvest. Tie in new canes for next year.' },
-  'hydrangea':  { fact: 'The name hydrangea comes from Greek for "water vessel" — reflecting the plant\'s thirst for moisture.', care: 'Water deeply in dry spells. Mulch annually and feed with a balanced fertiliser in spring.' },
+  'peach':      { fact: 'Peaches originated in China over 4,000 years ago, where they were a symbol of immortality and good luck.', care: 'Fan-train against a warm wall in cooler climates. Thin fruits to one per 20cm for best size and flavour.' },
+  'cherry':     { fact: 'A single mature cherry tree can produce up to 7,000 cherries in a season.', care: 'Prune only in summer to reduce risk of silver leaf disease. Net trees when fruit ripens to deter birds.' },
+  'olive':      { fact: 'Some olive trees in the Mediterranean are believed to be over 2,000 years old and still producing fruit.', care: 'Extremely drought-tolerant once established. In cooler climates, protect from hard frost below -10C.' },
+  'grape':      { fact: 'Grapes are one of the oldest cultivated plants — evidence of winemaking dates back 8,000 years.', care: 'Prune hard in late winter. Tie in new growth regularly. Remove some bunches in summer for better quality.' },
+  'raspberry':  { fact: 'Raspberries are not a single fruit but an aggregate of many small drupelets around a central plug.', care: 'Cut all canes of summer-fruiting varieties to the ground after harvesting. Tie in new canes for next year.' },
+  'lemon':      { fact: 'Lemon trees can produce fruit year-round and may carry blossoms and ripe fruit simultaneously.', care: 'Feed with citrus fertiliser monthly in growing season. Bring indoors before first frost in cool climates.' },
 };
 
-const QUOTES = [
+var QUOTES = [
   { text: 'To forget how to dig the earth and tend the soil is to forget ourselves.', author: 'Mahatma Gandhi' },
   { text: 'A garden is a grand teacher. It teaches patience and careful watchfulness; it teaches industry and thrift.', author: 'Gertrude Jekyll, Home and Garden (1900)' },
-  { text: 'The kiss of the sun for pardon, the song of the birds for mirth — one is nearer God\'s heart in a garden than anywhere else on earth.', author: 'Dorothy Frances Gurney (1913)' },
+  { text: "The kiss of the sun for pardon, the song of the birds for mirth — one is nearer God's heart in a garden than anywhere else on earth.", author: 'Dorothy Frances Gurney (1913)' },
   { text: 'God Almighty first planted a garden; and indeed it is the purest of human pleasures.', author: 'Francis Bacon, Essays (1625)' },
   { text: 'A garden must be looked into and dressed as the body.', author: 'George Herbert, Outlandish Proverbs (1640)' },
   { text: 'Who loves a garden still his Eden keeps, perennial pleasures plants, and wholesome harvests reaps.', author: 'Amos Bronson Alcott (1868)' },
-  { text: 'The garden is the poor man\'s apothecary.', author: 'German proverb' },
+  { text: "The garden is the poor man's apothecary.", author: 'German proverb' },
   { text: 'He who plants a garden plants happiness.', author: 'Chinese proverb' },
   { text: 'A garden is not made in a year; indeed it is never made in the sense of being finished.', author: 'H. H. Thomas, The Complete Gardener (1912)' },
   { text: 'All gardening is landscape painting.', author: 'Alexander Pope (c. 1720)' },
   { text: 'The best place to find God is in a garden. You can dig for him there.', author: 'George Bernard Shaw (1932)' },
-  { text: 'In the garden, growth has its seasons. First comes spring and summer, but then we have fall and winter.', author: 'Chauncey Gardiner' },
+  { text: 'The glory of gardening: hands in the dirt, head in the sun, heart with nature.', author: 'Alfred Austin, The Garden That I Love (1894)' },
 ];
 
-const DAY_NAMES  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const MONTH_NAMES = ['January','February','March','April','May','June',
-                     'July','August','September','October','November','December'];
+var DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
@@ -90,97 +82,99 @@ function getFirstDayOfWeek(year, month) {
   return new Date(year, month, 1).getDay();
 }
 
-function buildCalendarPageHTML(opts) {
-  var monthName     = opts.monthName;
-  var monthIdx      = opts.monthIdx;
-  var year          = opts.year;
-  var plant         = opts.plant;
-  var climate       = opts.climate;
-  var recipientName = opts.recipientName;
-  var keyDates      = opts.keyDates   || [];
-  var holidays      = opts.holidays   || [];
-  var bleedMm       = opts.bleedMm    || 3;
+function buildCalendarPageHTML(monthName, monthIdx, year, plant, climate, recipientName, keyDates, holidays, isFirstPage, bleedMm) {
+  keyDates  = keyDates  || [];
+  holidays  = holidays  || [];
+  bleedMm   = bleedMm   || 3;
 
-  var artworkUrl = plant ? (ARTWORK[plant.toLowerCase()] || '') : '';
-  var facts      = plant ? (PLANT_FACTS[plant.toLowerCase()] || { fact: '', care: '' }) : { fact: '', care: '' };
-  var quote      = QUOTES[monthIdx % QUOTES.length];
+  var artworkUrl   = plant ? (ARTWORK[plant.toLowerCase()] || '') : '';
+  var plantFacts   = plant ? (PLANT_FACTS[plant.toLowerCase()] || { fact: '', care: '' }) : { fact: '', care: '' };
+  var quote        = QUOTES[monthIdx % QUOTES.length];
+  var daysInMonth  = getDaysInMonth(year, monthIdx);
+  var firstDayDow  = getFirstDayOfWeek(year, monthIdx);
+  var plantDisplay = plant ? (plant.charAt(0).toUpperCase() + plant.slice(1)) : monthName;
 
-  var daysInMonth = getDaysInMonth(year, monthIdx);
-  var firstDayDow = getFirstDayOfWeek(year, monthIdx);
-
-  // Key dates indexed by day
+  // Build key date map
   var keyDateMap = {};
-  keyDates.forEach(function(kd) {
+  for (var i = 0; i < keyDates.length; i++) {
+    var kd = keyDates[i];
     var d = new Date(kd.date);
     if (d.getFullYear() === year && d.getMonth() === monthIdx) {
       var day = d.getDate();
       if (!keyDateMap[day]) keyDateMap[day] = [];
       keyDateMap[day].push(kd.label || '');
     }
-  });
+  }
 
-  // Holiday days
+  // Build holiday day set
   var holidayDays = {};
-  holidays.forEach(function(h) {
-    var start = new Date(h.startDate);
-    var end   = new Date(h.endDate);
+  var holidayLabelMap = {};
+  for (var h = 0; h < holidays.length; h++) {
+    var hol = holidays[h];
+    var start = new Date(hol.startDate);
+    var end   = new Date(hol.endDate);
     var cur   = new Date(start);
     while (cur <= end) {
       if (cur.getFullYear() === year && cur.getMonth() === monthIdx) {
-        var day = cur.getDate();
-        if (!holidayDays[day]) holidayDays[day] = h.label || 'Holiday';
+        var hday = cur.getDate();
+        holidayDays[hday] = true;
+        if (cur.getTime() === start.getTime()) {
+          holidayLabelMap[hday] = hol.label || 'Holiday';
+        }
       }
       cur.setDate(cur.getDate() + 1);
     }
-  });
-
-  // Build calendar cells
-  var cells = [];
-  for (var i = 0; i < firstDayDow; i++) cells.push(null);
-  for (var day = 1; day <= daysInMonth; day++) {
-    cells.push({
-      day:          day,
-      holidayLabel: holidayDays[day] || null,
-      keyDates:     keyDateMap[day]  || [],
-    });
   }
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  var plantDisplay = plant
-    ? (plant.charAt(0).toUpperCase() + plant.slice(1))
-    : monthName;
 
   // Build calendar grid HTML
-  var dowHeaders = DAY_NAMES.map(function(d) {
-    return '<div class="cal-dow">' + d + '</div>';
-  }).join('');
-
-  var cellsHtml = cells.map(function(cell) {
-    if (!cell) return '<div class="cal-cell cal-empty"></div>';
+  var calCells = '';
+  // Day headers
+  for (var dn = 0; dn < DAY_NAMES.length; dn++) {
+    calCells += '<div class="cal-dow">' + DAY_NAMES[dn] + '</div>';
+  }
+  // Leading empty cells
+  for (var e = 0; e < firstDayDow; e++) {
+    calCells += '<div class="cal-cell cal-empty"></div>';
+  }
+  // Day cells
+  for (var day = 1; day <= daysInMonth; day++) {
+    var isHoliday     = !!holidayDays[day];
+    var isHolStart    = holidayLabelMap[day] !== undefined;
+    var dayKeyDates   = keyDateMap[day] || [];
     var cls = 'cal-cell';
-    if (cell.holidayLabel) cls += ' cal-holiday';
-    if (cell.keyDates.length > 0) cls += ' cal-has-event';
-    var inner = '<span class="cal-day-num">' + cell.day + '</span>';
-    if (cell.holidayLabel) {
-      inner += '<span class="cal-holiday-label">' + cell.holidayLabel + '</span>';
-    }
-    cell.keyDates.forEach(function(kd) {
-      inner += '<span class="cal-key-date">' + kd + '</span>';
-    });
-    return '<div class="' + cls + '">' + inner + '</div>';
-  }).join('');
+    if (isHoliday)          cls += ' cal-holiday';
+    if (dayKeyDates.length) cls += ' cal-has-event';
 
-  var artworkHtml = artworkUrl
+    var inner = '<span class="cal-day-num">' + day + '</span>';
+    if (isHolStart) inner += '<span class="cal-holiday-label">' + holidayLabelMap[day] + '</span>';
+    for (var k = 0; k < dayKeyDates.length; k++) {
+      inner += '<span class="cal-key-date">' + dayKeyDates[k] + '</span>';
+    }
+    calCells += '<div class="' + cls + '">' + inner + '</div>';
+  }
+  // Trailing cells
+  var total = firstDayDow + daysInMonth;
+  var trailing = (total % 7 === 0) ? 0 : 7 - (total % 7);
+  for (var t = 0; t < trailing; t++) {
+    calCells += '<div class="cal-cell cal-empty"></div>';
+  }
+
+  var artworkHTML = artworkUrl
     ? '<div class="artwork-wrap"><img src="' + artworkUrl + '" alt="' + plantDisplay + ' botanical illustration"/></div>'
-      + '<div class="artwork-caption"><span class="artwork-plant">' + plantDisplay + '</span><span class="artwork-credit">K\u00f6hler\'s Medizinal-Pflanzen \u00b7 Public Domain</span></div>'
+      + '<div class="artwork-caption"><span class="artwork-plant">' + plantDisplay + '</span>'
+      + '<span class="artwork-credit">Kohler\'s Medizinal-Pflanzen, 1887 &middot; Public Domain</span></div>'
     : '<div class="artwork-wrap artwork-placeholder"><div class="artwork-placeholder-text">' + monthName + '</div></div>';
 
-  var factHtml = facts.fact
-    ? '<div class="plant-fact"><div class="fact-label">Did you know?</div><div class="fact-text">' + facts.fact + '</div></div>'
+  var factHTML = plantFacts.fact
+    ? '<div class="plant-fact"><div class="fact-label">Did you know?</div><div class="fact-text">' + plantFacts.fact + '</div></div>'
     : '';
 
-  var careHtml = facts.care
-    ? '<div class="care-notes"><div class="care-label">Care this month</div><div class="care-text">' + facts.care + '</div></div>'
+  var careHTML = plantFacts.care
+    ? '<div class="care-notes"><div class="care-label">Care this month</div><div class="care-text">' + plantFacts.care + '</div></div>'
+    : '';
+
+  var recipientHTML = recipientName
+    ? '<div class="header-recipient">' + recipientName + "'s Garden Calendar</div>"
     : '';
 
   var qrUrl = encodeURIComponent('https://garden-calendar-frontend.vercel.app');
@@ -191,13 +185,13 @@ function buildCalendarPageHTML(opts) {
     + '<div class="header-month">' + monthName + '</div>'
     + '<div class="header-year">' + year + '</div>'
     + '<div class="header-plant-name">' + plantDisplay + '</div>'
-    + (recipientName ? '<div class="header-recipient">' + recipientName + '\'s Garden Calendar</div>' : '')
+    + recipientHTML
     + '</div>'
     + '<div class="page-body">'
-    + '<div class="col-artwork">' + artworkHtml + factHtml + '</div>'
+    + '<div class="col-artwork">' + artworkHTML + factHTML + '</div>'
     + '<div class="col-centre">'
-    + '<div class="cal-grid">' + dowHeaders + cellsHtml + '</div>'
-    + careHtml
+    + '<div class="cal-grid">' + calCells + '</div>'
+    + careHTML
     + '</div>'
     + '<div class="col-right">'
     + '<div class="quote-block">'
@@ -205,68 +199,63 @@ function buildCalendarPageHTML(opts) {
     + '<div class="quote-text">' + quote.text + '</div>'
     + '<div class="quote-attr">\u2014 ' + quote.author + '</div>'
     + '</div>'
-    + '<div class="climate-badge"><div class="climate-label">Climate region</div><div class="climate-value">' + (climate || '') + '</div></div>'
+    + '<div class="climate-badge"><div class="climate-label">Climate region</div><div class="climate-value">' + climate + '</div></div>'
     + '<div class="app-qr">'
     + '<img src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + qrUrl + '&margin=2" width="80" height="80" alt="Garden Calendar QR"/>'
     + '<div class="qr-label">Your digital garden calendar</div>'
     + '</div>'
-    + '<div class="page-footer"><div class="footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</div></div>'
+    + '<div class="page-footer"><div class="footer-text">The Garden Calendar &middot; garden-calendar-frontend.vercel.app</div></div>'
     + '</div>'
     + '</div>'
     + '</div>'
     + '</div>';
 }
 
-var SHARED_CSS = [
-  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap');",
-  ':root{--parchment:#FDFAF4;--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.25);}',
-  '*{box-sizing:border-box;margin:0;padding:0;}',
-  '.calendar-page{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:var(--parchment);}',
-  '.bleed-content{display:flex;flex-direction:column;height:100%;}',
-  '.page-header{display:flex;align-items:baseline;gap:6mm;padding:3mm 4mm 2.5mm;border-bottom:0.5mm solid var(--gold);background:var(--ink);color:var(--parchment);flex-shrink:0;}',
-  '.header-month{font-family:"Playfair Display",serif;font-size:22pt;font-weight:600;letter-spacing:0.02em;}',
-  '.header-year{font-size:14pt;opacity:0.7;}',
-  '.header-plant-name{font-size:11pt;font-style:italic;opacity:0.8;flex:1;}',
-  '.header-recipient{font-size:9pt;opacity:0.6;letter-spacing:0.05em;text-transform:uppercase;}',
-  '.page-body{display:grid;grid-template-columns:130mm 1fr 78mm;flex:1;min-height:0;overflow:hidden;}',
-  '.col-artwork{display:flex;flex-direction:column;border-right:0.4mm solid var(--border);overflow:hidden;background:#F7F2E8;}',
-  '.artwork-wrap{flex:1;min-height:0;overflow:hidden;}',
-  '.artwork-wrap img{width:100%;height:100%;object-fit:contain;filter:sepia(6%) contrast(1.06);display:block;}',
-  '.artwork-placeholder{display:flex;align-items:center;justify-content:center;}',
-  '.artwork-placeholder-text{font-family:"Playfair Display",serif;font-style:italic;font-size:18pt;color:var(--muted);opacity:0.5;}',
-  '.artwork-caption{padding:2mm 4mm;background:var(--cream);border-top:0.3mm solid var(--border);display:flex;justify-content:space-between;align-items:baseline;flex-shrink:0;}',
-  '.artwork-plant{font-family:"Playfair Display",serif;font-style:italic;font-size:10pt;color:var(--ink);}',
-  '.artwork-credit{font-size:7pt;color:var(--muted);opacity:0.6;}',
-  '.plant-fact{padding:3mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
-  '.fact-label{font-family:"Playfair Display",serif;font-size:7pt;text-transform:uppercase;letter-spacing:0.12em;color:var(--gold);margin-bottom:1mm;}',
-  '.fact-text{font-size:8.5pt;line-height:1.45;color:var(--ink);font-style:italic;}',
-  '.col-centre{display:flex;flex-direction:column;padding:3mm 4mm;gap:3mm;border-right:0.4mm solid var(--border);overflow:hidden;}',
-  '.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0.5mm;flex-shrink:0;}',
-  '.cal-dow{font-size:7.5pt;text-align:center;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding-bottom:1mm;border-bottom:0.3mm solid var(--border);}',
-  '.cal-cell{min-height:10mm;padding:1mm;border:0.3mm solid transparent;border-radius:0.5mm;display:flex;flex-direction:column;gap:0.5mm;overflow:hidden;}',
-  '.cal-empty{background:transparent;}',
-  '.cal-holiday{background:rgba(90,122,50,0.08);border-color:rgba(90,122,50,0.2);}',
-  '.cal-has-event{border-color:var(--gold);background:rgba(139,105,20,0.05);}',
-  '.cal-day-num{font-size:9pt;font-weight:500;color:var(--ink);line-height:1;}',
-  '.cal-holiday .cal-day-num{color:var(--sage);}',
-  '.cal-key-date{font-size:6pt;color:var(--rust);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-  '.cal-holiday-label{font-size:5.5pt;color:var(--sage);font-style:italic;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-  '.care-notes{flex:1;padding:2.5mm 0;border-top:0.3mm solid var(--border);}',
-  '.care-label{font-family:"Playfair Display",serif;font-size:8pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);margin-bottom:1.5mm;}',
-  '.care-text{font-size:9.5pt;line-height:1.5;color:var(--ink);}',
-  '.col-right{display:flex;flex-direction:column;padding:4mm 4mm 3mm;gap:4mm;}',
-  '.quote-block{flex:1;}',
-  '.quote-mark{font-family:"Playfair Display",serif;font-size:36pt;color:var(--gold);line-height:0.8;margin-bottom:1mm;opacity:0.5;}',
-  '.quote-text{font-family:"Playfair Display",serif;font-style:italic;font-size:9.5pt;line-height:1.55;color:var(--ink);margin-bottom:2mm;}',
-  '.quote-attr{font-size:8pt;color:var(--muted);font-style:italic;}',
-  '.climate-badge{padding:2mm 3mm;background:var(--cream);border:0.3mm solid var(--border);border-radius:1mm;flex-shrink:0;}',
-  '.climate-label{font-size:6.5pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);margin-bottom:0.5mm;}',
-  '.climate-value{font-size:9pt;font-style:italic;color:var(--ink);}',
-  '.app-qr{display:flex;flex-direction:column;align-items:center;gap:1.5mm;flex-shrink:0;}',
-  '.app-qr img{border:0.3mm solid var(--border);border-radius:1mm;padding:1mm;background:white;}',
-  '.qr-label{font-size:7pt;color:var(--muted);text-align:center;font-style:italic;line-height:1.3;}',
-  '.page-footer{border-top:0.3mm solid var(--border);padding-top:2mm;flex-shrink:0;}',
-  '.footer-text{font-size:6.5pt;color:var(--muted);opacity:0.6;text-align:center;letter-spacing:0.04em;}',
-].join('\n');
+var SHARED_CSS = '@import url(\'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&display=swap\');\n'
++ ':root{--parchment:#FDFAF4;--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.25);}\n'
++ '.page-header{display:flex;align-items:baseline;gap:6mm;padding:3mm 4mm 2.5mm;border-bottom:0.5mm solid var(--gold);background:var(--ink);color:var(--parchment);flex-shrink:0;}\n'
++ '.header-month{font-family:"Playfair Display",serif;font-size:22pt;font-weight:600;letter-spacing:0.02em;}\n'
++ '.header-year{font-size:14pt;opacity:0.7;}\n'
++ '.header-plant-name{font-size:11pt;font-style:italic;opacity:0.8;flex:1;}\n'
++ '.header-recipient{font-size:9pt;opacity:0.6;letter-spacing:0.05em;text-transform:uppercase;}\n'
++ '.page-body{display:grid;grid-template-columns:130mm 1fr 78mm;flex:1;min-height:0;overflow:hidden;}\n'
++ '.col-artwork{display:flex;flex-direction:column;border-right:0.4mm solid var(--border);overflow:hidden;background:#F7F2E8;}\n'
++ '.artwork-wrap{flex:1;min-height:0;overflow:hidden;}\n'
++ '.artwork-wrap img{width:100%;height:100%;object-fit:contain;filter:sepia(6%) contrast(1.06);display:block;}\n'
++ '.artwork-placeholder{display:flex;align-items:center;justify-content:center;}\n'
++ '.artwork-placeholder-text{font-family:"Playfair Display",serif;font-style:italic;font-size:18pt;color:var(--muted);opacity:0.5;}\n'
++ '.artwork-caption{padding:2mm 4mm;background:var(--cream);border-top:0.3mm solid var(--border);display:flex;justify-content:space-between;align-items:baseline;flex-shrink:0;}\n'
++ '.artwork-plant{font-family:"Playfair Display",serif;font-style:italic;font-size:10pt;color:var(--ink);}\n'
++ '.artwork-credit{font-size:7pt;color:var(--muted);opacity:0.6;}\n'
++ '.plant-fact{padding:3mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}\n'
++ '.fact-label{font-family:"Playfair Display",serif;font-size:7pt;text-transform:uppercase;letter-spacing:0.12em;color:var(--gold);margin-bottom:1mm;}\n'
++ '.fact-text{font-size:8.5pt;line-height:1.45;color:var(--ink);font-style:italic;}\n'
++ '.col-centre{display:flex;flex-direction:column;padding:3mm 4mm;gap:3mm;border-right:0.4mm solid var(--border);overflow:hidden;}\n'
++ '.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0.5mm;flex-shrink:0;}\n'
++ '.cal-dow{font-size:7.5pt;text-align:center;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding-bottom:1mm;border-bottom:0.3mm solid var(--border);}\n'
++ '.cal-cell{min-height:10mm;padding:1mm;border:0.3mm solid transparent;border-radius:0.5mm;display:flex;flex-direction:column;gap:0.5mm;overflow:hidden;}\n'
++ '.cal-empty{background:transparent;}\n'
++ '.cal-holiday{background:rgba(90,122,50,0.08);border-color:rgba(90,122,50,0.2);}\n'
++ '.cal-has-event{border-color:var(--gold);background:rgba(139,105,20,0.05);}\n'
++ '.cal-day-num{font-size:9pt;font-weight:500;color:var(--ink);line-height:1;}\n'
++ '.cal-holiday .cal-day-num{color:var(--sage);}\n'
++ '.cal-key-date{font-size:6pt;color:var(--rust);line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}\n'
++ '.cal-holiday-label{font-size:5.5pt;color:var(--sage);font-style:italic;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}\n'
++ '.care-notes{flex:1;padding:2.5mm 0;border-top:0.3mm solid var(--border);}\n'
++ '.care-label{font-family:"Playfair Display",serif;font-size:8pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);margin-bottom:1.5mm;}\n'
++ '.care-text{font-size:9.5pt;line-height:1.5;color:var(--ink);}\n'
++ '.col-right{display:flex;flex-direction:column;padding:4mm 4mm 3mm;gap:4mm;}\n'
++ '.quote-block{flex:1;}\n'
++ '.quote-mark{font-family:"Playfair Display",serif;font-size:36pt;color:var(--gold);line-height:0.8;margin-bottom:1mm;opacity:0.5;}\n'
++ '.quote-text{font-family:"Playfair Display",serif;font-style:italic;font-size:9.5pt;line-height:1.55;color:var(--ink);margin-bottom:2mm;}\n'
++ '.quote-attr{font-size:8pt;color:var(--muted);font-style:italic;}\n'
++ '.climate-badge{padding:2mm 3mm;background:var(--cream);border:0.3mm solid var(--border);border-radius:1mm;flex-shrink:0;}\n'
++ '.climate-label{font-size:6.5pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);margin-bottom:0.5mm;}\n'
++ '.climate-value{font-size:9pt;font-style:italic;color:var(--ink);}\n'
++ '.app-qr{display:flex;flex-direction:column;align-items:center;gap:1.5mm;flex-shrink:0;}\n'
++ '.app-qr img{border:0.3mm solid var(--border);border-radius:1mm;padding:1mm;background:white;}\n'
++ '.qr-label{font-size:7pt;color:var(--muted);text-align:center;font-style:italic;line-height:1.3;}\n'
++ '.page-footer{border-top:0.3mm solid var(--border);padding-top:2mm;flex-shrink:0;}\n'
++ '.footer-text{font-size:6.5pt;color:var(--muted);opacity:0.6;text-align:center;letter-spacing:0.04em;}';
 
 module.exports = { buildCalendarPageHTML: buildCalendarPageHTML, SHARED_CSS: SHARED_CSS };
