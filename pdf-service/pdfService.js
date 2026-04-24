@@ -12,11 +12,10 @@
  * Add to server.js: import/require this file and mount the router.
  */
 
-import express from 'express';
-import puppeteer from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
-import { buildCalendarPageHTML } from './calendarTemplate.js';
-
+const express = require('express');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
+const { buildCalendarPageHTML } = require('./calendarTemplate.js');
 const router = express.Router();
 
 // ─── Gelato A3 specs ──────────────────────────────────────────────────────────
@@ -230,4 +229,4 @@ router.post('/generate-pdf', async (req, res) => {
   }
 });
 
-export default router;
+module.exports = router;
