@@ -3,7 +3,7 @@
 //   Right panel top→bottom: weather · tasks · plant notes · inspo garden
 // Page B: full-page calendar grid
 
-var DAY_NAMES   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var DAY_NAMES   = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var MONTH_NAMES = ['January','February','March','April','May','June',
                    'July','August','September','October','November','December'];
 
@@ -96,7 +96,8 @@ function getDaysInMonth(year, month) {
 }
 
 function getFirstDayOfWeek(year, month) {
-  return new Date(year, month, 1).getDay();
+  var d = new Date(year, month, 1).getDay(); // 0=Sun
+  return (d + 6) % 7; // convert to Mon=0
 }
 
 // ── Page A: illustration + right panel ───────────────────────────────────────
@@ -165,7 +166,7 @@ function buildPageA(opts) {
   var sourceLine = source
     ? source.name + ' \u00b7 K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Plate ' + source.plate
     : (plant ? (plant.charAt(0).toUpperCase() + plant.slice(1)) + ' \u00b7 Botanical illustration' : 'Botanical illustration');
-  var sourceSub = 'Public domain \u00b7 \u00a9 Missouri Botanical Garden / Wikimedia Commons';
+  var sourceSub = 'Public domain illustration \u00b7 Digitised by Missouri Botanical Garden \u00b7 Wikimedia Commons';
 
   return '<div class="cal-page page-a">'
     + '<div class="bleed">'
@@ -174,7 +175,6 @@ function buildPageA(opts) {
     + '<div class="top-banner">'
     +   '<span class="top-month">' + monthName + '</span>'
     +   '<span class="top-year">' + year + '</span>'
-    +   '<span class="top-plant">' + (source ? source.name : plantDisplay) + '</span>'
     +   (recipientName ? '<span class="top-name">' + recipientName + '\u2019s Garden Calendar</span>' : '')
     + '</div>'
 
@@ -312,13 +312,16 @@ function buildPageB(opts) {
     gridHtml += '<div class="cal-dow">' + DAY_NAMES[dn] + '</div>';
   }
   for (var e = 0; e < firstDow; e++) {
-    gridHtml += '<div class="cal-cell cal-empty"></div>';
+    var eW = e >= 5 ? ' weekend' : '';
+    gridHtml += '<div class="cal-cell cal-empty' + eW + '"></div>';
   }
   for (var d = 1; d <= daysInMonth; d++) {
     var isHol   = !!holidayDays[d];
     var isHolS  = holidayLabelMap[d] !== undefined;
     var kdList  = keyDateMap[d] || [];
-    var cls     = 'cal-cell' + (isHol ? ' cal-holiday' : '') + (kdList.length ? ' cal-event' : '');
+    var colIdx  = (firstDow + d - 1) % 7; // 0=Mon ... 5=Sat 6=Sun
+    var isWeekend = colIdx >= 5;
+    var cls     = 'cal-cell' + (isWeekend ? ' weekend' : '') + (isHol ? ' cal-holiday' : '') + (kdList.length ? ' cal-event' : '');
     var inner   = '<span class="day-num">' + d + '</span>';
     if (isHolS) inner += '<span class="hol-label">' + holidayLabelMap[d] + '</span>';
     for (var k = 0; k < kdList.length; k++) {
@@ -329,7 +332,9 @@ function buildPageB(opts) {
   var total = firstDow + daysInMonth;
   var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
   for (var t = 0; t < trailing; t++) {
-    gridHtml += '<div class="cal-cell cal-empty"></div>';
+    var tCol = (total + t) % 7;
+    var tWeekend = tCol >= 5 ? ' weekend' : '';
+    gridHtml += '<div class="cal-cell cal-empty' + tWeekend + '"></div>';
   }
 
   return '<div class="cal-page page-b">'
@@ -351,7 +356,7 @@ function buildPageB(opts) {
     + '</div>';
 }
 
-// ── Shared CSS ────────────────────────────────────────────────────────────────
+// ── Shared CSS ──────────────────────────────────────────────────────────────
 var SHARED_CSS = [
   "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&display=swap');",
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
@@ -359,12 +364,11 @@ var SHARED_CSS = [
   '.cal-page{width:426mm;height:303mm;position:relative;overflow:hidden;page-break-after:always;page-break-inside:avoid;background:var(--parchment);}',
   '.bleed{position:absolute;top:3mm;left:3mm;right:3mm;bottom:3mm;overflow:hidden;display:flex;flex-direction:column;}',
 
-  // TOP BANNER
-  '.top-banner{background:var(--ink);color:var(--parchment);padding:3mm 5mm;display:flex;align-items:baseline;gap:4mm;flex-shrink:0;}',
-  '.top-month{font-family:"Playfair Display",serif;font-size:26pt;font-weight:600;letter-spacing:.01em;}',
-  '.top-year{font-size:14pt;opacity:.6;}',
-  '.top-plant{font-size:10pt;font-style:italic;opacity:.75;flex:1;}',
-  '.top-name{font-size:8pt;opacity:.5;letter-spacing:.06em;text-transform:uppercase;}',
+  // TOP BANNER — taller, bigger month/year, no plant name
+  '.top-banner{background:var(--ink);color:var(--parchment);padding:4mm 6mm;display:flex;align-items:baseline;gap:5mm;flex-shrink:0;}',
+  '.top-month{font-family:"Playfair Display",serif;font-size:34pt;font-weight:600;letter-spacing:.01em;line-height:1;}',
+  '.top-year{font-size:18pt;opacity:.6;letter-spacing:.02em;}',
+  '.top-name{font-size:9pt;opacity:.5;letter-spacing:.06em;text-transform:uppercase;margin-left:auto;}',
 
   // PAGE BODY: 1/3 illustration | 2/3 right
   '.page-body{flex:1;display:grid;grid-template-columns:1fr 2fr;min-height:0;overflow:hidden;}',
@@ -375,75 +379,106 @@ var SHARED_CSS = [
   '.illus-img{width:100%;height:100%;object-fit:contain;display:block;filter:sepia(5%) contrast(1.06);}',
   '.illus-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:"Playfair Display",serif;font-style:italic;font-size:14pt;color:var(--muted);opacity:.4;text-align:center;padding:5mm;}',
 
-  // RIGHT PANEL
-  '.col-right{display:flex;flex-direction:column;padding:2.5mm 3mm;gap:2mm;overflow:hidden;}',
-  '.r-box{border:.4mm solid var(--border);border-radius:1mm;padding:2mm 2.5mm;flex-shrink:0;}',
+  // RIGHT PANEL — flex column, proportional boxes
+  // weather 15% | tasks 35% | plant 35% | inspo 15%
+  '.col-right{display:flex;flex-direction:column;padding:2.5mm 3mm;gap:1.5mm;overflow:hidden;}',
+  '.r-box{border:.4mm solid var(--border);border-radius:1mm;padding:2mm 2.5mm;overflow:hidden;}',
+  '.box-label{font-family:"Playfair Display",serif;font-size:7.5pt;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:1.5mm;display:block;}',
+
+  // Box proportions via flex-grow weighted by ratio (15/35/35/15)
+  // We name the boxes; JS adds flex styling inline
+  '.wx-box{flex:15;}',
+  '.tasks-box{flex:35;}',
+  '.notes-box{flex:35;}',
+  '.inspo-box{flex:15;}',
 
   // WEATHER
-  '.wx-box{}',
-  '.box-label{font-family:"Playfair Display",serif;font-size:7.5pt;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:1.5mm;display:block;}',
   '.wx-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1mm;}',
   '.wx-item{display:flex;flex-direction:column;gap:.5mm;}',
-  '.wx-val{font-family:"Playfair Display",serif;font-size:14pt;font-weight:600;color:var(--ink);line-height:1;}',
+  '.wx-val{font-family:"Playfair Display",serif;font-size:15pt;font-weight:600;color:var(--ink);line-height:1;}',
   '.wx-lbl{font-size:7pt;color:var(--muted);}',
   '.wx-wind{font-size:8pt;color:var(--muted);margin-top:1.5mm;}',
   '.wx-wind strong{color:var(--ink);}',
 
   // TASKS
-  '.tasks-intro{font-size:9pt;line-height:1.4;color:var(--ink);margin-bottom:1.5mm;}',
-  '.tasks-prompt{font-size:8.5pt;font-style:italic;color:var(--muted);margin-bottom:1.5mm;}',
-  '.cb-row{display:flex;align-items:center;gap:2mm;margin-bottom:1.5mm;}',
-  '.cb-sq{width:3mm;height:3mm;border:.4mm solid var(--muted);border-radius:.5mm;flex-shrink:0;}',
-  '.cb-line{flex:1;border-bottom:.3mm solid rgba(139,105,20,.18);height:3mm;}',
+  '.tasks-intro{font-size:9.5pt;line-height:1.45;color:var(--ink);margin-bottom:2mm;}',
+  '.tasks-prompt{font-size:9pt;font-style:italic;color:var(--muted);margin-bottom:2mm;}',
+  '.cb-row{display:flex;align-items:center;gap:2mm;margin-bottom:2mm;}',
+  '.cb-sq{width:3.5mm;height:3.5mm;border:.4mm solid var(--muted);border-radius:.5mm;flex-shrink:0;}',
+  '.cb-line{flex:1;border-bottom:.3mm solid rgba(139,105,20,.18);height:3.5mm;}',
 
   // PLANT NOTES
-  '.notes-box{flex:1;}',
-  '.notes-body{display:flex;flex-direction:column;justify-content:space-around;height:calc(100% - 5mm);}',
+  '.notes-body{height:calc(100% - 5mm);display:flex;flex-direction:column;justify-content:space-around;}',
   '.note-row{display:flex;align-items:flex-start;gap:2mm;}',
-  '.note-bullet{color:var(--gold);font-size:9pt;flex-shrink:0;margin-top:.5mm;}',
-  '.note-text{font-size:9pt;line-height:1.4;color:var(--ink);}',
+  '.note-bullet{color:var(--gold);font-size:9.5pt;flex-shrink:0;line-height:1.4;}',
+  '.note-text{font-size:9.5pt;line-height:1.45;color:var(--ink);}',
 
   // INSPO GARDEN
-  '.inspo-inner{display:flex;gap:2mm;align-items:flex-start;}',
-  '.inspo-photo{width:20mm;height:16mm;border-radius:1mm;overflow:hidden;flex-shrink:0;background:rgba(90,122,50,.1);}',
+  '.inspo-inner{display:flex;gap:2.5mm;align-items:flex-start;height:calc(100% - 5mm);}',
+  '.inspo-photo{width:22mm;flex-shrink:0;align-self:stretch;border-radius:1mm;overflow:hidden;background:rgba(90,122,50,.1);}',
   '.inspo-photo-img{width:100%;height:100%;object-fit:cover;}',
-  '.inspo-photo-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:"Playfair Display",serif;font-size:14pt;color:var(--sage);opacity:.5;}',
+  '.inspo-photo-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:"Playfair Display",serif;font-size:16pt;color:var(--sage);opacity:.4;}',
   '.inspo-text{flex:1;min-width:0;}',
-  '.inspo-name{font-family:"Playfair Display",serif;font-size:10pt;font-weight:600;color:var(--ink);line-height:1.2;}',
+  '.inspo-name{font-family:"Playfair Display",serif;font-size:10.5pt;font-weight:600;color:var(--ink);line-height:1.2;}',
   '.inspo-loc{font-size:8pt;color:var(--muted);margin-top:.5mm;}',
   '.inspo-desc{font-size:8.5pt;line-height:1.35;color:var(--ink);margin-top:1mm;}',
-  '.inspo-qr-col{display:flex;flex-direction:column;align-items:center;gap:1mm;flex-shrink:0;}',
+  '.inspo-qr-col{display:flex;flex-direction:column;align-items:center;gap:1mm;flex-shrink:0;justify-content:center;}',
   '.inspo-qr-lbl{font-size:7pt;color:var(--muted);text-align:center;}',
 
-  // BOTTOM BANNER
-  '.bot-banner{background:var(--cream);border-top:.4mm solid var(--border);display:grid;grid-template-columns:1fr auto auto;align-items:center;flex-shrink:0;}',
-  '.bot-source{padding:2mm 3mm;border-right:.4mm solid var(--border);}',
-  '.bot-source-title{font-family:"Playfair Display",serif;font-style:italic;font-size:8.5pt;color:var(--ink);}',
-  '.bot-source-sub{font-size:7pt;color:var(--muted);margin-top:.5mm;}',
-  '.bot-brand{padding:2mm 3mm;border-right:.4mm solid var(--border);text-align:center;}',
-  '.bot-brand-name{font-family:"Playfair Display",serif;font-style:italic;font-size:9pt;color:var(--gold);}',
-  '.bot-brand-url{font-size:7.5pt;color:var(--muted);}',
-  '.bot-qr{padding:2mm 2.5mm;display:flex;align-items:center;gap:1.5mm;}',
-  '.bot-qr-lbl{font-size:7pt;color:var(--muted);line-height:1.3;}',
+  // BOTTOM BANNER — taller
+  '.bot-banner{background:var(--cream);border-top:.4mm solid var(--border);display:grid;grid-template-columns:1fr auto auto;align-items:center;flex-shrink:0;padding:0;}',
+  '.bot-source{padding:2.5mm 4mm;border-right:.4mm solid var(--border);}',
+  '.bot-source-title{font-family:"Playfair Display",serif;font-style:italic;font-size:9pt;color:var(--ink);}',
+  '.bot-source-sub{font-size:7.5pt;color:var(--muted);margin-top:.5mm;}',
+  '.bot-brand{padding:2.5mm 4mm;border-right:.4mm solid var(--border);text-align:center;}',
+  '.bot-brand-name{font-family:"Playfair Display",serif;font-style:italic;font-size:10pt;color:var(--gold);}',
+  '.bot-brand-url{font-size:8pt;color:var(--muted);}',
+  '.bot-qr{padding:2.5mm 3mm;display:flex;align-items:center;gap:2mm;}',
+  '.bot-qr-lbl{font-size:7.5pt;color:var(--muted);line-height:1.4;}',
 
-  // PAGE B
+  // PAGE B — CALENDAR GRID
   '.page-b-layout{display:flex;flex-direction:column;height:100%;}',
-  '.cal-header{display:flex;align-items:baseline;gap:5mm;padding:3.5mm 5mm 3mm;background:var(--ink);color:var(--parchment);flex-shrink:0;}',
-  '.cal-header-month{font-family:"Playfair Display",serif;font-size:26pt;font-weight:600;}',
-  '.cal-header-year{font-size:15pt;opacity:.6;}',
+
+  // Calendar header — taller top banner, bigger month
+  '.cal-header{display:flex;align-items:baseline;gap:5mm;padding:4mm 6mm 3.5mm;background:var(--ink);color:var(--parchment);flex-shrink:0;}',
+  '.cal-header-month{font-family:"Playfair Display",serif;font-size:34pt;font-weight:600;line-height:1;}',
+  '.cal-header-year{font-size:18pt;opacity:.6;}',
   '.cal-header-plant{font-size:10pt;font-style:italic;opacity:.7;flex:1;}',
   '.cal-header-recip{font-size:8pt;opacity:.5;letter-spacing:.05em;text-transform:uppercase;}',
+
+  // Grid — day headers shorter and centred, Sat+Sun shaded
   '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;min-height:0;border-left:.3mm solid var(--border);border-top:.3mm solid var(--border);}',
-  '.cal-dow{font-size:8pt;text-align:center;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.1em;padding:2.5mm;border-right:.3mm solid var(--border);border-bottom:.5mm solid var(--gold);background:rgba(139,105,20,.04);}',
+
+  // Day header row — fixed height, larger font, centred both axes
+  '.cal-dow{height:8mm;display:flex;align-items:center;justify-content:center;font-size:10pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.5mm solid var(--gold);background:rgba(139,105,20,.05);}',
+
+  // Sat (6th col) and Sun (7th col) shading on dow headers
+  '.cal-dow:nth-child(6){background:rgba(139,105,20,.1);}',
+  '.cal-dow:nth-child(7){background:rgba(139,105,20,.1);}',
+
+  // Day cells
   '.cal-cell{padding:2mm 2.5mm;border-right:.3mm solid var(--border);border-bottom:.3mm solid var(--border);display:flex;flex-direction:column;gap:1mm;overflow:hidden;}',
-  '.cal-empty{background:rgba(0,0,0,.015);}',
+
+  // Shade Sat and Sun columns (every 6th and 7th in each row)
+  // nth-child selects by position in grid, so: 6,7,13,14,20,21,27,28,34,35,41,42
+  // Use a repeating pattern: 7n+6 and 7n+7 within the cells (after the dow row of 7)
+  // The dow row occupies positions 1-7, day cells start at 8
+  // So Sat cells: 7n+6 from position 8 onward — use: nth-child(7n+6), nth-child(7n+7)
+  // but we need to account for the 7 header items first
+  // Simpler: add weekend class in JS
+  '.cal-cell.weekend{background:rgba(139,105,20,.04);}',
+
+  '.cal-empty{background:rgba(0,0,0,.012);}',
+  '.cal-empty.weekend{background:rgba(139,105,20,.03);}',
   '.cal-holiday{background:rgba(90,122,50,.08);}',
   '.cal-event{background:rgba(139,105,20,.05);}',
-  '.day-num{font-size:15pt;font-weight:500;color:var(--ink);line-height:1;margin-bottom:1mm;}',
+  '.day-num{font-size:16pt;font-weight:500;color:var(--ink);line-height:1;margin-bottom:.5mm;}',
+  '.weekend .day-num{color:var(--gold);}',
   '.cal-holiday .day-num{color:var(--sage);}',
   '.cal-event .day-num{color:var(--gold);}',
   '.hol-label{font-size:7.5pt;color:var(--sage);font-style:italic;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
   '.event-label{font-size:8pt;color:var(--rust);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:2mm 5mm;border-top:.3mm solid var(--border);flex-shrink:0;}',
   '.cal-footer-text{font-size:7pt;color:var(--muted);opacity:.6;letter-spacing:.04em;}',
   '.cal-footer-climate{font-size:7pt;color:var(--muted);font-style:italic;opacity:.7;}',
