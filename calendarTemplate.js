@@ -59,22 +59,33 @@ var ARTWORK_SOURCE = {
 };
 
 // Hardcoded plant commentary: 5 bullet points per plant
-var PLANT_NOTES = {
-  'rose':       ['Rosa has been cultivated for over 5,000 years.', 'The oldest living rose is said to grow on Hildesheim Cathedral, planted around 815 AD.', 'In April, watch for the first red shoots pushing from the base.', 'Feed now with a high-potash fertiliser to set up the first flush.', 'Deadhead regularly through summer to encourage continuous flowering.'],
-  'lavender':   ['Lavender takes its name from the Latin lavare \u2014 to wash.', 'Roman soldiers scented their baths with it; Tudor households used it to perfume linen.', 'In April, silver-grey mounds of fresh growth emerge from the base.', 'Cut back last year\u2019s stems to just above new growth to keep plants compact.', 'Perfect drainage is essential: more lavender dies from wet roots than from drought.'],
-  'foxglove':   ['Digitalis, derived from foxglove, transformed heart medicine in 1785.', 'The name comes from the Old English foxes gl\u014dfa \u2014 the fox\u2019s glove.', 'A biennial by nature: sow in June for flowers the following summer.', 'Self-seeds prolifically in the right conditions, naturalising in woodland edges.', 'Leave seedheads on the plant \u2014 bees love the tubular flowers in late spring.'],
-  'lemon':      ['Lemon trees can carry flowers, unripe and ripe fruit simultaneously.', 'They originate in Assam, India, and reached Europe via Arab traders in the 11th century.', 'In cool climates, bring under cover before the first frost in October.', 'Feed monthly with specialist citrus fertiliser from March to September.', 'Erratic watering causes fruit to split \u2014 keep moisture levels consistent.'],
-  'cherry':     ['A mature cherry tree can produce up to 7,000 fruits in a single season.', 'The wood is prized by furniture makers for its warm, close-grained character.', 'Prune only in summer to avoid silver leaf disease, which enters through winter wounds.', 'Net trees as fruit colours to protect from birds, who can strip a tree overnight.', 'Morello cherries are self-fertile; sweet varieties need a pollination partner.'],
-  'raspberry':  ['Raspberries are aggregate fruits: each \u2018berry\u2019 is a cluster of up to 100 tiny drupelets.', 'Summer-fruiting varieties fruit on last year\u2019s canes; autumn varieties on this year\u2019s.', 'After summer fruiting, cut all canes to the ground and tie in the new ones.', 'Autumn-fruiting varieties can simply be cut to the ground in late winter.', 'Feed with a high-potash fertiliser in spring to maximise fruit size.'],
-  'sage':       ['Salvia comes from the Latin salvare \u2014 to save \u2014 a reference to its medicinal reputation.', 'In medieval Europe it was said that a garden with sage needed no doctor.', 'Cut back hard in spring to encourage fresh growth from the base.', 'Replace plants every four to five years as they become woody and less productive.', 'Excellent drainage is essential \u2014 sage detests wet roots in winter.'],
-  'elderflower':['Elder has been considered magical throughout European history.', 'Almost every part is used: flowers for cordials and fritters, berries for wine and syrups.', 'The large flat-topped flowerheads appear in June \u2014 pick when fully open for the best scent.', 'Cut back hard every two to three years in late winter to keep to a manageable size.', 'Tolerates most soils and positions, including quite deep shade.'],
-  'valerian':   ['Valerian root has been used as a sedative since ancient Greece and Rome.', 'Modern research confirms it contains compounds that interact with GABA receptors.', 'Cut to the ground in autumn; it will return vigorously in spring.', 'Divide clumps every three to four years to maintain vigour.', 'Self-seeds freely \u2014 deadhead to prevent unwanted spread into borders.'],
-  'grape':      ['Evidence of winemaking dates back at least 8,000 years.', 'The grapevine\u2019s genome contains more genes than the human genome.', 'Prune hard to a framework of permanent rods each winter, before the sap rises.', 'Tie in new growth regularly during the growing season as it extends quickly.', 'Thin bunches in summer to improve air circulation and increase fruit size.'],
-  'quince':     ['Quince is believed to be the golden apple of Greek mythology.', 'It is one of the earliest fruits to be cultivated, grown in ancient Mesopotamia.', 'Quinces require long, warm summers to ripen \u2014 wall training helps in cooler climates.', 'The raw fruit is astringent but transforms completely when cooked into membrillo or jelly.', 'Self-fertile and largely pest-free \u2014 one of the most rewarding of all garden fruits.'],
-  'thyme':      ['The ancient Greeks burned thyme as temple incense; Roman soldiers bathed in it.', 'Its name comes from the Greek thymos, meaning courage or strength.', 'Trim hard after flowering to prevent plants from becoming woody and sprawling.', 'Replace plants every three to four years as they deteriorate with age.', 'Excellent drainage is essential \u2014 it originates on dry Mediterranean hillsides.'],
-  'mint':       ['There are over 600 varieties of mint, and they hybridise freely.', 'Peppermint is itself a natural hybrid of watermint and spearmint.', 'Contain mint in pots or with a buried barrier \u2014 it spreads aggressively underground.', 'Cut back to the ground in autumn; fresh growth returns vigorously in spring.', 'Running your hand along a stem and inhaling the scent is one of the garden\u2019s small pleasures.'],
-  'olive':      ['Some Mediterranean olive trees are estimated to be over 2,000 years old.', 'The olive branch has symbolised peace since ancient Greece.', 'Extremely drought-tolerant once established \u2014 overwatering is the main risk.', 'Hardy to around \u221210\u00b0C, but young trees need protection in hard winters.', 'Pot-grown olives should be moved under cover when temperatures fall below \u22125\u00b0C.'],
-};
+// Plant notes are now derived from structured commentary (plantCommentary.json).
+// Fallback to empty array if data not provided.
+var _plantCommentary = {};
+
+function setPlantCommentary(data) {
+  _plantCommentary = data || {};
+}
+
+function getPlantNotes(plant) {
+  if (!plant) return [];
+  var p = _plantCommentary[plant.toLowerCase()];
+  if (!p) return [];
+  // Derive 5 bullets from structured fields
+  return [
+    p.habit  || '',
+    p.flowers || p.features || '',
+    p.conditions || '',
+    p.care   || '',
+    (p.facts && p.facts[0]) || '',
+  ].filter(Boolean);
+}
+
+function getPlantData(plant) {
+  if (!plant) return null;
+  return _plantCommentary[plant.toLowerCase()] || null;
+}
+
 
 function getArtworkUrl(plant) {
   if (!plant) return null;
@@ -494,5 +505,7 @@ module.exports = {
   buildPageB: buildPageB,
   getArtworkUrl: getArtworkUrl,
   getPlantNotes: getPlantNotes,
+  getPlantData: getPlantData,
+  setPlantCommentary: setPlantCommentary,
   SHARED_CSS: SHARED_CSS,
 };
