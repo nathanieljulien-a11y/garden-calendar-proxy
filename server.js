@@ -162,6 +162,10 @@ async function proxy(req, res, stream) {
   }
 }
 
+// added for pdf service
+      import pdfRouter from './pdfService.js';
+app.use(pdfRouter);
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 // ── Geocoding ────────────────────────────────────────────────────────────────
 // Photon (komoot) — city string → lat, lng, country_code
