@@ -1,12 +1,12 @@
 // pdfService.js — Garden Calendar PDF generator (CommonJS)
-// POST /generate-pdf — accepts order JSON, returns 24-page PDF (2 pages per month)
+// POST /generate-pdf
 
-var express    = require('express');
-var puppeteer  = require('puppeteer-core');
-var chromium   = require('@sparticuz/chromium');
-var https      = require('https');
-var http       = require('http');
-var tpl        = require('./calendarTemplate.js');
+var express   = require('express');
+var puppeteer = require('puppeteer-core');
+var chromium  = require('@sparticuz/chromium');
+var https     = require('https');
+var http      = require('http');
+var tpl       = require('./calendarTemplate.js');
 
 var router = express.Router();
 
@@ -15,14 +15,23 @@ var GELATO = { widthMm: 426, heightMm: 303, bleedMm: 3 };
 var MONTH_NAMES = ['January','February','March','April','May','June',
                    'July','August','September','October','November','December'];
 
-// ── Fetch image as base64 data URI ────────────────────────────────────────────
-function fetchImageAsBase64(url) {
+// ── Fetch image as base64 data URI (server-side, no CORS) ─────────────────────
+function fetchImageAsBase64(url, redirectCount) {
+  redirectCount = redirectCount || 0;
+  if (redirectCount > 3) return Promise.resolve(null);
   return new Promise(function(resolve) {
     var client = url.startsWith('https') ? https : http;
     var req = client.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
-      // Follow one redirect
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        return fetchImageAsBase64(res.headers.location).then(resolve);
+      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307) {
+        var loc = res.headers.location;
+        if (!loc) { resolve(null); return; }
+        // Handle relative redirects
+        if (!loc.startsWith('http')) {
+          var parsed = new URL(url);
+          loc = parsed.protocol + '//' + parsed.host + loc;
+        }
+        fetchImageAsBase64(loc, redirectCount + 1).then(resolve);
+        return;
       }
       if (res.statusCode !== 200) { resolve(null); return; }
       var chunks = [];
@@ -30,40 +39,32 @@ function fetchImageAsBase64(url) {
       res.on('end', function() {
         var buf = Buffer.concat(chunks);
         var ct  = res.headers['content-type'] || 'image/jpeg';
+        // Strip charset etc from content-type
+        ct = ct.split(';')[0].trim();
         resolve('data:' + ct + ';base64,' + buf.toString('base64'));
       });
+      res.on('error', function() { resolve(null); });
     });
     req.on('error', function() { resolve(null); });
-    req.setTimeout(10000, function() { req.abort(); resolve(null); });
+    req.setTimeout(12000, function() { req.destroy(); resolve(null); });
   });
 }
 
-// ── Call Claude for plant commentary + inspo garden ───────────────────────────
+// ── Call Claude Haiku for one month's commentary ───────────────────────────────
 function fetchCommentary(plant, monthName, climate, apiKey) {
   return new Promise(function(resolve) {
-    if (!apiKey) { resolve({}); return; }
+    if (!apiKey || !plant) { resolve({}); return; }
 
-    var prompt = 'You are a horticultural writer producing content for a printed garden calendar.\n\n'
+    var prompt = 'You are writing content for a printed garden calendar. Be concise.\n\n'
       + 'Plant: ' + plant + '\n'
       + 'Month: ' + monthName + '\n'
       + 'Climate: ' + climate + '\n\n'
-      + 'Write calendar content for this plant in this month and climate region.\n'
-      + 'Return ONLY valid JSON with these fields:\n'
-      + '{\n'
-      + '  "fact": "One fascinating historical or botanical fact about this plant (2-3 sentences)",\n'
-      + '  "enjoy": "What to enjoy about this plant in this specific month — sensory details, what is flowering/fruiting/interesting right now (2-3 sentences)",\n'
-      + '  "care": "The 2-3 most important care tasks for this plant this month in this climate (2-3 sentences)",\n'
-      + '  "inspo": {\n'
-      + '    "name": "Name of a real, well-known garden worth visiting this month",\n'
-      + '    "location": "City, Country",\n'
-      + '    "highlight": "What makes it worth visiting specifically in ' + monthName + ' (1-2 sentences)"\n'
-      + '  }\n'
-      + '}\n'
-      + 'Keep each field concise. The inspo garden should be realistic and well-known.';
+      + 'Return ONLY valid JSON, no markdown fences:\n'
+      + '{"fact":"1-2 sentence botanical or historical fact about this plant.","enjoy":"What is visually interesting or enjoyable about this plant in ' + monthName + ' — what is flowering, fruiting, or noteworthy right now. 2 sentences.","care":"The 2 most important care tasks for this plant in ' + monthName + ' in this climate. 2 sentences.","inspo":{"name":"Name of a real well-known garden","location":"City, Country","highlight":"Why visit in ' + monthName + '. 1 sentence."}}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 600,
+      max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
     });
 
@@ -85,23 +86,20 @@ function fetchCommentary(plant, monthName, climate, apiKey) {
       res.on('end', function() {
         try {
           var parsed = JSON.parse(data);
-          var text = parsed.content && parsed.content[0] && parsed.content[0].text;
-          if (!text) { resolve({}); return; }
-          // Strip markdown code fences if present
-          text = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/,'').trim();
-          var commentary = JSON.parse(text);
-          resolve(commentary);
+          var text = parsed.content && parsed.content[0] && parsed.content[0].text || '';
+          text = text.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+          resolve(JSON.parse(text));
         } catch(e) {
-          console.warn('[PDF] Commentary parse error:', e.message);
+          console.warn('[PDF] Commentary parse error for ' + plant + ':', e.message);
           resolve({});
         }
       });
     });
     req.on('error', function(e) {
-      console.warn('[PDF] Commentary fetch error:', e.message);
+      console.warn('[PDF] Commentary error for ' + plant + ':', e.message);
       resolve({});
     });
-    req.setTimeout(15000, function() { req.abort(); resolve({}); });
+    req.setTimeout(20000, function() { req.destroy(); resolve({}); });
     req.write(body);
     req.end();
   });
@@ -123,7 +121,7 @@ function validateOrder(body) {
   return errors;
 }
 
-// ── Build full HTML document ──────────────────────────────────────────────────
+// ── Build full 24-page HTML ────────────────────────────────────────────────────
 async function buildFullHTML(order, apiKey) {
   var startMonth    = order.startMonth;
   var year          = order.year || new Date().getFullYear();
@@ -133,47 +131,53 @@ async function buildFullHTML(order, apiKey) {
   var climate       = order.climate;
   var recipientName = order.recipientName || '';
 
-  var pages = [];
-
+  // Fetch all 12 commentaries in parallel (Haiku is fast and cheap)
+  console.log('[PDF] Fetching 12 commentaries in parallel...');
+  var commentaryPromises = [];
   for (var i = 0; i < 12; i++) {
-    var monthIdx  = (startMonth + i) % 12;
-    var monthYear = year + Math.floor((startMonth + i) / 12);
-    var monthName = MONTH_NAMES[monthIdx];
-    var plant     = plants[i] || '';
+    var monthIdx = (startMonth + i) % 12;
+    var plant    = plants[i] || '';
+    commentaryPromises.push(fetchCommentary(plant, MONTH_NAMES[monthIdx], climate, apiKey));
+  }
+  var commentaries = await Promise.all(commentaryPromises);
+  console.log('[PDF] Commentaries done. Fetching 12 artwork images...');
 
-    console.log('[PDF] Month ' + (i+1) + '/12: ' + monthName + ' — ' + plant);
+  // Fetch all 12 artwork images in parallel
+  var artworkPromises = [];
+  for (var j = 0; j < 12; j++) {
+    var artUrl = tpl.getArtworkUrl(plants[j] || '');
+    artworkPromises.push(artUrl ? fetchImageAsBase64(artUrl) : Promise.resolve(null));
+  }
+  var artworks = await Promise.all(artworkPromises);
+  console.log('[PDF] Images done. Building HTML...');
 
-    // Fetch artwork and commentary in parallel
-    var artworkUrl = tpl.getArtworkUrl(plant);
-    var artworkB64Promise = artworkUrl ? fetchImageAsBase64(artworkUrl) : Promise.resolve(null);
-    var commentaryPromise = fetchCommentary(plant, monthName, climate, apiKey);
+  var pages = [];
+  for (var k = 0; k < 12; k++) {
+    var mIdx  = (startMonth + k) % 12;
+    var mYear = year + Math.floor((startMonth + k) / 12);
+    var mName = MONTH_NAMES[mIdx];
+    var plt   = plants[k] || '';
 
-    var results = await Promise.all([artworkB64Promise, commentaryPromise]);
-    var artworkB64 = results[0] || '';
-    var commentary = results[1] || {};
-
-    // Filter key dates and holidays for this month
-    var monthKeyDates = (keyDates || []).filter(function(d) {
+    var monthKeyDates = (keyDates).filter(function(d) {
       var date = new Date(d.date);
-      return date.getFullYear() === monthYear && date.getMonth() === monthIdx;
+      return date.getFullYear() === mYear && date.getMonth() === mIdx;
     });
-    var monthHolidays = (holidays || []).filter(function(h) {
+    var monthHolidays = (holidays).filter(function(h) {
       var s = new Date(h.startDate), e = new Date(h.endDate);
-      var ms = new Date(monthYear, monthIdx, 1), me = new Date(monthYear, monthIdx + 1, 0);
+      var ms = new Date(mYear, mIdx, 1), me = new Date(mYear, mIdx + 1, 0);
       return s <= me && e >= ms;
     });
 
-    // Page A: artwork + commentary
     pages.push(tpl.buildPageA({
-      monthName: monthName, monthIdx: monthIdx, year: monthYear,
-      plant: plant, artworkB64: artworkB64, commentary: commentary,
+      monthName: mName, monthIdx: mIdx, year: mYear, plant: plt,
+      artworkB64: artworks[k] || '',
+      commentary: commentaries[k] || {},
       recipientName: recipientName, climate: climate,
     }));
 
-    // Page B: full calendar grid
     pages.push(tpl.buildPageB({
-      monthName: monthName, monthIdx: monthIdx, year: monthYear,
-      plant: plant, keyDates: monthKeyDates, holidays: monthHolidays,
+      monthName: mName, monthIdx: mIdx, year: mYear, plant: plt,
+      keyDates: monthKeyDates, holidays: monthHolidays,
       climate: climate, recipientName: recipientName,
     }));
   }
@@ -204,14 +208,15 @@ async function generatePDF(html) {
       height: Math.round(GELATO.heightMm * 150 / 25.4),
       deviceScaleFactor: 2,
     });
-    // Images are already base64 embedded — no network needed, so use domcontentloaded
-    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await new Promise(function(r) { setTimeout(r, 1500); }); // let fonts render
+    // All images are base64 embedded — use domcontentloaded, not networkidle
+    await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    await new Promise(function(r) { setTimeout(r, 2000); }); // let fonts render
     var pdf = await page.pdf({
       width: GELATO.widthMm + 'mm',
       height: GELATO.heightMm + 'mm',
       printBackground: true,
       margin: { top:0, right:0, bottom:0, left:0 },
+      timeout: 120000,
     });
     return pdf;
   } finally {
@@ -226,14 +231,19 @@ router.post('/generate-pdf', async function(req, res) {
     return res.status(400).json({ error: 'Validation failed', details: errors });
   }
 
+  // Set a long response timeout — PDF generation takes 60-120s
+  req.socket.setTimeout(180000);
+  res.setTimeout(180000);
+
   var apiKey = process.env.ANTHROPIC_API_KEY || '';
-  console.log('[PDF] Starting generation for ' + req.body.climate + ', start month ' + req.body.startMonth);
+  console.log('[PDF] Order received: ' + req.body.climate + ', month ' + req.body.startMonth);
   var t0 = Date.now();
 
   try {
     var html = await buildFullHTML(req.body, apiKey);
-    var pdf  = await generatePDF(html);
-    console.log('[PDF] Done in ' + ((Date.now()-t0)/1000).toFixed(1) + 's, ' + Math.round(pdf.length/1024) + 'KB');
+    console.log('[PDF] HTML built (' + Math.round(html.length/1024) + 'KB), rendering PDF...');
+    var pdf = await generatePDF(html);
+    console.log('[PDF] Complete in ' + ((Date.now()-t0)/1000).toFixed(1) + 's, ' + Math.round(pdf.length/1024) + 'KB');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="garden-calendar.pdf"',
