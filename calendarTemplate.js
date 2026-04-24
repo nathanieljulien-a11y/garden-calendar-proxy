@@ -210,7 +210,9 @@ function buildPageA(opts) {
     +   '<div class="box-label">Garden tasks</div>'
     +   '<div class="tasks-intro">In ' + monthName + ', look to sow, plant out, and tend to seasonal priorities for your climate and chosen plants.</div>'
     +   '<div class="tasks-prompt">What needs doing in your garden this month?</div>'
+    +   '<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:1mm;">'
     +   checkboxes
+    +   '</div>'
     + '</div>'
 
     // 3. PLANT NOTES BOX
@@ -313,7 +315,10 @@ function buildPageB(opts) {
   }
   for (var e = 0; e < firstDow; e++) {
     var eW = e >= 5 ? ' weekend' : '';
-    gridHtml += '<div class="cal-cell cal-empty' + eW + '"></div>';
+    // Day number from previous month
+    var prevMonthDays = getDaysInMonth(monthIdx === 0 ? year - 1 : year, (monthIdx + 11) % 12);
+    var prevDay = prevMonthDays - (firstDow - 1 - e);
+    gridHtml += '<div class="cal-cell cal-overflow' + eW + '"><span class="day-num overflow-num">' + prevDay + '</span></div>';
   }
   for (var d = 1; d <= daysInMonth; d++) {
     var isHol   = !!holidayDays[d];
@@ -334,7 +339,7 @@ function buildPageB(opts) {
   for (var t = 0; t < trailing; t++) {
     var tCol = (total + t) % 7;
     var tWeekend = tCol >= 5 ? ' weekend' : '';
-    gridHtml += '<div class="cal-cell cal-empty' + tWeekend + '"></div>';
+    gridHtml += '<div class="cal-cell cal-overflow' + tWeekend + '"><span class="day-num overflow-num">' + (t + 1) + '</span></div>';
   }
 
   return '<div class="cal-page page-b">'
@@ -343,13 +348,11 @@ function buildPageB(opts) {
     + '<div class="cal-header">'
     +   '<div class="cal-header-month">' + monthName + '</div>'
     +   '<div class="cal-header-year">' + year + '</div>'
-    +   (plantDisplay ? '<div class="cal-header-plant">' + plantDisplay + '</div>' : '')
     +   (recipientName ? '<div class="cal-header-recip">' + recipientName + '\u2019s Garden Calendar</div>' : '')
     + '</div>'
     + '<div class="cal-grid-full">' + gridHtml + '</div>'
     + '<div class="cal-footer">'
     +   '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
-    +   (climate ? '<span class="cal-footer-climate">' + climate + '</span>' : '')
     + '</div>'
     + '</div>'
     + '</div>'
@@ -388,7 +391,7 @@ var SHARED_CSS = [
   // Box proportions via flex-grow weighted by ratio (15/35/35/15)
   // We name the boxes; JS adds flex styling inline
   '.wx-box{flex:15;}',
-  '.tasks-box{flex:35;}',
+  '.tasks-box{flex:35;display:flex;flex-direction:column;}',
   '.notes-box{flex:35;}',
   '.inspo-box{flex:15;}',
 
@@ -401,11 +404,11 @@ var SHARED_CSS = [
   '.wx-wind strong{color:var(--ink);}',
 
   // TASKS
-  '.tasks-intro{font-size:9.5pt;line-height:1.45;color:var(--ink);margin-bottom:2mm;}',
-  '.tasks-prompt{font-size:9pt;font-style:italic;color:var(--muted);margin-bottom:2mm;}',
-  '.cb-row{display:flex;align-items:center;gap:2mm;margin-bottom:2mm;}',
-  '.cb-sq{width:3.5mm;height:3.5mm;border:.4mm solid var(--muted);border-radius:.5mm;flex-shrink:0;}',
-  '.cb-line{flex:1;border-bottom:.3mm solid rgba(139,105,20,.18);height:3.5mm;}',
+  '.tasks-intro{font-size:10.5pt;line-height:1.5;color:var(--ink);margin-bottom:2.5mm;}',
+  '.tasks-prompt{font-size:10pt;font-style:italic;color:var(--muted);margin-bottom:2.5mm;}',
+  '.cb-row{display:flex;align-items:center;gap:2mm;flex:1;}',
+  '.cb-sq{width:4mm;height:4mm;border:.4mm solid var(--muted);border-radius:.5mm;flex-shrink:0;}',
+  '.cb-line{flex:1;border-bottom:.3mm solid rgba(139,105,20,.2);height:4mm;}',
 
   // PLANT NOTES
   '.notes-body{height:calc(100% - 5mm);display:flex;flex-direction:column;justify-content:space-around;}',
@@ -450,7 +453,7 @@ var SHARED_CSS = [
   '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;min-height:0;border-left:.3mm solid var(--border);border-top:.3mm solid var(--border);}',
 
   // Day header row — fixed height, larger font, centred both axes
-  '.cal-dow{height:8mm;display:flex;align-items:center;justify-content:center;font-size:10pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.5mm solid var(--gold);background:rgba(139,105,20,.05);}',
+  '.cal-dow{height:16mm;display:flex;align-items:center;justify-content:center;font-size:13pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.5mm solid var(--gold);background:rgba(139,105,20,.05);}',
 
   // Sat (6th col) and Sun (7th col) shading on dow headers
   '.cal-dow:nth-child(6){background:rgba(139,105,20,.1);}',
@@ -468,7 +471,9 @@ var SHARED_CSS = [
   // Simpler: add weekend class in JS
   '.cal-cell.weekend{background:rgba(139,105,20,.04);}',
 
-  '.cal-empty{background:rgba(0,0,0,.012);}',
+  '.cal-empty{background:rgba(0,0,0,.012);}'
+  ,'.cal-overflow{background:rgba(0,0,0,.012);}'
+  ,'.overflow-num{color:rgba(44,26,10,.28) !important;font-size:16pt;font-weight:400;}',
   '.cal-empty.weekend{background:rgba(139,105,20,.03);}',
   '.cal-holiday{background:rgba(90,122,50,.08);}',
   '.cal-event{background:rgba(139,105,20,.05);}',
