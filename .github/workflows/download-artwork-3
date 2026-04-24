@@ -1,0 +1,188 @@
+name: Download Botanical Artwork (Pass 3)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pillow requests -q
+
+      - name: Download remaining Köhler plates (rate-limit friendly)
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, time, os, io
+          from urllib.parse import quote
+          from PIL import Image
+
+          DELAY = 4.0  # seconds between requests - polite to Wikimedia
+
+          def url(filename):
+              md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              enc = quote(filename, safe='')
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
+
+          def kp(species, plate):
+              return f"{species}_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-{plate:03d}.jpg"
+
+          def try_download(name, filename, dest, quiet=False):
+              headers = {
+                  'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y; one-time artwork archive)',
+                  'Accept': 'image/jpeg,image/png,image/*',
+                  'Referer': 'https://commons.wikimedia.org/',
+              }
+              try:
+                  r = requests.get(url(filename), headers=headers, timeout=25)
+                  if r.ok and len(r.content) > 5000:
+                      img = Image.open(io.BytesIO(r.content))
+                      if img.width > 800:
+                          h = int(img.height * 800 / img.width)
+                          img = img.resize((800, h), Image.LANCZOS)
+                      if img.mode == 'RGBA': img = img.convert('RGB')
+                      img.save(dest, 'JPEG', quality=85, optimize=True)
+                      return 'ok'
+                  return r.status_code
+              except Exception as e:
+                  return str(e)
+
+          os.makedirs('artwork', exist_ok=True)
+
+          # ── Section 1: Probe plate numbers for Köhler Vol 3 plants ─────────────
+          # Vol 3 runs plates 195-274 (80 plates continuing from Vol 2's 194)
+          # Alphabetical order within the volume gives us search ranges
+          # Confirmed anchors: olive(Olea)=229, thyme(Thymus)=271
+          # F plants precede I,L,M,O,P,R alphabetically within Vol 3
+
+          PROBES = {
+              # (species, candidate plates in priority order)
+              'iris':       ('Iris_germanica',        list(range(220,232))),
+              'lemon':      ('Citrus_limon',          list(range(195,208))),
+              'rosemary':   ('Rosmarinus_officinalis',list(range(240,252))),
+              'fennel':     ('Foeniculum_vulgare',    list(range(200,213))),
+              'fig':        ('Ficus_carica',          list(range(198,211))),
+              'peach':      ('Prunus_persica',        list(range(234,248))),
+              'strawberry': ('Fragaria_vesca',        list(range(200,213))),
+              'almond':     ('Prunus_dulcis',         list(range(234,248))),
+              'apricot':    ('Prunus_armeniaca',      list(range(234,248))),
+              'mulberry':   ('Morus_nigra',           list(range(220,232))),
+          }
+
+          print("=== Probing Köhler Vol 3 plate numbers ===")
+          for name, (species, plates) in PROBES.items():
+              dest = f'artwork/{name}.jpg'
+              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+                  print(f'  skip {name} (exists)'); continue
+              found = False
+              for plate in plates:
+                  filename = kp(species, plate)
+                  time.sleep(DELAY)
+                  result = try_download(name, filename, dest)
+                  if result == 'ok':
+                      print(f'  OK   {name} = plate {plate:03d} ({os.path.getsize(dest)//1024}KB)')
+                      found = True
+                      break
+                  elif result == 429:
+                      print(f'  429  rate limited on {name} plate {plate} - stopping Köhler probes')
+                      break
+              if not found:
+                  print(f'  MISS {name} (plates {plates[0]}-{plates[-1]})')
+              time.sleep(DELAY)
+
+          # ── Section 2: Curtis's Botanical Magazine (ornamental plants) ────────
+          # All pre-1928, fully public domain
+          # Commons filenames for early volumes are inconsistent —
+          # trying the most common patterns per plant
+
+          print("\n=== Curtis's Botanical Magazine ===")
+
+          def wm_url_raw(filename):
+              md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              enc = quote(filename, safe='')
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
+
+          CURTIS = {
+              # plant: list of filenames to try (multiple patterns per plant)
+              'camellia': [
+                  'Camellia_japonica_-_The_Botanical_Magazine_-_vol._2_(1788)_plate_42.jpg',
+                  'Camellia_japonica_Botanical_Magazine_vol_2_plate_42.jpg',
+                  'Bot._Mag._42_-_Camellia_japonica.jpg',
+              ],
+              'wisteria': [
+                  'Wisteria_sinensis_-_Botanical_Register_1817.jpg',
+                  'Wisteria_sinensis_Ker_Gawler.jpg',
+              ],
+              'tulip': [
+                  'Tulipa_gesneriana_Botanical_Magazine_4382.jpg',
+                  'Tulipa_-_The_Botanical_Magazine_-_vol._26_(1807)_plate_1054.jpg',
+              ],
+              'peony': [
+                  'Paeonia_officinalis_-_Kohler\u2013s_Medizinal-Pflanzen-164.jpg',
+                  'Paeonia_officinalis_Botanical_Magazine_plate_1784.jpg',
+              ],
+              'magnolia': [
+                  'Magnolia_grandiflora_-_Botanical_Magazine_-_vol._3_(1790)_plate_80.jpg',
+              ],
+              'sunflower': [
+                  'Helianthus_annuus_Blackwell_Herbarium.jpg',
+                  'Helianthus_annuus_-_Kohler\u2013s_Medizinal-Pflanzen.jpg',
+              ],
+              'hydrangea': [
+                  'Hydrangea_hortensis_-_Botanical_Magazine_-_vol._6_(1793)_plate_202.jpg',
+                  'Hydrangea_macrophylla_-_The_Botanical_Magazine.jpg',
+              ],
+              'oleander': [
+                  'Nerium_oleander_-_Botanical_Magazine_-_vol._3_(1790)_plate_166.jpg',
+              ],
+              'iris': [
+                  # Try florentina variety on Commons if germanica fails above
+                  'Iris_florentina_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-079.jpg',
+                  'Iris_pallida_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-079.jpg',
+              ],
+              'snapdragon': [
+                  'Antirrhinum_majus_-_Blackwell_Herbarium.jpg',
+              ],
+              'borage': [
+                  'Borago_officinalis_Blackwell_Herbarium.jpg',
+              ],
+              'nasturtium': [
+                  'Tropaeolum_majus_-_Botanical_Magazine_vol_2.jpg',
+              ],
+              'pansy': [
+                  'Viola_tricolor_-_Blackwell_Herbarium.jpg',
+              ],
+          }
+
+          for name, filenames in CURTIS.items():
+              dest = f'artwork/{name}.jpg'
+              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+                  print(f'  skip {name} (exists)'); continue
+              found = False
+              for filename in filenames:
+                  time.sleep(DELAY)
+                  result = try_download(name, filename, dest)
+                  if result == 'ok':
+                      print(f'  OK   {name} ({os.path.getsize(dest)//1024}KB) <- {filename[:60]}')
+                      found = True
+                      break
+              if not found:
+                  print(f'  MISS {name}')
+              time.sleep(DELAY)
+
+          print('\nPass 3 complete.')
+          PYEOF
+
+      - name: Commit artwork to repo
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add artwork/
+          git diff --staged --quiet || git commit -m "Botanical artwork pass 3 (Vol3 probes + Curtis) [automated]"
+          git push
