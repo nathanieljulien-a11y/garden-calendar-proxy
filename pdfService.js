@@ -17,47 +17,24 @@ var GELATO = { widthMm: 426, heightMm: 303 };
 var MONTH_NAMES = ['January','February','March','April','May','June',
                    'July','August','September','October','November','December'];
 
-// ── Fetch image as base64 — follows redirects, no CORS issues ─────────────────
-function fetchImageAsBase64(url, hops) {
-  hops = hops || 0;
-  if (!url || hops > 4) return Promise.resolve(null);
-  return new Promise(function(resolve) {
-    var client = url.startsWith('https') ? https : http;
-    var opts = { headers: {
-      'User-Agent': 'GardenCalendarApp/1.0 (educational project; contact@gardencalendar.app)',
-      'Accept': 'image/jpeg,image/png,image/*',
-      'Referer': 'https://commons.wikimedia.org/',
-    } };
-    console.log('[IMG] Fetching (hop ' + hops + '):', url.slice(0, 100));
-    var req = client.get(url, opts, function(res) {
-      console.log('[IMG] Response:', res.statusCode, 'content-type:', res.headers['content-type'], 'location:', res.headers.location || '');
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        var loc = res.headers.location;
-        if (!loc.startsWith('http')) {
-          var u = new URL(url);
-          loc = u.protocol + '//' + u.host + loc;
-        }
-        res.resume();
-        fetchImageAsBase64(loc, hops + 1).then(resolve);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        console.log('[IMG] Non-200, giving up:', res.statusCode);
-        res.resume(); resolve(null); return;
-      }
-      var chunks = [];
-      res.on('data', function(c) { chunks.push(c); });
-      res.on('end', function() {
-        var buf = Buffer.concat(chunks);
-        var ct  = (res.headers['content-type'] || 'image/jpeg').split(';')[0].trim();
-        console.log('[IMG] OK:', Math.round(buf.length/1024) + 'KB', ct);
-        resolve('data:' + ct + ';base64,' + buf.toString('base64'));
-      });
-      res.on('error', function(e) { console.log('[IMG] Stream error:', e.message); resolve(null); });
-    });
-    req.on('error', function(e) { console.log('[IMG] Request error:', e.message); resolve(null); });
-    req.setTimeout(15000, function() { console.log('[IMG] Timeout'); req.destroy(); resolve(null); });
-  });
+// ── Read artwork from disk (downloaded at build time by download-artwork.js) ───
+var path = require('path');
+
+function readArtworkAsBase64(plant) {
+  if (!plant) return null;
+  var key = plant.toLowerCase().trim();
+  // Try jpg first, then png
+  var exts = ['.jpg', '.png'];
+  for (var i = 0; i < exts.length; i++) {
+    var fp = path.join(__dirname, 'artwork', key + exts[i]);
+    try {
+      var buf = require('fs').readFileSync(fp);
+      var ct  = exts[i] === '.png' ? 'image/png' : 'image/jpeg';
+      return 'data:' + ct + ';base64,' + buf.toString('base64');
+    } catch(e) { /* try next */ }
+  }
+  console.warn('[ART] Not found on disk:', key);
+  return null;
 }
 
 // ── Geocode a city string to lat/lng via Photon (same as web app) ─────────────
@@ -196,13 +173,10 @@ async function buildFullHTML(order, apiKey) {
     console.log('[PDF] Climate data:', climateData ? 'OK' : 'not available');
   }
 
-  // Fetch all 12 artwork images in parallel
-  console.log('[PDF] Fetching 12 artwork images...');
-  var artworkUrls = plants.map(function(p) { return tpl.getArtworkUrl(p); });
-  var artworks = await Promise.all(artworkUrls.map(function(u) {
-    return u ? fetchImageAsBase64(u) : Promise.resolve(null);
-  }));
-  console.log('[PDF] Artwork fetched. Images loaded: ' + artworks.filter(Boolean).length + '/12');
+  // Read artwork from disk (downloaded at build time)
+  console.log('[PDF] Reading artwork from disk...');
+  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); });
+  console.log('[PDF] Artwork loaded: ' + artworks.filter(Boolean).length + '/12');
 
   // Fetch all 12 inspo gardens in parallel
   console.log('[PDF] Fetching 12 inspo garden recommendations...');
