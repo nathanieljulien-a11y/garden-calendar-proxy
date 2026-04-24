@@ -94,7 +94,15 @@ function getArtworkUrl(plant) {
 
 function getPlantNotes(plant) {
   if (!plant) return [];
-  return PLANT_NOTES[plant.toLowerCase()] || [];
+  var p = _plantCommentary[plant.toLowerCase()];
+  if (!p) return [];
+  return [
+    p.habit  || '',
+    p.flowers || p.features || '',
+    p.conditions || '',
+    p.care   || '',
+    (p.facts && p.facts[0]) || '',
+  ].filter(Boolean);
 }
 
 function getArtworkSource(plant) {
