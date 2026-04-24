@@ -1,0 +1,422 @@
+{
+  "foxglove": {
+    "latin": "Digitalis purpurea",
+    "habit": "Upright, clump-forming biennial or short-lived perennial. Reaches 1\u20131.5m in height.",
+    "features": "Tall spires of bell-shaped flowers; soft, hairy, mid-green basal rosettes in the first year.",
+    "flowers": "Tubular, nodding bells in shades of purple, pink, or white with spotted throats, May\u2013July.",
+    "conditions": "Partial shade to full sun; prefers moist, well-drained, humus-rich soil; hardy to -20\u00b0C.",
+    "care": "Deadhead spent flower spikes to encourage a second flush or leave for self-seeding. Cut back to ground in autumn.",
+    "facts": [
+      "Source of digitalin, used in heart medication, but the plant is highly toxic if ingested.",
+      "Folklore suggests foxes wore the flowers on their paws to silence their movements while hunting."
+    ]
+  },
+  "iris": {
+    "latin": "Iris germanica",
+    "habit": "Herbaceous perennial with a creeping rhizomatous habit; sword-like fans of grey-green foliage.",
+    "features": "Architectural foliage provides vertical interest; striking 'bearded' flower structure.",
+    "flowers": "Exotic three-petaled blooms with 'falls' and 'standards' in almost every color; peaks May\u2013June.",
+    "conditions": "Full sun (rhizomes need baking); neutral to lime-rich, well-drained soil; very hardy.",
+    "care": "Divide rhizomes every 3-4 years after flowering. Trim leaves to a fan shape in autumn to prevent wind rock.",
+    "facts": [
+      "Named after the Greek goddess of the rainbow, Iris, who acted as a messenger between heaven and earth.",
+      "The 'Fleur-de-lis' symbol of French royalty is a stylized representation of the iris."
+    ]
+  },
+  "tulip": {
+    "latin": "Tulipa gesneriana",
+    "habit": "Spring-flowering bulbous perennial; upright stems ranging from 10cm to 70cm.",
+    "features": "Broad, glaucous green leaves; sleek, symmetrical goblet-shaped blooms.",
+    "flowers": "Vast range of colors (except true blue) and forms (lily-flowered, parrot, fringed); April\u2013May.",
+    "conditions": "Full sun; fertile, well-drained soil; benefits from a sheltered spot to prevent wind damage.",
+    "care": "Plant bulbs deep (3x height) in late autumn (November) to avoid 'Tulip Fire' fungus. Deadhead after flowering.",
+    "facts": [
+      "In 17th-century Holland, 'Tulip Mania' caused bulb prices to exceed the cost of a house.",
+      "Tulip petals are edible and can be used in salads, though bulbs are toxic."
+    ]
+  },
+  "peony": {
+    "latin": "Paeonia lactiflora",
+    "habit": "Bushy herbaceous perennial or woody shrub (Tree Peony); long-lived and substantial.",
+    "features": "Deeply divided dark green foliage; new shoots emerge as striking deep red 'noses' in spring.",
+    "flowers": "Large, often fragrant, bowl-shaped flowers in white, pink, or crimson; peaks May\u2013June.",
+    "conditions": "Full sun to dappled shade; deep, fertile, moist but well-drained soil; hardy and reliable.",
+    "care": "Provide support for heavy flower heads in spring. Cut back herbaceous types to ground level in autumn.",
+    "facts": [
+      "Peonies can live for over 100 years if left undisturbed in the right conditions.",
+      "In Chinese culture, it is known as the 'King of Flowers' and symbolizes honor and wealth."
+    ]
+  },
+  "camellia": {
+    "latin": "Camellia japonica",
+    "habit": "Evergreen shrub or small tree; dense, rounded habit with glossy, leathery dark green leaves.",
+    "features": "Provides structural greenery year-round; blooms during the bleakest months of late winter.",
+    "flowers": "Rose-like blooms in white, pink, or red; appear February\u2013April. Avoid early morning sun which burns frosted buds.",
+    "conditions": "Partial shade; acidic, moist, well-drained soil (ericaceous); sheltered, west or north-facing aspect.",
+    "care": "Prune lightly after flowering to maintain shape. Feed with ericaceous fertilizer in spring and early summer.",
+    "facts": [
+      "The tea we drink (Camellia sinensis) is a close relative of the ornamental camellia.",
+      "In the 19th century, they were the ultimate luxury flower, often worn in buttonholes of formal attire."
+    ]
+  },
+  "magnolia": {
+    "latin": "Magnolia stellata",
+    "habit": "Deciduous or evergreen tree/shrub; often spreading and architectural with smooth grey bark.",
+    "features": "Fuzzy, velvet-like flower buds in winter; large, dramatic leaves follow the spring bloom.",
+    "flowers": "Large star-shaped or tulip-shaped blooms in white, pink, or purple; March\u2013May before leaves appear.",
+    "conditions": "Full sun or dappled shade; neutral to acidic soil; sheltered from cold winds to protect flowers.",
+    "care": "Minimal pruning required; remove crossing or dead branches in mid-summer. Mulch annually in spring.",
+    "facts": [
+      "Magnolias are among the most ancient flowering plants, existing before bees (they are pollinated by beetles).",
+      "The flower represents dignity and perseverance due to its ability to survive for millennia."
+    ]
+  },
+  "wisteria": {
+    "latin": "Wisteria sinensis",
+    "habit": "Vigorous deciduous woody climber; requires strong support for its twining woody stems.",
+    "features": "Pinnate green leaves that turn yellow in autumn; impressive, gnarled trunks as the plant ages.",
+    "flowers": "Long, drooping racemes (up to 30cm) of fragrant, pea-like mauve or white flowers; May\u2013June.",
+    "conditions": "Full sun for best flowering; fertile, moist, well-drained soil; south or west-facing walls.",
+    "care": "Prune twice yearly: in summer (July/August) cut long shoots to 5-6 buds; in winter (January) cut to 2-3 buds.",
+    "facts": [
+      "Wisteria can take up to 20 years to flower if grown from seed; always buy grafted plants.",
+      "A single wisteria plant in Sierra Madre, California, is known as the 'largest blossoming plant in the world'."
+    ]
+  },
+  "sunflower": {
+    "latin": "Helianthus annuus",
+    "habit": "Fast-growing annual herb; can reach 1m to 4m depending on variety.",
+    "features": "Tall, thick hairy stems with large, heart-shaped, rough leaves.",
+    "flowers": "Large composite heads with yellow ray florets and dark central discs; July\u2013September.",
+    "conditions": "Full sun; well-drained, fertile soil; requires plenty of water during growth.",
+    "care": "Sow in April. Stake tall varieties. Leave heads in autumn for birds or harvest seeds.",
+    "facts": [
+      "Sunflowers display heliotropism, turning their heads to follow the sun across the sky.",
+      "A single sunflower can contain up to 2,000 seeds."
+    ]
+  },
+  "hydrangea": {
+    "latin": "Hydrangea macrophylla",
+    "habit": "Deciduous shrub with a rounded, bushy habit; typically 1\u20132m tall.",
+    "features": "Large, ovate, serrated leaves; attractive dried flower heads provide winter interest.",
+    "flowers": "Large mopheads or lacecaps in blue, pink, or white; July\u2013October.",
+    "conditions": "Partial shade; moist, well-drained soil. Soil pH affects color (acid for blue, alkaline for pink).",
+    "care": "Prune in spring, cutting back old flower heads to just above a pair of strong buds.",
+    "facts": [
+      "The name comes from Greek 'hydor' (water) and 'angos' (vessel), referring to its water-loving nature.",
+      "In Japan, hydrangeas are associated with heartfelt emotion and apologies."
+    ]
+  },
+  "oleander": {
+    "latin": "Nerium oleander",
+    "habit": "Vigorous evergreen shrub or small tree; upright and mounding to 2\u20134m.",
+    "features": "Narrow, leathery, willow-like dark green leaves; drought and salt tolerant.",
+    "flowers": "Funnel-shaped blooms in clusters of white, pink, red, or apricot; June\u2013September.",
+    "conditions": "Full sun; well-drained soil; very heat tolerant; hardy to -5\u00b0C (needs winter protection in cold zones).",
+    "care": "Prune in late winter to maintain shape. Wear gloves as all parts are highly toxic.",
+    "facts": [
+      "One of the most poisonous commonly grown garden plants; even the smoke from burning it is toxic.",
+      "It is the official flower of the city of Hiroshima, as it was the first to bloom after the 1945 bombing."
+    ]
+  },
+  "snapdragon": {
+    "latin": "Antirrhinum majus",
+    "habit": "Short-lived perennial usually grown as an annual; upright spikes 15cm to 1m tall.",
+    "features": "Lance-shaped leaves; unique 'hinged' flower structure that 'snaps' open when squeezed.",
+    "flowers": "Multi-colored spikes in almost every shade except blue; June\u2013October.",
+    "conditions": "Full sun; well-drained, fertile soil; prefers cooler summer temperatures.",
+    "care": "Pinch out young plants to encourage bushiness. Deadhead regularly to prolong flowering.",
+    "facts": [
+      "The name 'Antirrhinum' means 'like a nose' in Greek.",
+      "Ancient people believed snapdragons could ward off witchcraft and aging."
+    ]
+  },
+  "nasturtium": {
+    "latin": "Tropaeolum majus",
+    "habit": "Vigorous annual; can be trailing, climbing (to 2m), or compact and mounding.",
+    "features": "Distinctive circular (peltate) light green leaves; edible peppery flavor.",
+    "flowers": "Trumpet-shaped blooms in brilliant orange, yellow, and red; June until first frost.",
+    "conditions": "Full sun; poor soil actually encourages more flowers over foliage; well-drained.",
+    "care": "Sow directly in May. Very easy care; do not over-fertilize. Watch for black bean aphids.",
+    "facts": [
+      "Both the leaves and flowers are edible, tasting similar to watercress.",
+      "They are excellent companion plants, used as a 'trap crop' to lure pests away from vegetables."
+    ]
+  },
+  "pansy": {
+    "latin": "Viola x wittrockiana",
+    "habit": "Low-growing, clump-forming short-lived perennial often grown as an annual.",
+    "features": "Heart-shaped, scalloped leaves; iconic 'face' markings on the petals.",
+    "flowers": "Large, flat-faced blooms in a vast array of colors and bicolors; peaks in spring and autumn.",
+    "conditions": "Full sun to partial shade; moist, well-drained soil; very cold hardy.",
+    "care": "Deadhead to keep flowers coming. Water regularly in dry spells. Plant in autumn for spring color.",
+    "facts": [
+      "The name comes from the French 'pens\u00e9e', meaning 'thought' or 'remembrance'.",
+      "Pansies were the first flower used in large-scale commercial hybridizing."
+    ]
+  },
+  "valerian": {
+    "latin": "Valeriana officinalis",
+    "habit": "Tall, upright herbaceous perennial; reaching 1m to 1.5m.",
+    "features": "Pinnate, deeply toothed foliage; fern-like appearance at the base.",
+    "flowers": "Small, scented pale pink or white flowers in dense terminal clusters; June\u2013August.",
+    "conditions": "Full sun to partial shade; prefers moist, heavy soils; very hardy.",
+    "care": "Cut back after flowering to prevent self-seeding. Divide in spring or autumn.",
+    "facts": [
+      "The root has been used since ancient times as a sedative and sleep aid.",
+      "Cats are often as attracted to valerian as they are to catnip."
+    ]
+  },
+  "thyme": {
+    "latin": "Thymus vulgaris",
+    "habit": "Low-growing, woody evergreen sub-shrub or carpeting groundcover.",
+    "features": "Tiny, highly aromatic grey-green leaves; drought-tolerant and rugged.",
+    "flowers": "Clusters of tiny tubular white to pale purple flowers; June\u2013August.",
+    "conditions": "Full sun; poor, gritty, very well-drained soil; hates winter wet.",
+    "care": "Lightly trim after flowering to keep it compact. Replace plants every 3-5 years as they go woody.",
+    "facts": [
+      "In ancient Greece, thyme was a symbol of courage; soldiers would bathe in thyme water before battle.",
+      "It is a primary source of thymol, a powerful natural antiseptic."
+    ]
+  },
+  "lavender": {
+    "latin": "Lavandula angustifolia",
+    "habit": "Compact mounding sub-shrub, 30\u201360cm in height.",
+    "features": "Silver-grey aromatic foliage year-round; provides structure in winter.",
+    "flowers": "Violet-blue to pale lilac spikes, June\u2013August; highly attractive to bees.",
+    "conditions": "Full sun, excellent drainage, alkaline to neutral soil; extremely drought tolerant.",
+    "care": "Cut back to new growth in April; avoid cutting into old wood. Trim spent flowers in late summer.",
+    "facts": [
+      "Name from Latin 'lavare' \u2014 to wash; used by Romans to scent bathwater.",
+      "Roman soldiers carried it for its wound-healing properties."
+    ]
+  },
+  "mint": {
+    "latin": "Mentha spicata",
+    "habit": "Vigorous, invasive herbaceous perennial spreading via underground runners.",
+    "features": "Square stems and serrated, highly aromatic bright green leaves.",
+    "flowers": "Spikes of tiny lilac flowers in late summer; loved by pollinators.",
+    "conditions": "Partial shade to full sun; prefers moist, fertile soil.",
+    "care": "Best grown in a pot to contain its spread. Cut back hard after flowering to encourage fresh leaves.",
+    "facts": [
+      "In Greek myth, Minthe was a nymph turned into the plant by Persephone out of jealousy.",
+      "There are over 600 varieties of mint, including chocolate, pineapple, and ginger mint."
+    ]
+  },
+  "sage": {
+    "latin": "Salvia officinalis",
+    "habit": "Evergreen sub-shrub with a bushy, spreading habit; 60cm x 60cm.",
+    "features": "Textured, pebbly, grey-green leaves; highly aromatic and soft to the touch.",
+    "flowers": "Spikes of bluish-purple flowers in early summer.",
+    "conditions": "Full sun; well-drained, even sandy soil; very drought tolerant once established.",
+    "care": "Prune lightly in spring. Do not prune in autumn as new growth may be damaged by frost.",
+    "facts": [
+      "The name 'Salvia' comes from the Latin 'salvere', meaning 'to be saved' or 'to heal'.",
+      "Ancient Romans used it as a digestive aid and a memory enhancer."
+    ]
+  },
+  "rosemary": {
+    "latin": "Salvia rosmarinus",
+    "habit": "Woody evergreen shrub; can be upright (to 1.5m) or prostrate/trailing.",
+    "features": "Needle-like aromatic leaves, dark green above and white-felted beneath.",
+    "flowers": "Small, two-lipped flowers in pale blue or white; often blooms in early spring and autumn.",
+    "conditions": "Full sun; sharply drained soil; sheltered from cold, drying winds.",
+    "care": "Prune after flowering to prevent legginess. Propagate from semi-ripe cuttings in summer.",
+    "facts": [
+      "Long associated with memory; students in ancient Greece wore rosemary garlands while taking exams.",
+      "In folklore, it is said that where rosemary flourishes, the mistress of the house is the master."
+    ]
+  },
+  "fennel": {
+    "latin": "Foeniculum vulgare",
+    "habit": "Tall, herbaceous perennial with a feathery, airy habit; up to 2m.",
+    "features": "Fine, needle-like bronze or green foliage; smells strongly of aniseed.",
+    "flowers": "Large, flat umbels of tiny yellow flowers in mid-to-late summer.",
+    "conditions": "Full sun; well-drained soil; very deep taproot makes it drought-resistant.",
+    "care": "Cut back dead stems in late winter. If you don't want seedlings, deadhead before seeds drop.",
+    "facts": [
+      "In the Middle Ages, fennel was hung over doors on Midsummer's Eve to ward off evil spirits.",
+      "The town of Marathon in Greece gets its name from 'marathos', the Greek word for fennel."
+    ]
+  },
+  "borage": {
+    "latin": "Borago officinalis",
+    "habit": "Hairy, sprawling annual that self-seeds readily; 60\u201390cm tall.",
+    "features": "Large, bristly grey-green leaves; the whole plant has a cucumber-like scent.",
+    "flowers": "Exquisite star-shaped, bright blue flowers with black centers; June\u2013September.",
+    "conditions": "Full sun to partial shade; will grow in almost any well-drained soil.",
+    "care": "Sow in spring. Little care needed. Pull up plants once they become tatty; they will likely return from seed.",
+    "facts": [
+      "The flowers are edible and a classic garnish for Pimm\u2019s cocktails.",
+      "Known as 'bee bread' because it produces nectar so quickly that bees can visit the same flower multiple times a day."
+    ]
+  },
+  "rose": {
+    "latin": "Rosa",
+    "habit": "Diverse; including climbers, ramblers, shrubs, and miniatures; deciduous woody stems.",
+    "features": "Pinnate leaves with stipules; stems often armed with prickles (thorns).",
+    "flowers": "Varying from single (5 petals) to fully double; highly fragrant; peaks June, often repeats until frost.",
+    "conditions": "Full sun; heavy, fertile, well-drained soil; benefits from mulching.",
+    "care": "Prune in late winter (February/March). Feed in spring and mid-summer. Deadhead regularly.",
+    "facts": [
+      "Roses are one of the oldest species of plants, with fossils dating back 35 million years.",
+      "The rose hip (fruit) of some species contains more Vitamin C than any other fruit or vegetable."
+    ]
+  },
+  "elderflower": {
+    "latin": "Sambucus nigra",
+    "habit": "Large deciduous shrub or small tree; upright and arching with corky bark.",
+    "features": "Large pinnate leaves; provides wildlife value through flowers and later, berries.",
+    "flowers": "Large, flat, creamy-white 'plates' of tiny scented flowers; May\u2013June.",
+    "conditions": "Full sun to partial shade; tolerant of most soils, including wet or chalky ground.",
+    "care": "Prune hard in winter if you need to control size. Can be treated as a hedge or a specimen tree.",
+    "facts": [
+      "Folklore warns that cutting down an elder tree without permission from the 'Elder Mother' brings bad luck.",
+      "Every part of the plant is used: flowers for cordial, berries for wine, and wood for whistles."
+    ]
+  },
+  "grape": {
+    "latin": "Vitis vinifera",
+    "habit": "Vigorous deciduous woody climber; uses tendrils to scale supports up to 10m+.",
+    "features": "Large, lobed leaves with beautiful autumn tints of yellow or red.",
+    "flowers": "Inconspicuous green flowers in spring, followed by clusters of edible berries.",
+    "conditions": "Full sun; deep, well-drained soil; needs a warm, sheltered spot to ripen fruit.",
+    "care": "Prune in early winter (while dormant) to prevent 'bleeding'. Thin fruit bunches in summer for better quality.",
+    "facts": [
+      "Vitis vinifera has been cultivated for over 8,000 years, beginning in the Caucasus region.",
+      "A single grapevine can produce enough grapes for 40 to 60 glasses of wine."
+    ]
+  },
+  "cherry": {
+    "latin": "Prunus avium",
+    "habit": "Deciduous tree, varying from compact dwarfs to large canopy trees.",
+    "features": "Glossy bark with horizontal lenticels; vibrant autumn leaf colors.",
+    "flowers": "Masses of white or pink blossoms in spring (April), followed by fleshy drupes in summer.",
+    "conditions": "Full sun; fertile, well-drained soil; protect blossom from late frosts.",
+    "care": "Prune only in summer (never winter) to prevent Silver Leaf disease. Protect fruit from birds.",
+    "facts": [
+      "The cherry blossom (Sakura) is a symbol of renewal and the fleeting nature of life in Japan.",
+      "The word 'cherry' comes from the town of Cerasus in Turkey."
+    ]
+  },
+  "raspberry": {
+    "latin": "Rubus idaeus",
+    "habit": "Deciduous suckering shrub with upright, usually prickly stems (canes).",
+    "features": "Divided leaves, white beneath; fruit is an aggregate of drupelets.",
+    "flowers": "Small, white, drooping flowers in late spring/early summer.",
+    "conditions": "Full sun (but tolerates some shade); rich, slightly acidic, moist but well-drained soil.",
+    "care": "Summer-fruiting: prune flowered canes to ground in autumn. Autumn-fruiting: prune all canes to ground in February.",
+    "facts": [
+      "Unlike many fruits, raspberries do not continue to ripen after they are picked.",
+      "The 'fruit' is actually a cluster of tiny individual fruits, each containing a seed."
+    ]
+  },
+  "strawberry": {
+    "latin": "Fragaria x ananassa",
+    "habit": "Low-growing, herbaceous perennial spreading by runners (stolons).",
+    "features": "Trifoliate green leaves; white flowers with yellow centers.",
+    "flowers": "Peaking in May\u2013June, followed by red fruit; some varieties (everbearing) fruit until autumn.",
+    "conditions": "Full sun; fertile, well-drained soil; benefits from a mulch of straw to keep fruit clean.",
+    "care": "Replace plants every 3 years. Remove runners to focus energy on fruit. Feed in spring.",
+    "facts": [
+      "The strawberry is the only fruit that bears its seeds on the outside.",
+      "On average, there are about 200 seeds on a single strawberry."
+    ]
+  },
+  "fig": {
+    "latin": "Ficus carica",
+    "habit": "Deciduous shrub or small tree; spreading habit with decorative silver-grey bark.",
+    "features": "Large, deeply lobed, architectural leaves; produces a milky sap when cut.",
+    "flowers": "Invisible (the 'fruit' is actually an inverted flower/syconium); fruits ripen in late summer.",
+    "conditions": "Full sun; well-drained soil. Best with restricted roots (e.g., in a pot) to encourage fruiting.",
+    "care": "Prune in spring to remove crossing branches. Protect young fruits with fleece in severe winters.",
+    "facts": [
+      "The fig tree is one of the first plants ever cultivated by humans.",
+      "In many cultures, the fig is a symbol of peace, fertility, and prosperity."
+    ]
+  },
+  "peach": {
+    "latin": "Prunus persica",
+    "habit": "Small to medium deciduous tree; often fan-trained against walls in cooler climates.",
+    "features": "Long, slender leaves; beautiful pink blossom that appears very early in spring.",
+    "flowers": "Deep pink to pale rose flowers in March\u2013April; fruit is fuzzy-skinned.",
+    "conditions": "Full sun; sheltered from frost; well-drained, fertile soil.",
+    "care": "Prune in summer. Thin fruit to ensure those remaining reach a good size. Watch for Peach Leaf Curl.",
+    "facts": [
+      "Peaches originated in China, where they were considered the fruit of the gods.",
+      "A nectarine is technically just a fuzzless variety of peach."
+    ]
+  },
+  "apricot": {
+    "latin": "Prunus armeniaca",
+    "habit": "Small deciduous tree with a rounded crown.",
+    "features": "Heart-shaped leaves; early blossom makes it vulnerable to frost damage.",
+    "flowers": "White or pale pink blossoms in early spring; fruit is smooth or slightly velvety.",
+    "conditions": "Full sun; very sheltered spot; well-drained, neutral to slightly alkaline soil.",
+    "care": "Prune after fruiting to avoid disease. Protect blossom with horticultural fleece on frosty nights.",
+    "facts": [
+      "The apricot was once thought to have originated in Armenia (hence the latin name), but it likely came from China.",
+      "Dried apricots were a staple for travelers on the Silk Road due to their long shelf life."
+    ]
+  },
+  "lemon": {
+    "latin": "Citrus limon",
+    "habit": "Small evergreen tree or spreading shrub; often grown in containers in temperate zones.",
+    "features": "Glossy green leaves; fragrant white flowers; can have sharp thorns.",
+    "flowers": "Small, waxy white flowers with a heavy citrus scent; can flower and fruit year-round.",
+    "conditions": "Full sun; well-drained, slightly acidic soil; needs minimum 10\u00b0C in winter.",
+    "care": "Move indoors or to a conservatory in winter. Feed with specialized citrus fertilizer. Avoid overwatering.",
+    "facts": [
+      "A single lemon tree can produce up to 600 pounds of lemons in a year.",
+      "During the Renaissance, lemons were used as a cosmetic to redden lips and as a cleaning agent."
+    ]
+  },
+  "almond": {
+    "latin": "Prunus dulcis",
+    "habit": "Medium-sized deciduous tree with a spreading habit.",
+    "features": "Serrated leaves; the first fruit tree to bloom in spring, often in February.",
+    "flowers": "Pale pink or white blossoms; fruit is a drupe with a leathery hull containing the nut.",
+    "conditions": "Full sun; well-drained soil; requires a long, hot summer to ripen nuts properly.",
+    "care": "Minimal pruning required; remove dead or diseased wood in summer. Water well during fruit swell.",
+    "facts": [
+      "Botanically, almonds are not nuts, but 'drupes' (stone fruits) like peaches.",
+      "Almonds are entirely dependent on bees for pollination."
+    ]
+  },
+  "mulberry": {
+    "latin": "Morus nigra",
+    "habit": "Slow-growing, long-lived deciduous tree; often develops a picturesque, gnarled shape.",
+    "features": "Heart-shaped, rough leaves; fruit looks like a large, elongated blackberry.",
+    "flowers": "Inconspicuous catkins in spring; fruit ripens in late summer (August).",
+    "conditions": "Full sun; fertile, well-drained soil; needs plenty of space as it spreads wide.",
+    "care": "Prune in winter only. Mulch in spring. Be careful where you plant, as falling fruit stains surfaces deeply.",
+    "facts": [
+      "The Black Mulberry (M. nigra) was favored by King James I, who planted 10,000 of them in London.",
+      "Mulberry leaves are the sole food source for silkworms."
+    ]
+  },
+  "quince": {
+    "latin": "Cydonia oblonga",
+    "habit": "Small deciduous tree with a twisted, characterful trunk and branches.",
+    "features": "Large, pale pink blossoms; golden, highly fragrant, pear-shaped fruit in autumn.",
+    "flowers": "Attractive single pink/white flowers in May; fruit is covered in a fine grey fuzz when young.",
+    "conditions": "Full sun; moist but well-drained soil; prefers a spot near water but not waterlogged.",
+    "care": "Prune in winter to maintain an open center. Harvest fruit as late as possible before frost.",
+    "facts": [
+      "Quinces are so aromatic they were used as room deodorizers in the Victorian era.",
+      "In ancient Greece, the quince was given at weddings as a symbol of fertility."
+    ]
+  },
+  "olive": {
+    "latin": "Olea europaea",
+    "habit": "Evergreen tree or shrub with a slow-growing, architectural habit.",
+    "features": "Narrow, silvery-grey leaves; beautiful gnarled trunks on older specimens.",
+    "flowers": "Tiny creamy flowers in summer, followed by green olives that ripen to black.",
+    "conditions": "Full sun; very well-drained soil; very drought tolerant; hardy to approx -10\u00b0C.",
+    "care": "Prune in spring to thin out the center. Feed in spring. Can be kept in pots for many years.",
+    "facts": [
+      "Olive trees are incredibly long-lived; some specimens in the Mediterranean are over 2,000 years old.",
+      "The olive branch has been a symbol of peace and victory since ancient times."
+    ]
+  }
+}
