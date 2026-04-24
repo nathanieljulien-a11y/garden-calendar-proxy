@@ -1,11 +1,7 @@
-# .github/workflows/download-artwork.yml
-# Run this ONCE manually to download all Köhler plates and commit to repo
-# After that, Render reads from the committed artwork/ directory
-
 name: Download Botanical Artwork
 
 on:
-  workflow_dispatch:  # manual trigger only
+  workflow_dispatch:
 
 jobs:
   download:
@@ -13,54 +9,68 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Pillow
+        run: pip install pillow -q
+
       - name: Download Köhler plates
         run: |
-          mkdir -p artwork
           python3 << 'PYEOF'
-          import requests, hashlib, time, sys
+          import requests, hashlib, time, sys, os, io
           from urllib.parse import quote
+          from PIL import Image
 
-          def get_url(filename):
+          def url(filename):
               md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
               a, ab = md5[0], md5[:2]
               enc = quote(filename, safe='')
-              return f"https://upload.wikimedia.org/wikipedia/commons/thumb/{a}/{ab}/{enc}/500px-{enc}"
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
 
+          def kp(species, plate):
+              """Build Köhler plate filename"""
+              return f"{species}_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-{plate:03d}.jpg"
+
+          # Plate numbers verified from Hamburg Botanical Archive index
+          # (www-archiv.fdm.uni-hamburg.de/b-online/koehler/koeh-lat.htm)
+          # Hamburg koeh-NNN = Köhler original plate number for Vol 1-2 plants
           PLATES = {
-              'rose':        'Rosa_centifolia_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-257.jpg',
-              'wisteria':    'Wisteria_sinensis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-285.jpg',
-              'lavender':    'Lavandula_angustifolia_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-088.jpg',
-              'peony':       'Paeonia_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-164.jpg',
-              'iris':        'Iris_germanica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-187.jpg',
-              'tulip':       'Tulipa_gesneriana_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-272.jpg',
-              'sunflower':   'Helianthus_annuus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-078.jpg',
-              'camellia':    'Camellia_japonica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-025.jpg',
-              'magnolia':    'Magnolia_grandiflora_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-097.jpg',
-              'oleander':    'Nerium_oleander_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-124.jpg',
-              'foxglove':    'Digitalis_purpurea_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-052.jpg',
-              'rosemary':    'Rosmarinus_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-244.jpg',
-              'thyme':       'Thymus_vulgaris_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-271.jpg',
-              'sage':        'Salvia_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-246.jpg',
-              'mint':        'Mentha_piperita_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-112.jpg',
-              'fig':         'Ficus_carica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-057.jpg',
-              'peach':       'Prunus_persica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-183.jpg',
-              'cherry':      'Prunus_cerasus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-180.jpg',
-              'strawberry':  'Fragaria_vesca_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-065.jpg',
-              'raspberry':   'Rubus_idaeus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-237.jpg',
-              'grape':       'Vitis_vinifera_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-280.jpg',
-              'lemon':       'Citrus_limon_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-036.jpg',
-              'olive':       'Olea_europaea_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-130.jpg',
-              'pansy':       'Viola_tricolor_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-278.jpg',
-              'nasturtium':  'Tropaeolum_majus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-273.jpg',
-              'borage':      'Borago_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-023.jpg',
-              'snapdragon':  'Antirrhinum_majus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-013.jpg',
-              'valerian':    'Valeriana_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-275.jpg',
-              'fennel':      'Foeniculum_vulgare_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-063.jpg',
-              'elderflower': 'Sambucus_nigra_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-247.jpg',
-              'almond':      'Prunus_dulcis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-177.jpg',
-              'quince':      'Cydonia_oblonga_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-047.jpg',
-              'mulberry':    'Morus_nigra_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-119.jpg',
-              'apricot':     'Prunus_armeniaca_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-179.jpg',
+              # === CONFIRMED from Hamburg index ===
+              'thyme':       kp('Thymus_vulgaris', 271),        # TESTED WORKING
+              'lavender':    kp('Lavandula_angustifolia', 87),  # Hamburg koeh-087
+              'mint':        kp('Mentha_piperita', 95),         # Hamburg koeh-095
+              'sage':        kp('Salvia_officinalis', 126),     # Hamburg koeh-126
+              'elderflower': kp('Sambucus_nigra', 127),         # Hamburg koeh-127
+              'valerian':    kp('Valeriana_officinalis', 143),  # Hamburg koeh-143
+              'grape':       kp('Vitis_vinifera', 145),         # Hamburg koeh-145
+              'cherry':      kp('Prunus_cerasus', 113),         # Hamburg koeh-113
+              'raspberry':   kp('Rubus_idaeus', 124),           # Hamburg koeh-124
+              'rose':        kp('Rosa_centifolia', 122),        # Hamburg koeh-122
+              'foxglove':    kp('Digitalis_purpurea', 53),      # Hamburg koeh-053
+              'iris':        kp('Iris_germanica', 78),          # Hamburg koeh-078
+              'lemon':       kp('Citrus_limon', 41),            # Hamburg koeh-041
+              'quince':      kp('Cydonia_oblonga', 49),         # Hamburg koeh-049
+              # === IN KÖHLER SPECIES LIST, plate numbers from sequential numbering ===
+              'olive':       kp('Olea_europaea', 130),
+              'rosemary':    kp('Rosmarinus_officinalis', 244),
+              'fennel':      kp('Foeniculum_vulgare', 63),
+              'fig':         kp('Ficus_carica', 57),
+              'peach':       kp('Prunus_persica', 183),
+              'strawberry':  kp('Fragaria_vesca', 65),
+              'almond':      kp('Prunus_dulcis', 177),
+              'apricot':     kp('Prunus_armeniaca', 179),
+              'mulberry':    kp('Morus_nigra', 119),
+              'pansy':       kp('Viola_tricolor', 278),
+              'nasturtium':  kp('Tropaeolum_majus', 273),
+              'borage':      kp('Borago_officinalis', 23),
+              'snapdragon':  kp('Antirrhinum_majus', 13),
+              # === ORNAMENTALS — try but expect some 404s ===
+              'wisteria':    kp('Wisteria_sinensis', 285),
+              'tulip':       kp('Tulipa_gesneriana', 272),
+              'sunflower':   kp('Helianthus_annuus', 78),   # conflicts with iris - try anyway
+              'camellia':    kp('Camellia_japonica', 25),
+              'magnolia':    kp('Magnolia_grandiflora', 97),
+              'oleander':    kp('Nerium_oleander', 124),    # conflicts with raspberry - try anyway
+              'peony':       kp('Paeonia_officinalis', 164),
+              # === PNG ===
               'hydrangea':   'Hydrangea_macrophylla_SZ85.png',
           }
 
@@ -70,41 +80,57 @@ jobs:
               'Referer': 'https://commons.wikimedia.org/',
           }
 
-          ok, fail = 0, 0
+          os.makedirs('artwork', exist_ok=True)
+          ok = skip = hard_fail = 0
+
           for name, filename in PLATES.items():
-              ext = '.png' if filename.endswith('.png') else '.jpg'
+              is_png = filename.endswith('.png')
+              ext = '.png' if is_png else '.jpg'
               dest = f'artwork/{name}{ext}'
-              import os
+
               if os.path.exists(dest) and os.path.getsize(dest) > 5000:
                   print(f'  skip {name} (exists)')
                   ok += 1
                   continue
-              url = get_url(filename)
+
+              u = url(filename)
+              success = False
               for attempt in range(3):
                   try:
-                      r = requests.get(url, headers=headers, timeout=20)
+                      r = requests.get(u, headers=headers, timeout=30)
                       if r.ok and len(r.content) > 5000:
-                          with open(dest, 'wb') as f:
-                              f.write(r.content)
-                          print(f'  OK {name} ({len(r.content)//1024}KB)')
+                          img = Image.open(io.BytesIO(r.content))
+                          if img.width > 800:
+                              h = int(img.height * 800 / img.width)
+                              img = img.resize((800, h), Image.LANCZOS)
+                          if is_png:
+                              img.save(dest, 'PNG', optimize=True)
+                          else:
+                              if img.mode == 'RGBA': img = img.convert('RGB')
+                              img.save(dest, 'JPEG', quality=85, optimize=True)
+                          kb = os.path.getsize(dest) // 1024
+                          print(f'  OK   {name} ({kb}KB)')
                           ok += 1
+                          success = True
                           break
                       elif r.status_code == 429:
-                          print(f'  rate limited, waiting 10s...')
-                          time.sleep(10)
+                          print(f'  429  {name} - waiting 20s...')
+                          time.sleep(20)
+                      elif r.status_code == 404:
+                          print(f'  404  {name} - not in collection, skipping')
+                          skip += 1
+                          break
                       else:
                           print(f'  FAIL {name} HTTP {r.status_code}')
-                          fail += 1
+                          hard_fail += 1
                           break
                   except Exception as e:
-                      print(f'  ERROR {name}: {e}')
-                      fail += 1
-                      break
+                      print(f'  ERR  {name}: {e}')
+                      if attempt < 2: time.sleep(3)
                   time.sleep(1)
-              time.sleep(0.5)
 
-          print(f'\nTotal: {ok} OK, {fail} failed')
-          if fail > 0:
+          print(f'\nDone: {ok} downloaded, {skip} not in collection, {hard_fail} errors')
+          if hard_fail > 0:
               sys.exit(1)
           PYEOF
 
