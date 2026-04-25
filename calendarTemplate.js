@@ -246,7 +246,7 @@ function buildPageA(opts) {
     // 2. TASKS BOX
     + '<div class="r-box tasks-box">'
     +   '<div class="box-label">Garden tasks</div>'
-    +   '<div class="tasks-intro">In ' + (MONTHLY_TASKS[monthIdx] || 'Tend to seasonal priorities for your garden this month.') + '</div>'
+    +   '<div class="tasks-intro">' + (MONTHLY_TASKS[monthIdx] || 'Tend to seasonal priorities for your garden this month.') + '</div>'
     +   '<div class="tasks-prompt">What needs doing in your garden this month?</div>'
     +   '<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:1mm;">'
     +   checkboxes
@@ -488,10 +488,10 @@ var SHARED_CSS = [
   '.cal-header-recip{font-size:11pt;opacity:.5;letter-spacing:.05em;text-transform:uppercase;}',
 
   // Grid — day headers shorter and centred, Sat+Sun shaded
-  '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;min-height:0;border-left:.3mm solid var(--border);border-top:.3mm solid var(--border);}',
+  '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:18mm repeat(6,1fr);min-height:0;border-left:.3mm solid var(--border);border-top:.3mm solid var(--border);}',
 
   // Day header row — fixed height, larger font, centred both axes
-  '.cal-dow{height:18mm;display:flex;align-items:center;justify-content:center;font-size:14pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.3mm solid var(--border);background:rgba(139,105,20,.05);}',
+  '.cal-dow{display:flex;align-items:center;justify-content:center;font-size:14pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.3mm solid var(--border);background:rgba(139,105,20,.05);}',
 
   // Sat (6th col) and Sun (7th col) shading on dow headers
   '.cal-dow:nth-child(6){background:rgba(139,105,20,.1);}',
