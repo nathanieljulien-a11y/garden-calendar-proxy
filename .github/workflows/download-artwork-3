@@ -1,7 +1,7 @@
 name: Download Botanical Artwork (Pass 3)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: 
 
 jobs:
   download:
