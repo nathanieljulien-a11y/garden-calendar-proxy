@@ -119,6 +119,25 @@ function getFirstDayOfWeek(year, month) {
   return (d + 6) % 7; // convert to Mon=0
 }
 
+
+// Monthly garden tasks — specific, climate-aware, northern hemisphere temperate
+// Monthly garden tasks — specific, climate-aware, northern hemisphere temperate
+// Monthly garden tasks — specific, climate-aware, northern hemisphere temperate
+var MONTHLY_TASKS = {
+  0:  'January is a time to plan and prepare. Order seeds and bare-root plants. Prune apple and pear trees on dry days. Protect tender plants from hard frost. Check stored bulbs and tubers for rot.',
+  1:  'February signals the start of the growing year. Chit seed potatoes in a light, frost-free spot. Sow onion seeds under cover. Prune late-summer-flowering shrubs. Watch for the first snowdrops and crocuses.',
+  2:  'March brings rapid change. Sow hardy annuals and start tomatoes on a warm windowsill. Divide herbaceous perennials. Plant summer-flowering bulbs. Begin feeding roses as new growth emerges.',
+  3:  'April is the busiest month. Harden off seedlings before planting out. Sow direct into warm soil. Deadhead daffodils but leave foliage to die back naturally. Repair bare patches in the lawn.',
+  4:  'May brings surging growth and lingering frost risk. Plant out tender vegetables only after the last frost. Tie in climbers regularly. Watch for slugs on new growth. Mow the lawn weekly.',
+  5:  'June is peak season. Deadhead roses and perennials to keep flowers coming. Pinch out tomato side-shoots. Thin developing fruit on apple and pear trees. Water new plantings in dry spells.',
+  6:  'July demands attention to water. Water deeply and less frequently to encourage deep roots. Collect and dry herb seeds. Summer-prune wisteria to five or six leaves. Harvest courgettes small.',
+  7:  'August is for harvest and late-season care. Lift onions and garlic once tops have fallen. Collect seed from favourite plants. Take semi-ripe cuttings of shrubs. Order spring bulbs for arrival next month.',
+  8:  'September marks the shift to autumn. Plant spring bulbs as they arrive. Lift and divide overgrown perennials. Begin preparing ground for new beds. Clear spent summer bedding as it finishes.',
+  9:  'October is for structure and bulbs. Plant tulip bulbs in well-drained ground or pots. Rake fallen leaves for leaf mould. Cut back perennials that have died back. Protect half-hardy plants as nights cool.',
+  10: 'November is for putting the garden to bed. Mulch borders with compost or bark. Plant bare-root trees, hedging, and roses on dry days. Service tools before winter. Note what worked this year.',
+  11: 'December is the quiet month. Turn the compost heap and check stakes loosened by wind. Browse seed catalogues and plan next year. Force bulbs for indoor colour over the winter months.',
+};
+
 // ── Page A: illustration + right panel ───────────────────────────────────────
 function buildPageA(opts) {
   var monthName     = opts.monthName;
@@ -227,7 +246,7 @@ function buildPageA(opts) {
     // 2. TASKS BOX
     + '<div class="r-box tasks-box">'
     +   '<div class="box-label">Garden tasks</div>'
-    +   '<div class="tasks-intro">In ' + monthName + ', look to sow, plant out, and tend to seasonal priorities for your climate and chosen plants.</div>'
+    +   '<div class="tasks-intro">In ' + (MONTHLY_TASKS[monthIdx] || 'Tend to seasonal priorities for your garden this month.') + '</div>'
     +   '<div class="tasks-prompt">What needs doing in your garden this month?</div>'
     +   '<div style="flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:1mm;">'
     +   checkboxes
@@ -388,12 +407,12 @@ var SHARED_CSS = [
 
   // TOP BANNER — taller, bigger month/year, no plant name
   '.top-banner{background:var(--ink);color:var(--parchment);padding:4mm 6mm;display:flex;align-items:baseline;gap:5mm;flex-shrink:0;}',
-  '.top-month{font-family:"Playfair Display",serif;font-size:34pt;font-weight:600;letter-spacing:.01em;line-height:1;}',
-  '.top-year{font-size:18pt;opacity:.6;letter-spacing:.02em;}',
-  '.top-name{font-size:9pt;opacity:.5;letter-spacing:.06em;text-transform:uppercase;margin-left:auto;}',
+  '.top-month{font-family:"Playfair Display",serif;font-size:38pt;font-weight:600;letter-spacing:.01em;line-height:1;}',
+  '.top-year{font-size:20pt;opacity:.6;letter-spacing:.02em;}',
+  '.top-name{font-size:11pt;opacity:.5;letter-spacing:.06em;text-transform:uppercase;margin-left:auto;}',
 
   // PAGE BODY: 1/3 illustration | 2/3 right
-  '.page-body{flex:1;display:grid;grid-template-columns:1fr 2fr;min-height:0;overflow:hidden;}',
+  '.page-body{flex:1;display:grid;grid-template-columns:2fr 3fr;min-height:0;overflow:hidden;}',
 
   // LEFT ILLUSTRATION
   '.col-illus{background:#F7F2E8;border-right:.4mm solid var(--border);overflow:hidden;display:flex;flex-direction:column;}',
@@ -405,7 +424,7 @@ var SHARED_CSS = [
   // weather 15% | tasks 35% | plant 35% | inspo 15%
   '.col-right{display:flex;flex-direction:column;padding:2.5mm 3mm;gap:1.5mm;overflow:hidden;}',
   '.r-box{border:.4mm solid var(--border);border-radius:1mm;padding:2mm 2.5mm;overflow:hidden;}',
-  '.box-label{font-family:"Playfair Display",serif;font-size:7.5pt;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:1.5mm;display:block;}',
+  '.box-label{font-family:"Playfair Display",serif;font-size:9pt;text-transform:uppercase;letter-spacing:.12em;color:var(--gold);margin-bottom:1.5mm;display:block;}',
 
   // Box proportions via flex-grow weighted by ratio (15/35/35/15)
   // We name the boxes; JS adds flex styling inline
@@ -417,14 +436,14 @@ var SHARED_CSS = [
   // WEATHER
   '.wx-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1mm;}',
   '.wx-item{display:flex;flex-direction:column;gap:.5mm;}',
-  '.wx-val{font-family:"Playfair Display",serif;font-size:15pt;font-weight:600;color:var(--ink);line-height:1;}',
-  '.wx-lbl{font-size:7pt;color:var(--muted);}',
-  '.wx-wind{font-size:8pt;color:var(--muted);margin-top:1.5mm;}',
+  '.wx-val{font-family:"Playfair Display",serif;font-size:18pt;font-weight:600;color:var(--ink);line-height:1;}',
+  '.wx-lbl{font-size:9pt;color:var(--muted);}',
+  '.wx-wind{font-size:10pt;color:var(--muted);margin-top:1.5mm;}',
   '.wx-wind strong{color:var(--ink);}',
 
   // TASKS
-  '.tasks-intro{font-size:10.5pt;line-height:1.5;color:var(--ink);margin-bottom:2.5mm;}',
-  '.tasks-prompt{font-size:10pt;font-style:italic;color:var(--muted);margin-bottom:2.5mm;}',
+  '.tasks-intro{font-size:12pt;line-height:1.5;color:var(--ink);margin-bottom:2.5mm;}',
+  '.tasks-prompt{font-size:11.5pt;font-style:italic;color:var(--muted);margin-bottom:2.5mm;}',
   '.cb-row{display:flex;align-items:center;gap:2mm;flex:1;}',
   '.cb-sq{width:4mm;height:4mm;border:.4mm solid var(--muted);border-radius:.5mm;flex-shrink:0;}',
   '.cb-line{flex:1;border-bottom:.3mm solid rgba(139,105,20,.2);height:4mm;}',
@@ -432,8 +451,8 @@ var SHARED_CSS = [
   // PLANT NOTES
   '.notes-body{height:calc(100% - 5mm);display:flex;flex-direction:column;justify-content:space-around;}',
   '.note-row{display:flex;align-items:flex-start;gap:2mm;}',
-  '.note-bullet{color:var(--gold);font-size:9.5pt;flex-shrink:0;line-height:1.4;}',
-  '.note-text{font-size:9.5pt;line-height:1.45;color:var(--ink);}',
+  '.note-bullet{color:var(--gold);font-size:12pt;flex-shrink:0;line-height:1.4;}',
+  '.note-text{font-size:12pt;line-height:1.5;color:var(--ink);}',
 
   // INSPO GARDEN
   '.inspo-inner{display:flex;gap:2.5mm;align-items:flex-start;height:calc(100% - 5mm);}',
@@ -441,38 +460,38 @@ var SHARED_CSS = [
   '.inspo-photo-img{width:100%;height:100%;object-fit:cover;}',
   '.inspo-photo-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:"Playfair Display",serif;font-size:16pt;color:var(--sage);opacity:.4;}',
   '.inspo-text{flex:1;min-width:0;}',
-  '.inspo-name{font-family:"Playfair Display",serif;font-size:10.5pt;font-weight:600;color:var(--ink);line-height:1.2;}',
-  '.inspo-loc{font-size:8pt;color:var(--muted);margin-top:.5mm;}',
-  '.inspo-desc{font-size:8.5pt;line-height:1.35;color:var(--ink);margin-top:1mm;}',
+  '.inspo-name{font-family:"Playfair Display",serif;font-size:13pt;font-weight:600;color:var(--ink);line-height:1.2;}',
+  '.inspo-loc{font-size:10pt;color:var(--muted);margin-top:.5mm;}',
+  '.inspo-desc{font-size:11pt;line-height:1.35;color:var(--ink);margin-top:1mm;}',
   '.inspo-qr-col{display:flex;flex-direction:column;align-items:center;gap:1mm;flex-shrink:0;justify-content:center;}',
-  '.inspo-qr-lbl{font-size:7pt;color:var(--muted);text-align:center;}',
+  '.inspo-qr-lbl{font-size:9pt;color:var(--muted);text-align:center;}',
 
   // BOTTOM BANNER — taller
   '.bot-banner{background:var(--cream);border-top:.4mm solid var(--border);display:grid;grid-template-columns:1fr auto auto;align-items:center;flex-shrink:0;padding:0;}',
   '.bot-source{padding:2.5mm 4mm;border-right:.4mm solid var(--border);}',
-  '.bot-source-title{font-family:"Playfair Display",serif;font-style:italic;font-size:9pt;color:var(--ink);}',
-  '.bot-source-sub{font-size:7.5pt;color:var(--muted);margin-top:.5mm;}',
+  '.bot-source-title{font-family:"Playfair Display",serif;font-style:italic;font-size:10pt;color:var(--ink);}',
+  '.bot-source-sub{font-size:9pt;color:var(--muted);margin-top:.5mm;}',
   '.bot-brand{padding:2.5mm 4mm;border-right:.4mm solid var(--border);text-align:center;}',
-  '.bot-brand-name{font-family:"Playfair Display",serif;font-style:italic;font-size:10pt;color:var(--gold);}',
-  '.bot-brand-url{font-size:8pt;color:var(--muted);}',
+  '.bot-brand-name{font-family:"Playfair Display",serif;font-style:italic;font-size:12pt;color:var(--gold);}',
+  '.bot-brand-url{font-size:10pt;color:var(--muted);}',
   '.bot-qr{padding:2.5mm 3mm;display:flex;align-items:center;gap:2mm;}',
-  '.bot-qr-lbl{font-size:7.5pt;color:var(--muted);line-height:1.4;}',
+  '.bot-qr-lbl{font-size:9.5pt;color:var(--muted);line-height:1.4;}',
 
   // PAGE B — CALENDAR GRID
   '.page-b-layout{display:flex;flex-direction:column;height:100%;}',
 
   // Calendar header — taller top banner, bigger month
   '.cal-header{display:flex;align-items:baseline;gap:5mm;padding:4mm 6mm 3.5mm;background:var(--ink);color:var(--parchment);flex-shrink:0;}',
-  '.cal-header-month{font-family:"Playfair Display",serif;font-size:34pt;font-weight:600;line-height:1;}',
-  '.cal-header-year{font-size:18pt;opacity:.6;}',
+  '.cal-header-month{font-family:"Playfair Display",serif;font-size:38pt;font-weight:600;line-height:1;}',
+  '.cal-header-year{font-size:20pt;opacity:.6;}',
   '.cal-header-plant{font-size:10pt;font-style:italic;opacity:.7;flex:1;}',
-  '.cal-header-recip{font-size:8pt;opacity:.5;letter-spacing:.05em;text-transform:uppercase;}',
+  '.cal-header-recip{font-size:11pt;opacity:.5;letter-spacing:.05em;text-transform:uppercase;}',
 
   // Grid — day headers shorter and centred, Sat+Sun shaded
   '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;min-height:0;border-left:.3mm solid var(--border);border-top:.3mm solid var(--border);}',
 
   // Day header row — fixed height, larger font, centred both axes
-  '.cal-dow{height:16mm;display:flex;align-items:center;justify-content:center;font-size:13pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.5mm solid var(--gold);background:rgba(139,105,20,.05);}',
+  '.cal-dow{height:18mm;display:flex;align-items:center;justify-content:center;font-size:14pt;font-weight:600;letter-spacing:.06em;color:var(--gold);text-transform:uppercase;border-right:.3mm solid var(--border);border-bottom:.3mm solid var(--border);background:rgba(139,105,20,.05);}',
 
   // Sat (6th col) and Sun (7th col) shading on dow headers
   '.cal-dow:nth-child(6){background:rgba(139,105,20,.1);}',
@@ -496,16 +515,16 @@ var SHARED_CSS = [
   '.cal-empty.weekend{background:rgba(139,105,20,.03);}',
   '.cal-holiday{background:rgba(90,122,50,.08);}',
   '.cal-event{background:rgba(139,105,20,.05);}',
-  '.day-num{font-size:16pt;font-weight:500;color:var(--ink);line-height:1;margin-bottom:.5mm;}',
+  '.day-num{font-size:18pt;font-weight:500;color:var(--ink);line-height:1;margin-bottom:.5mm;}',
   '.weekend .day-num{color:var(--gold);}',
   '.cal-holiday .day-num{color:var(--sage);}',
   '.cal-event .day-num{color:var(--gold);}',
-  '.hol-label{font-size:7.5pt;color:var(--sage);font-style:italic;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
-  '.event-label{font-size:8pt;color:var(--rust);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+  '.hol-label{font-size:9pt;color:var(--sage);font-style:italic;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+  '.event-label{font-size:10pt;color:var(--rust);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
 
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:2mm 5mm;border-top:.3mm solid var(--border);flex-shrink:0;}',
-  '.cal-footer-text{font-size:7pt;color:var(--muted);opacity:.6;letter-spacing:.04em;}',
-  '.cal-footer-climate{font-size:7pt;color:var(--muted);font-style:italic;opacity:.7;}',
+  '.cal-footer-text{font-size:9pt;color:var(--muted);opacity:.6;letter-spacing:.04em;}',
+  '.cal-footer-climate{font-size:9pt;color:var(--muted);font-style:italic;opacity:.7;}',
 ].join('\n');
 
 module.exports = {
