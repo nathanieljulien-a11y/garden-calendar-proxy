@@ -104,22 +104,41 @@ function fetchClimateData(lat, lng) {
 }
 
 // ── Call Claude Haiku for inspo garden only (one call per month) ──────────────
-function fetchInspo(plant, monthName, climate, lat, lng, apiKey) {
+// Normalise a garden name for dedup comparison
+// "RHS Wisley", "Wisley Garden", "RHS Garden Wisley" → "wisley"
+function normaliseGardenName(name) {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/\b(rhs|nts|english heritage|the|garden|gardens|park|house|castle|abbey|hall|manor)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+// Single inspo fetch — returns Promise<{name,location,highlight,wikipedia?}|null>
+function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
   return new Promise(function(resolve) {
     if (!apiKey) { resolve(null); return; }
-    var locationHint = lat && lng ? ' near ' + Math.round(lat) + '\u00b0N, ' + Math.round(lng) + '\u00b0E' : '';
-    var prompt = 'Suggest one real, well-known, publicly accessible garden worth visiting in '
-      + monthName + ' for someone in ' + climate + locationHint + ', who enjoys ' + (plant || 'ornamental gardens') + '.\n\n'
-      + 'Return ONLY valid JSON, no markdown:\n'
-      + '{"name":"Garden name","location":"City, Country","highlight":"One sentence on what makes it worth visiting specifically in ' + monthName + '."}\n\n'
-      + 'Choose a well-known garden that genuinely has something special in ' + monthName + '. Be specific.';
+    var locationHint = lat && lng
+      ? ' (approx. ' + Math.round(lat) + '°N ' + Math.round(Math.abs(lng)) + '°' + (lng < 0 ? 'W' : 'E') + ')'
+      : '';
+    var excludeClause = usedNames.length
+      ? '\n\nDo NOT suggest any of these (already used this calendar): ' + usedNames.join(', ') + '.'
+      : '';
+    var prompt =
+      'Suggest one real, publicly accessible garden worth visiting in ' + monthName
+      + ' for someone based in ' + climate + locationHint + '.'
+      + ' The garden should be reachable as a day trip by car or public transport (roughly within 2 hours).'
+      + ' The commentary does not need to be linked to the plant on the page.'
+      + ' Only suggest gardens you are certain exist and are open to the public.'
+      + excludeClause
+      + '\n\nReturn ONLY valid JSON, no markdown, no explanation:'
+      + '\n{"name":"Full garden name","location":"Town, County/Region","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title if one exists, else null"}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
+      max_tokens: 250,
       messages: [{ role: 'user', content: prompt }],
     });
-
     var opts = {
       hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: {
@@ -129,10 +148,9 @@ function fetchInspo(plant, monthName, climate, lat, lng, apiKey) {
         'Content-Length': Buffer.byteLength(body),
       },
     };
-
     var req = https.request(opts, function(res) {
       var data = '';
-      res.on('data', function(c) { data += c; });
+      res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
         try {
           var p = JSON.parse(data);
@@ -147,6 +165,38 @@ function fetchInspo(plant, monthName, climate, lat, lng, apiKey) {
     req.write(body);
     req.end();
   });
+}
+
+// Fetch 12 inspo gardens sequentially so we can pass used-names for dedup
+async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, lng, apiKey) {
+  var inspos = [];
+  var usedNormalised = []; // normalised names already used this calendar
+  var usedDisplay = [];    // display names for the exclude clause
+
+  for (var i = 0; i < 12; i++) {
+    var result = await fetchInspoOne(
+      plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
+    );
+    // Dedup check
+    if (result && result.name) {
+      var norm = normaliseGardenName(result.name);
+      if (usedNormalised.indexOf(norm) !== -1) {
+        // Try once more with stronger exclude signal
+        usedDisplay.push(result.name);
+        result = await fetchInspoOne(
+          plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
+        );
+      }
+      if (result && result.name) {
+        norm = normaliseGardenName(result.name);
+        usedNormalised.push(norm);
+        usedDisplay.push(result.name);
+      }
+    }
+    inspos.push(result);
+    console.log('[PDF] Inspo ' + (i+1) + '/12: ' + (result && result.name || 'null'));
+  }
+  return inspos;
 }
 
 
@@ -215,14 +265,18 @@ async function buildFullHTML(order, apiKey) {
   var artworks = plants.map(function(p) { return readArtworkAsBase64(p); }); // reads from artwork/ dir committed to repo
   console.log('[PDF] Artwork loaded: ' + artworks.filter(Boolean).length + '/12');
 
-  // Fetch all 12 inspo gardens in parallel
-  console.log('[PDF] Fetching 12 inspo garden recommendations...');
-  var inspoPromises = [];
-  for (var i = 0; i < 12; i++) {
-    var mIdx = (startMonth + i) % 12;
-    inspoPromises.push(fetchInspo(plants[i], MONTH_NAMES[mIdx], climate, geo && geo.lat, geo && geo.lng, apiKey));
+  // Fetch 12 inspo gardens sequentially so dedup works across months
+  console.log('[PDF] Fetching 12 inspo gardens (sequential + dedup)...');
+  var inspoMonthNames = [], inspoMonthIdxs = [];
+  for (var ii = 0; ii < 12; ii++) {
+    var mIdx = (startMonth + ii) % 12;
+    inspoMonthNames.push(MONTH_NAMES[mIdx]);
+    inspoMonthIdxs.push(mIdx);
   }
-  var inspos = await Promise.all(inspoPromises);
+  var inspos = await fetchAllInspos(
+    plants, inspoMonthNames, inspoMonthIdxs,
+    climate, geo && geo.lat, geo && geo.lng, apiKey
+  );
   console.log('[PDF] Inspo gardens done. Fetching Wikipedia photos...');
   var inspoPhotoPromises = inspos.map(function(inspo) {
     if (!inspo || !inspo.name) return Promise.resolve(null);
