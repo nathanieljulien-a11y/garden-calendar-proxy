@@ -1,7 +1,7 @@
-name: Download Botanical Artwork (Pass 3)
+name: Download Botanical Artwork (Pass 4 - confirmed filenames)
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   download:
@@ -14,32 +14,31 @@ jobs:
       - name: Install dependencies
         run: pip install pillow requests -q
 
-      - name: Download remaining Köhler plates (rate-limit friendly)
+      - name: Download artwork with confirmed filenames
         run: |
           python3 << 'PYEOF'
           import requests, hashlib, time, os, io
           from urllib.parse import quote
           from PIL import Image
 
-          DELAY = 4.0  # seconds between requests - polite to Wikimedia
+          DELAY = 5.0  # polite delay between requests
 
-          def url(filename):
+          def wm_url(filename):
+              # Wikimedia Commons MD5 hash uses the filename with spaces (not underscores)
               md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
               a, ab = md5[0], md5[:2]
               enc = quote(filename, safe='')
               return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
 
-          def kp(species, plate):
-              return f"{species}_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-{plate:03d}.jpg"
-
-          def try_download(name, filename, dest, quiet=False):
+          def try_download(dest, filename):
               headers = {
-                  'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y; one-time artwork archive)',
+                  'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)',
                   'Accept': 'image/jpeg,image/png,image/*',
                   'Referer': 'https://commons.wikimedia.org/',
               }
+              url = wm_url(filename)
               try:
-                  r = requests.get(url(filename), headers=headers, timeout=25)
+                  r = requests.get(url, headers=headers, timeout=25)
                   if r.ok and len(r.content) > 5000:
                       img = Image.open(io.BytesIO(r.content))
                       if img.width > 800:
@@ -47,136 +46,125 @@ jobs:
                           img = img.resize((800, h), Image.LANCZOS)
                       if img.mode == 'RGBA': img = img.convert('RGB')
                       img.save(dest, 'JPEG', quality=85, optimize=True)
-                      return 'ok'
+                      return True
                   return r.status_code
               except Exception as e:
                   return str(e)
 
           os.makedirs('artwork', exist_ok=True)
 
-          # ── Section 1: Probe plate numbers for Köhler Vol 3 plants ─────────────
-          # Vol 3 runs plates 195-274 (80 plates continuing from Vol 2's 194)
-          # Alphabetical order within the volume gives us search ranges
-          # Confirmed anchors: olive(Olea)=229, thyme(Thymus)=271
-          # F plants precede I,L,M,O,P,R alphabetically within Vol 3
+          # ── Section 1: Confirmed Köhler filenames ─────────────────────────────
+          # These have been verified from Wikidata and Commons category listings.
+          # Key lessons:
+          #   - Lemon uses 'x' (plain ASCII), not '×' (U+00D7)
+          #   - Spaces in filenames, not underscores, for MD5 hash
+          #   - Rosemary is plate 258, not 243 or 250
+          #   - Fig, peach, strawberry, almond, apricot, mulberry NOT in Köhler
 
-          PROBES = {
-              # (species, candidate plates in priority order)
-              'iris':       ('Iris_germanica',        list(range(220,232))),
-              'lemon':      ('Citrus_limon',          list(range(195,208))),
-              'rosemary':   ('Rosmarinus_officinalis',list(range(240,252))),
-              'fennel':     ('Foeniculum_vulgare',    list(range(200,213))),
-              'fig':        ('Ficus_carica',          list(range(198,211))),
-              'peach':      ('Prunus_persica',        list(range(234,248))),
-              'strawberry': ('Fragaria_vesca',        list(range(200,213))),
-              'almond':     ('Prunus_dulcis',         list(range(234,248))),
-              'apricot':    ('Prunus_armeniaca',      list(range(234,248))),
-              'mulberry':   ('Morus_nigra',           list(range(220,232))),
+          KOHLER_CONFIRMED = {
+              'lemon':    'Citrus x limon - K\u00f6hler\u2013s Medizinal-Pflanzen-041.jpg',
+              'rosemary': 'Rosmarinus officinalis - K\u00f6hler\u2013s Medizinal-Pflanzen-258.jpg',
           }
 
-          print("=== Probing Köhler Vol 3 plate numbers ===")
-          for name, (species, plates) in PROBES.items():
+          # Fennel: confirmed in Köhler but plate number unknown.
+          # From category: F plants fall between E (Erythroxylon=199) and G (Gentiana=063).
+          # Marrubium=224 (M), so F plants should be ~200-210.
+          # Try each individually with the confirmed space-based filename format.
+          FENNEL_PROBES = [
+              f'Foeniculum vulgare - K\u00f6hler\u2013s Medizinal-Pflanzen-{p:03d}.jpg'
+              for p in list(range(196, 213)) + [57, 58, 59, 60]  # also try Bd.1 range
+          ]
+
+          print("=== Köhler confirmed plates ===")
+          for name, filename in KOHLER_CONFIRMED.items():
               dest = f'artwork/{name}.jpg'
               if os.path.exists(dest) and os.path.getsize(dest) > 5000:
                   print(f'  skip {name} (exists)'); continue
+              time.sleep(DELAY)
+              result = try_download(dest, filename)
+              if result is True:
+                  print(f'  OK   {name} ({os.path.getsize(dest)//1024}KB)')
+              else:
+                  print(f'  FAIL {name}: {result} <- {filename}')
+
+          print("\n=== Fennel probe ===")
+          dest = 'artwork/fennel.jpg'
+          if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+              print(f'  skip fennel (exists)')
+          else:
               found = False
-              for plate in plates:
-                  filename = kp(species, plate)
+              for filename in FENNEL_PROBES:
                   time.sleep(DELAY)
-                  result = try_download(name, filename, dest)
-                  if result == 'ok':
-                      print(f'  OK   {name} = plate {plate:03d} ({os.path.getsize(dest)//1024}KB)')
+                  result = try_download(dest, filename)
+                  if result is True:
+                      plate = filename.split('-')[-1].replace('.jpg','')
+                      print(f'  OK   fennel = plate {plate} ({os.path.getsize(dest)//1024}KB)')
                       found = True
                       break
                   elif result == 429:
-                      print(f'  429  rate limited on {name} plate {plate} - stopping Köhler probes')
+                      print(f'  429  rate limited, stopping')
                       break
               if not found:
-                  print(f'  MISS {name} (plates {plates[0]}-{plates[-1]})')
-              time.sleep(DELAY)
+                  print(f'  MISS fennel: tried {len(FENNEL_PROBES)} plate numbers')
 
-          # ── Section 2: Curtis's Botanical Magazine (ornamental plants) ────────
-          # All pre-1928, fully public domain
-          # Commons filenames for early volumes are inconsistent —
-          # trying the most common patterns per plant
+          # ── Section 2: Alternative sources for fruits not in Köhler ──────────
+          # USDA Pomological Watercolor Collection (1886-1942, public domain)
+          # These are hosted on the USDA NALDC server.
+          # Direct image URL format: https://naldc.nal.usda.gov/download/{id}/PDF
+          # But these return PDFs — try the thumbnail endpoint instead.
+          # Thumbnail URL: https://naldc.nal.usda.gov/thumbnail/{id}
+          # Or the IIIF endpoint: https://naldc.nal.usda.gov/image/{id}/full/800,/0/default.jpg
 
-          print("\n=== Curtis's Botanical Magazine ===")
-
-          def wm_url_raw(filename):
-              md5 = hashlib.md5(filename.encode('utf-8')).hexdigest()
-              a, ab = md5[0], md5[:2]
-              enc = quote(filename, safe='')
-              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
-
-          CURTIS = {
-              # plant: list of filenames to try (multiple patterns per plant)
-              'camellia': [
-                  'Camellia_japonica_-_The_Botanical_Magazine_-_vol._2_(1788)_plate_42.jpg',
-                  'Camellia_japonica_Botanical_Magazine_vol_2_plate_42.jpg',
-                  'Bot._Mag._42_-_Camellia_japonica.jpg',
-              ],
-              'wisteria': [
-                  'Wisteria_sinensis_-_Botanical_Register_1817.jpg',
-                  'Wisteria_sinensis_Ker_Gawler.jpg',
-              ],
-              'tulip': [
-                  'Tulipa_gesneriana_Botanical_Magazine_4382.jpg',
-                  'Tulipa_-_The_Botanical_Magazine_-_vol._26_(1807)_plate_1054.jpg',
-              ],
-              'peony': [
-                  'Paeonia_officinalis_-_Kohler\u2013s_Medizinal-Pflanzen-164.jpg',
-                  'Paeonia_officinalis_Botanical_Magazine_plate_1784.jpg',
-              ],
-              'magnolia': [
-                  'Magnolia_grandiflora_-_Botanical_Magazine_-_vol._3_(1790)_plate_80.jpg',
-              ],
-              'sunflower': [
-                  'Helianthus_annuus_Blackwell_Herbarium.jpg',
-                  'Helianthus_annuus_-_Kohler\u2013s_Medizinal-Pflanzen.jpg',
-              ],
-              'hydrangea': [
-                  'Hydrangea_hortensis_-_Botanical_Magazine_-_vol._6_(1793)_plate_202.jpg',
-                  'Hydrangea_macrophylla_-_The_Botanical_Magazine.jpg',
-              ],
-              'oleander': [
-                  'Nerium_oleander_-_Botanical_Magazine_-_vol._3_(1790)_plate_166.jpg',
-              ],
-              'iris': [
-                  # Try florentina variety on Commons if germanica fails above
-                  'Iris_florentina_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-079.jpg',
-                  'Iris_pallida_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-079.jpg',
-              ],
-              'snapdragon': [
-                  'Antirrhinum_majus_-_Blackwell_Herbarium.jpg',
-              ],
-              'borage': [
-                  'Borago_officinalis_Blackwell_Herbarium.jpg',
-              ],
-              'nasturtium': [
-                  'Tropaeolum_majus_-_Botanical_Magazine_vol_2.jpg',
-              ],
-              'pansy': [
-                  'Viola_tricolor_-_Blackwell_Herbarium.jpg',
-              ],
+          USDA = {
+              # POM IDs sourced from the NALDC catalogue
+              'fig':        'POM00001044',
+              'peach':      'POM00001895',
+              'strawberry': 'POM00001148',
+              'apricot':    'POM00001788',
+              'almond':     'POM00001053',
+              'mulberry':   'POM00001117',
           }
 
-          for name, filenames in CURTIS.items():
+          USDA_PATTERNS = [
+              'https://naldc.nal.usda.gov/image/{id}/full/800,/0/default.jpg',
+              'https://naldc.nal.usda.gov/thumbnail/{id}',
+              'https://nal.usda.gov/exhibits/speccoll/exhibits/pomological/files/original/{id}.jpg',
+          ]
+
+          print("\n=== USDA Pomological Collection ===")
+          for name, pom_id in USDA.items():
               dest = f'artwork/{name}.jpg'
               if os.path.exists(dest) and os.path.getsize(dest) > 5000:
                   print(f'  skip {name} (exists)'); continue
               found = False
-              for filename in filenames:
+              headers = {
+                  'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)',
+                  'Accept': 'image/jpeg,image/png,image/*',
+              }
+              for pattern in USDA_PATTERNS:
+                  url = pattern.format(id=pom_id)
                   time.sleep(DELAY)
-                  result = try_download(name, filename, dest)
-                  if result == 'ok':
-                      print(f'  OK   {name} ({os.path.getsize(dest)//1024}KB) <- {filename[:60]}')
-                      found = True
-                      break
+                  try:
+                      r = requests.get(url, headers=headers, timeout=25, allow_redirects=True)
+                      ct = r.headers.get('content-type', '')
+                      if r.ok and len(r.content) > 5000 and 'image' in ct:
+                          img = Image.open(io.BytesIO(r.content))
+                          if img.width > 800:
+                              h = int(img.height * 800 / img.width)
+                              img = img.resize((800, h), Image.LANCZOS)
+                          if img.mode == 'RGBA': img = img.convert('RGB')
+                          img.save(dest, 'JPEG', quality=85, optimize=True)
+                          print(f'  OK   {name} ({os.path.getsize(dest)//1024}KB) <- {url[:60]}')
+                          found = True
+                          break
+                      else:
+                          print(f'  {r.status_code} {name} ct={ct[:30]} <- {url[:50]}')
+                  except Exception as e:
+                      print(f'  ERR  {name}: {e}')
               if not found:
-                  print(f'  MISS {name}')
-              time.sleep(DELAY)
+                  print(f'  MISS {name}: all USDA patterns failed')
 
-          print('\nPass 3 complete.')
+          print('\nPass 4 complete.')
           PYEOF
 
       - name: Commit artwork to repo
@@ -184,5 +172,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add artwork/
-          git diff --staged --quiet || git commit -m "Botanical artwork pass 3 (Vol3 probes + Curtis) [automated]"
+          git diff --staged --quiet || git commit -m "Botanical artwork pass 4 (confirmed filenames + USDA) [automated]"
           git push
