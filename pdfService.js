@@ -75,30 +75,56 @@ function geocodeCity(city) {
 function fetchClimateData(lat, lng) {
   return new Promise(function(resolve) {
     if (lat == null || lng == null) { resolve(null); return; }
-    // Use Open-Meteo climate API — 30-year monthly normals
+    // Open-Meteo climate API returns DAILY data — we fetch one representative year
+    // and average each variable by calendar month ourselves
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat + '&longitude=' + lng
-      + '&start_year=1991&end_year=2020'
-      + '&monthly=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
+      + '&start_date=2000-01-01&end_date=2000-12-31'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
       + '&models=EC_Earth3P_HR';
     https.get(url, { headers: { 'Accept': 'application/json' } }, function(res) {
       var data = '';
-      res.on('data', function(c) { data += c; });
+      res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          var m = d.monthly || {};
-          resolve({
-            _cd: {
-              tMax:   m.temperature_2m_max   || [],
-              tMin:   m.temperature_2m_min   || [],
-              precip: m.precipitation_sum    || [],
-              sunHrs: (m.sunshine_duration   || []).map(function(v) { return v != null ? (v / 3600).toFixed(1) : null; }),
-            }
-          });
-        } catch(e) { resolve(null); }
+          if (d.error) { resolve(null); return; }
+          var daily = d.daily || {};
+          var times      = daily.time                || [];
+          var tMaxArr    = daily.temperature_2m_max  || [];
+          var tMinArr    = daily.temperature_2m_min  || [];
+          var precipArr  = daily.precipitation_sum   || [];
+          var sunArr     = daily.sunshine_duration   || [];
+
+          // Accumulate sums and counts per calendar month (0-indexed)
+          var sums = { tMax:[],tMin:[],precip:[],sun:[] };
+          var counts = [];
+          for (var m = 0; m < 12; m++) {
+            sums.tMax.push(0); sums.tMin.push(0);
+            sums.precip.push(0); sums.sun.push(0);
+            counts.push(0);
+          }
+          for (var i = 0; i < times.length; i++) {
+            var mo = parseInt((times[i] || '').split('-')[1], 10) - 1;
+            if (mo < 0 || mo > 11) continue;
+            if (tMaxArr[i]   != null) { sums.tMax[mo]   += tMaxArr[i];   }
+            if (tMinArr[i]   != null) { sums.tMin[mo]   += tMinArr[i];   }
+            if (precipArr[i] != null) { sums.precip[mo] += precipArr[i]; }
+            if (sunArr[i]    != null) { sums.sun[mo]    += sunArr[i];    }
+            counts[mo]++;
+          }
+          var tMax=[],tMin=[],precip=[],sunHrs=[];
+          for (var m = 0; m < 12; m++) {
+            var n = counts[m] || 1;
+            tMax.push(parseFloat((sums.tMax[m] / n).toFixed(1)));
+            tMin.push(parseFloat((sums.tMin[m] / n).toFixed(1)));
+            precip.push(parseFloat((sums.precip[m]).toFixed(0)));   // monthly total
+            sunHrs.push(parseFloat((sums.sun[m] / n / 3600).toFixed(1))); // avg hrs/day
+          }
+          resolve({ _cd: { tMax, tMin, precip, sunHrs } });
+        } catch(e) { console.error('[PDF] climate parse error', e.message); resolve(null); }
       });
-    }).on('error', function() { resolve(null); })
+    }).on('error', function(e) { console.error('[PDF] climate fetch error', e.message); resolve(null); })
       .setTimeout(10000, function() { resolve(null); });
   });
 }
@@ -201,25 +227,47 @@ async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, ln
 
 
 // ── Fetch Wikipedia thumbnail for inspo garden (same as web app) ─────────────
+function fetchImageAsBase64(imageUrl) {
+  return new Promise(function(resolve) {
+    var parsed = require('url').parse(imageUrl);
+    var lib = parsed.protocol === 'https:' ? https : http;
+    var req = lib.get(imageUrl, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
+      if (res.statusCode === 301 || res.statusCode === 302) {
+        return fetchImageAsBase64(res.headers.location).then(resolve);
+      }
+      var chunks = [];
+      res.on('data', function(chunk) { chunks.push(chunk); });
+      res.on('end', function() {
+        var buf = Buffer.concat(chunks);
+        if (buf.length < 500) { resolve(null); return; }
+        var ct = res.headers['content-type'] || 'image/jpeg';
+        resolve('data:' + ct + ';base64,' + buf.toString('base64'));
+      });
+    });
+    req.on('error', function() { resolve(null); });
+    req.setTimeout(10000, function() { req.destroy(); resolve(null); });
+  });
+}
+
 function fetchWikipediaPhoto(title) {
   return new Promise(function(resolve) {
     if (!title) { resolve(null); return; }
     var enc = encodeURIComponent(title.replace(/ /g,'_'));
     var url = 'https://en.wikipedia.org/api/rest_v1/page/summary/' + enc;
-    https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
+    var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
-      res.on('data', function(c) { data += c; });
+      res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
           var thumb = d.thumbnail && d.thumbnail.source;
           if (!thumb) { resolve(null); return; }
-          // Fetch the actual image as base64
           fetchImageAsBase64(thumb).then(resolve);
         } catch(e) { resolve(null); }
       });
-    }).on('error', function() { resolve(null); })
-      .setTimeout(8000, function() { resolve(null); });
+    });
+    req.on('error', function() { resolve(null); });
+    req.setTimeout(8000, function() { req.destroy(); resolve(null); });
   });
 }
 
