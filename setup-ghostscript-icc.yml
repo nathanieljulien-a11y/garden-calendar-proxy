@@ -1,0 +1,45 @@
+name: Setup Ghostscript + GRACoL ICC Profile
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download GRACoL 2006 ICC profile
+        run: |
+          # GRACoL2006_Coated1v2 from the ICC registry (public domain)
+          curl -L -o GRACoL2006_Coated1v2.icc \
+            "https://www.color.org/registry/GRACoL2006_Coated1v2.xalter" \
+            --retry 3 || true
+          # Fallback: try alternate source
+          if [ ! -s GRACoL2006_Coated1v2.icc ]; then
+            curl -L -o GRACoL2006_Coated1v2.icc \
+              "https://icc.opensuse.org/GRACoL2006_Coated1v2.icc" \
+              --retry 3 || true
+          fi
+          if [ -s GRACoL2006_Coated1v2.icc ]; then
+            echo "ICC profile downloaded: $(du -h GRACoL2006_Coated1v2.icc)"
+          else
+            echo "WARNING: ICC profile download failed — PDF/X-4 will be skipped, standard PDF used"
+          fi
+
+      - name: Verify Ghostscript available on Render
+        run: |
+          # Check if gs is installed (it is on most Ubuntu runners)
+          which gs && gs --version || echo "Ghostscript not found on runner (expected on Render)"
+          # Render uses Ubuntu 22.04 — gs needs to be installed via apt in render.yaml
+          echo "NOTE: Add 'apt install ghostscript' to your Render build command or render.yaml"
+
+      - name: Commit ICC profile
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add GRACoL2006_Coated1v2.icc || true
+          git diff --staged --quiet || git commit -m "Add GRACoL 2006 ICC profile for PDF/X-4 [automated]"
+          git push
