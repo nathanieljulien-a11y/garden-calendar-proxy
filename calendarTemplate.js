@@ -199,10 +199,10 @@ function buildMonthPage(opts) {
 
   // Climate stats
   var cd = climateData && climateData._cd;
-  var tMax  = cd && cd.tMax  && cd.tMax[monthIdx]  != null ? Math.round(cd.tMax[monthIdx])  + '\u00b0C' : null;
-  var tMin  = cd && cd.tMin  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
-  var rain  = cd && cd.precip && cd.precip[monthIdx]!= null ? Math.round(cd.precip[monthIdx]) + 'mm' : null;
-  var sun   = cd && cd.sunHrs && cd.sunHrs[monthIdx]!= null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs/day' : null;
+  var tMax  = cd && cd.tMax  && Array.isArray(cd.tMax)  && cd.tMax[monthIdx]  != null ? Math.round(cd.tMax[monthIdx])  + '\u00b0C' : null;
+  var tMin  = cd && cd.tMin  && Array.isArray(cd.tMin)  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
+  var rain  = cd && cd.precip && Array.isArray(cd.precip) && cd.precip[monthIdx] != null ? Math.round(cd.precip[monthIdx]) + 'mm' : null;
+  var sun   = cd && cd.sunHrs && Array.isArray(cd.sunHrs) && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs/day' : null;
   var wxStats = [
     tMax  ? 'High\u00a0' + tMax  : '',
     tMin  ? 'Low\u00a0'  + tMin  : '',
