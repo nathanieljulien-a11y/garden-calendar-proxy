@@ -269,8 +269,8 @@ function buildPageA(opts) {
     +       (inspoHighlight ? '<div class="inspo-desc">' + inspoHighlight + '</div>' : '')
     +     '</div>'
     +     '<div class="inspo-qr-col">'
-    +       (inspoQrUrl ? '<img src="' + inspoQrB64 + '" width="44" height="44" alt="search" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>' : '')
-    +       (inspoQrUrl ? '<div class="inspo-qr-lbl">Search &#x2197;</div>' : '')
+    +       (inspoQrB64 ? '<img src="' + inspoQrB64 + '" width="44" height="44" alt="search" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>' : '')
+    +       (inspoQrB64 ? '<div class="inspo-qr-lbl">Search &#x2197;</div>' : '')
     +     '</div>'
     +   '</div>'
     + '</div>'
