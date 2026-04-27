@@ -180,10 +180,9 @@ function buildPageA(opts) {
   var inspoSearchUrl = inspoName
     ? 'https://www.google.com/search?q=' + encodeURIComponent(inspoName + ' ' + inspoLoc + ' official website')
     : '';
-  var inspoQrUrl = inspoSearchUrl
-    ? 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(inspoSearchUrl) + '&margin=2'
-    : '';
-  var appQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(appUrl) + '&margin=2';
+  // QR codes pre-fetched as base64 by pdfService to avoid Puppeteer network issues
+  var inspoQrB64 = opts.inspoQrB64 || '';
+  var appQrB64   = opts.appQrB64   || '';
 
   // Notes bullets
   var notesHtml = '';
@@ -263,18 +262,14 @@ function buildPageA(opts) {
     + '<div class="r-box inspo-box">'
     +   '<div class="box-label">Garden to visit this ' + monthName + '</div>'
     +   '<div class="inspo-inner">'
-    +     '<div class="inspo-photo">'
-    +       (inspoPhotoB64
-             ? '<img src="' + inspoPhotoB64 + '" class="inspo-photo-img" alt="' + inspoName + '"/>'
-             : '<div class="inspo-photo-ph">' + (inspoName ? inspoName.charAt(0) : '?') + '</div>')
-    +     '</div>'
+    +     (inspoPhotoB64 ? '<div class="inspo-photo"><img src="' + inspoPhotoB64 + '" class="inspo-photo-img" alt="' + inspoName + '"/></div>' : '')
     +     '<div class="inspo-text">'
     +       '<div class="inspo-name">' + (inspoName||'Garden to visit') + '</div>'
     +       (inspoLoc ? '<div class="inspo-loc">' + inspoLoc + '</div>' : '')
     +       (inspoHighlight ? '<div class="inspo-desc">' + inspoHighlight + '</div>' : '')
     +     '</div>'
     +     '<div class="inspo-qr-col">'
-    +       (inspoQrUrl ? '<img src="' + inspoQrUrl + '" width="44" height="44" alt="search" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>' : '')
+    +       (inspoQrUrl ? '<img src="' + inspoQrB64 + '" width="44" height="44" alt="search" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>' : '')
     +       (inspoQrUrl ? '<div class="inspo-qr-lbl">Search &#x2197;</div>' : '')
     +     '</div>'
     +   '</div>'
@@ -294,7 +289,7 @@ function buildPageA(opts) {
     +     '<div class="bot-brand-url">' + etsy + '</div>'
     +   '</div>'
     +   '<div class="bot-qr">'
-    +     '<img src="' + appQrUrl + '" width="38" height="38" alt="app qr" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>'
+    +     (appQrB64 ? '<img src="' + appQrB64 + '" width="38" height="38" alt="app qr" style="border:0.3mm solid rgba(139,105,20,.2);border-radius:1mm;padding:1mm;background:white;display:block;"/>' : '')
     +     '<div class="bot-qr-lbl">Digital<br/>calendar</div>'
     +   '</div>'
     + '</div>'
