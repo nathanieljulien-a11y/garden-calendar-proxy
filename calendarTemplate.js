@@ -311,31 +311,41 @@ function buildPageB(opts) {
 
   var plantDisplay = plant ? (plant.charAt(0).toUpperCase() + plant.slice(1)) : '';
 
+  // keyDates already filtered for this month/year by pdfService
   var keyDateMap = {};
   for (var i = 0; i < keyDates.length; i++) {
     var kd = keyDates[i];
-    var kdate = new Date(kd.date);
-    if (kdate.getFullYear() === year && kdate.getMonth() === monthIdx) {
-      var kday = kdate.getDate();
+    // Parse date safely in UTC to avoid timezone shift on day boundary
+    var parts = (kd.date || '').split('-');
+    var kday = parseInt(parts[2], 10);
+    if (kday) {
       if (!keyDateMap[kday]) keyDateMap[kday] = [];
       keyDateMap[kday].push(kd.label || '');
     }
   }
 
+  // holidays already filtered to overlap this month by pdfService
+  // Parse dates in UTC (split on '-') to avoid timezone day-boundary shifts
   var holidayDays = {};
   var holidayLabelMap = {};
+  var daysInMonthForHol = new Date(year, monthIdx + 1, 0).getDate();
   for (var h = 0; h < holidays.length; h++) {
-    var hol    = holidays[h];
-    var hstart = new Date(hol.startDate);
-    var hend   = new Date(hol.endDate);
-    var hcur   = new Date(hstart.getTime());
-    while (hcur <= hend) {
-      if (hcur.getFullYear() === year && hcur.getMonth() === monthIdx) {
-        var hday = hcur.getDate();
-        holidayDays[hday] = true;
-        if (hcur.getTime() === hstart.getTime()) holidayLabelMap[hday] = hol.label || 'Holiday';
+    var hol = holidays[h];
+    var sp = (hol.startDate || '').split('-');
+    var ep = (hol.endDate   || '').split('-');
+    var sy = parseInt(sp[0],10), sm = parseInt(sp[1],10)-1, sd = parseInt(sp[2],10);
+    var ey = parseInt(ep[0],10), em = parseInt(ep[1],10)-1, ed = parseInt(ep[2],10);
+    // Mark every day of this month that falls within the holiday range
+    for (var d2 = 1; d2 <= daysInMonthForHol; d2++) {
+      var before = (sy < year) || (sy === year && sm < monthIdx) || (sy === year && sm === monthIdx && sd <= d2);
+      var after  = (ey > year) || (ey === year && em > monthIdx) || (ey === year && em === monthIdx && ed >= d2);
+      if (before && after) {
+        holidayDays[d2] = true;
+        // Label on first day of range that falls in this month
+        if (!holidayLabelMap[d2] && ((sy < year) || (sy === year && sm < monthIdx) || (sy === year && sm === monthIdx && sd === d2))) {
+          holidayLabelMap[d2] = hol.label || 'Holiday';
+        }
       }
-      hcur.setDate(hcur.getDate() + 1);
     }
   }
 
