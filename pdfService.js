@@ -136,8 +136,10 @@ function fetchClimateData(lat, lng) {
 // "RHS Wisley", "Wisley Garden", "RHS Garden Wisley" → "wisley"
 function normaliseGardenName(name) {
   if (!name) return '';
+  // Strip all common institutional words, then keep only alphanumeric
+  // This means "RHS Garden Wisley", "Wisley Gardens", "Wisley Garden RHS" all → "wisley"
   return name.toLowerCase()
-    .replace(/\b(rhs|nts|english heritage|the|garden|gardens|park|house|castle|abbey|hall|manor)\b/g, '')
+    .replace(/\b(rhs|nts|english heritage|national trust|the|garden|gardens|park|house|castle|abbey|hall|manor|place|estate|botanical|botanic|arboretum|pleasure grounds)\b/g, ' ')
     .replace(/[^a-z0-9]/g, '')
     .trim();
 }
@@ -157,12 +159,13 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
     var prompt =
       'Suggest one real, publicly accessible garden worth visiting in ' + monthName
       + ' for someone based in ' + climate + locationHint + '.'
-      + ' The garden should be reachable as a day trip by car or public transport (roughly within 2 hours).'
-      + ' The commentary does not need to be linked to the plant on the page.'
-      + ' Only suggest gardens you are certain exist and are open to the public.'
+      + ' It must be reachable as a day trip (roughly within 2 hours by car or public transport).'
+      + ' Vary the type across suggestions: include a mix of RHS gardens, National Trust properties, historic house gardens, walled gardens, arboreta, and botanic gardens.'
+      + ' Only suggest gardens you are certain exist and are open to the public in ' + monthName + '.'
+      + ' The highlight should mention something specific and seasonal to that month.'
       + excludeClause
       + '\n\nReturn ONLY valid JSON, no markdown, no explanation:'
-      + '\n{"name":"Full garden name","location":"Town, County/Region","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title if one exists, else null"}';
+      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
@@ -207,21 +210,22 @@ async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, ln
     var result = await fetchInspoOne(
       plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
     );
-    // Dedup check
+    // Dedup: retry up to 3 times if we get a repeat
+    var attempts = 0;
+    while (result && result.name && attempts < 3) {
+      var norm = normaliseGardenName(result.name);
+      if (usedNormalised.indexOf(norm) === -1) break; // not a duplicate, keep it
+      console.log('[PDF] Dedup: ' + result.name + ' already used, retrying...');
+      usedDisplay.push(result.name);
+      result = await fetchInspoOne(
+        plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
+      );
+      attempts++;
+    }
     if (result && result.name) {
       var norm = normaliseGardenName(result.name);
-      if (usedNormalised.indexOf(norm) !== -1) {
-        // Try once more with stronger exclude signal
-        usedDisplay.push(result.name);
-        result = await fetchInspoOne(
-          plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
-        );
-      }
-      if (result && result.name) {
-        norm = normaliseGardenName(result.name);
-        usedNormalised.push(norm);
-        usedDisplay.push(result.name);
-      }
+      usedNormalised.push(norm);
+      usedDisplay.push(result.name);
     }
     inspos.push(result);
     console.log('[PDF] Inspo ' + (i+1) + '/12: ' + (result && result.name || 'null'));
@@ -231,13 +235,27 @@ async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, ln
 
 
 // ── Fetch Wikipedia thumbnail for inspo garden (same as web app) ─────────────
-function fetchImageAsBase64(imageUrl) {
+function fetchImageAsBase64(imageUrl, _depth) {
+  _depth = _depth || 0;
   return new Promise(function(resolve) {
+    if (_depth > 4) { resolve(null); return; }
     var parsed = require('url').parse(imageUrl);
     var lib = parsed.protocol === 'https:' ? https : http;
-    var req = lib.get(imageUrl, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        return fetchImageAsBase64(res.headers.location).then(resolve);
+    var opts = {
+      hostname: parsed.hostname,
+      path: parsed.path,
+      headers: {
+        'User-Agent': 'GardenCalendar/1.0',
+        'Accept': 'image/png,image/jpeg,image/*',
+      }
+    };
+    var req = lib.get(opts, function(res) {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        var loc = res.headers.location;
+        // Handle relative redirects
+        if (loc.startsWith('/')) loc = parsed.protocol + '//' + parsed.hostname + loc;
+        res.resume();
+        return fetchImageAsBase64(loc, _depth + 1).then(resolve);
       }
       var chunks = [];
       res.on('data', function(chunk) { chunks.push(chunk); });
@@ -245,11 +263,12 @@ function fetchImageAsBase64(imageUrl) {
         var buf = Buffer.concat(chunks);
         if (buf.length < 500) { resolve(null); return; }
         var ct = res.headers['content-type'] || 'image/jpeg';
-        resolve('data:' + ct + ';base64,' + buf.toString('base64'));
+        if (!ct.includes('image')) { resolve(null); return; }
+        resolve('data:' + ct.split(';')[0].trim() + ';base64,' + buf.toString('base64'));
       });
     });
     req.on('error', function() { resolve(null); });
-    req.setTimeout(10000, function() { req.destroy(); resolve(null); });
+    req.setTimeout(12000, function() { req.destroy(); resolve(null); });
   });
 }
 
@@ -344,17 +363,14 @@ async function buildFullHTML(order, apiKey) {
   var appQrB64  = await fetchImageAsBase64(appQrSrc) || '';
   console.log('[PDF] App QR: ' + (appQrB64 ? 'ok' : 'failed'));
 
-  var inspoQrB64s = [];
-  for (var qi = 0; qi < 12; qi++) {
-    var ins = inspos[qi];
-    if (ins && ins.name) {
-      var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
-      var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(searchUrl) + '&margin=2';
-      inspoQrB64s.push(await fetchImageAsBase64(qrSrc) || '');
-    } else {
-      inspoQrB64s.push('');
-    }
-  }
+  // Fetch all QRs in parallel - qrserver.com is fast and doesn't rate-limit parallel
+  var inspoQrPromises = inspos.map(function(ins) {
+    if (!ins || !ins.name) return Promise.resolve('');
+    var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
+    var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(searchUrl) + '&margin=2';
+    return fetchImageAsBase64(qrSrc).then(function(b64) { return b64 || ''; });
+  });
+  var inspoQrB64s = await Promise.all(inspoQrPromises);
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
   // Build all 24 pages
