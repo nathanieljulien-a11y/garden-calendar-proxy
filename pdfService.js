@@ -80,7 +80,7 @@ function fetchClimateData(lat, lng) {
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat + '&longitude=' + lng
       + '&start_date=2000-01-01&end_date=2000-12-31'
-      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
       + '&models=EC_Earth3P_HR';
     https.get(url, { headers: { 'Accept': 'application/json' } }, function(res) {
       var data = '';
@@ -95,6 +95,7 @@ function fetchClimateData(lat, lng) {
           var tMinArr    = daily.temperature_2m_min  || [];
           var precipArr  = daily.precipitation_sum   || [];
           var sunArr     = daily.sunshine_duration   || [];
+          var dayArr     = daily.daylight_duration    || [];
 
           // Accumulate sums and counts per calendar month (0-indexed)
           var sums = { tMax:[],tMin:[],precip:[],sun:[] };
@@ -110,7 +111,8 @@ function fetchClimateData(lat, lng) {
             if (tMaxArr[i]   != null) { sums.tMax[mo]   += tMaxArr[i];   }
             if (tMinArr[i]   != null) { sums.tMin[mo]   += tMinArr[i];   }
             if (precipArr[i] != null) { sums.precip[mo] += precipArr[i]; }
-            if (sunArr[i]    != null) { sums.sun[mo]    += sunArr[i];    }
+            var sunVal = (sunArr[i] != null && sunArr[i] > 0) ? sunArr[i] : (dayArr[i] || 0);
+            sums.sun[mo] += sunVal;
             counts[mo]++;
           }
           var tMax=[],tMin=[],precip=[],sunHrs=[];
@@ -147,8 +149,10 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
     var locationHint = lat && lng
       ? ' (approx. ' + Math.round(lat) + '°N ' + Math.round(Math.abs(lng)) + '°' + (lng < 0 ? 'W' : 'E') + ')'
       : '';
-    var excludeClause = usedNames.length
-      ? '\n\nDo NOT suggest any of these (already used this calendar): ' + usedNames.join(', ') + '.'
+    // Only pass last 4 used names to keep prompt short
+    var recentUsed = usedNames.slice(-4);
+    var excludeClause = recentUsed.length
+      ? '\n\nDo NOT suggest any of these: ' + recentUsed.join(', ') + '.'
       : '';
     var prompt =
       'Suggest one real, publicly accessible garden worth visiting in ' + monthName
@@ -274,8 +278,8 @@ function fetchWikipediaPhoto(title) {
 // ── Validation ────────────────────────────────────────────────────────────────
 function validateOrder(body) {
   var errors = [];
-  if (body.startMonth == null || body.startMonth < 0 || body.startMonth > 11)
-    errors.push('startMonth must be 0-11');
+  if (body.startMonth == null || body.startMonth < 1 || body.startMonth > 12)
+    errors.push('startMonth must be 1-12 (January=1)');
   if (!body.climate || typeof body.climate !== 'string')
     errors.push('climate region required');
   if (!Array.isArray(body.plants) || body.plants.length !== 12)
@@ -289,7 +293,7 @@ function validateOrder(body) {
 
 // ── Build full 24-page HTML ────────────────────────────────────────────────────
 async function buildFullHTML(order, apiKey) {
-  var startMonth    = order.startMonth;
+  var startMonth    = order.startMonth - 1; // convert 1-12 to 0-11
   var year          = order.year || new Date().getFullYear();
   var plants        = order.plants;
   var keyDates      = order.keyDates || [];
@@ -334,6 +338,25 @@ async function buildFullHTML(order, apiKey) {
   var inspoPhotos = await Promise.all(inspoPhotoPromises);
   console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found.');
 
+  // Pre-fetch QR codes as base64 (Puppeteer may not load external URLs)
+  var appUrl    = 'https://garden-calendar-frontend.vercel.app';
+  var appQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(appUrl) + '&margin=2';
+  var appQrB64  = await fetchImageAsBase64(appQrSrc) || '';
+  console.log('[PDF] App QR: ' + (appQrB64 ? 'ok' : 'failed'));
+
+  var inspoQrB64s = [];
+  for (var qi = 0; qi < 12; qi++) {
+    var ins = inspos[qi];
+    if (ins && ins.name) {
+      var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
+      var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(searchUrl) + '&margin=2';
+      inspoQrB64s.push(await fetchImageAsBase64(qrSrc) || '');
+    } else {
+      inspoQrB64s.push('');
+    }
+  }
+  console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
+
   // Build all 24 pages
   var pages = [];
   for (var j = 0; j < 12; j++) {
@@ -356,6 +379,8 @@ async function buildFullHTML(order, apiKey) {
       plant: plt, artworkB64: artworks[j] || '',
       inspo: inspos[j] || null,
       inspoPhotoB64: inspoPhotos[j] || '',
+      inspoQrB64: inspoQrB64s[j] || '',
+      appQrB64: appQrB64,
       climate: climate, climateData: climateData,
       recipientName: recipientName,
     }));
