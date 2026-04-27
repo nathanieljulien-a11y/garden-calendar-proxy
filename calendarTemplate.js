@@ -317,18 +317,18 @@ function buildMonthPage(opts) {
 
   // ── Monthly tasks ─────────────────────────────────────────────────────────
   var MONTHLY_TASKS = {
-    0:  'January: plan the year ahead. Order seeds and bare-root plants. Prune apple and pear trees on dry days. Force rhubarb under upturned pots. Protect brassicas from pigeons.',
-    1:  'February: sow sweet peas and broad beans under glass. Chit seed potatoes in a light frost-free spot. Feed garden birds as wild food runs low. Prune late-flowering clematis hard.',
-    2:  'March: start hardening off tender seedlings. Sow tomatoes, peppers, and aubergines under glass. Divide snowdrops just as the leaves fade. Feed roses and shrubs with a balanced fertiliser.',
-    3:  'April: plant out onion sets and early potatoes. Stake delphiniums and lupins before they grow too tall. Sow courgettes and cucumbers under cover. Dead-head spring bulbs but leave foliage to die back.',
-    4:  'May: direct-sow salad, beetroot, and carrots outdoors. Pinch out sweet pea side-shoots. Watch for aphid colonies on roses and deal promptly. Plant out bedding once all frost risk has passed.',
-    5:  'June: harvest strawberries and remove runners. Sow French beans and courgettes direct. Mow lawns regularly and water in dry spells. Feed tomatoes weekly with high-potash fertiliser.',
-    6:  'July: harvest courgettes before they become marrows. Pinch out tomato side-shoots. Sow spring cabbages. Prune wisteria laterals to five leaves. Water containers daily in hot weather.',
-    7:  'August: take semi-ripe cuttings of tender perennials. Collect seed from annual flowers. Harvest and dry herbs before the first frosts. Order spring bulbs for planting in autumn.',
-    8:  'September: plant spring bulbs — tulips, alliums, narcissi. Harvest and store root vegetables. Take hardwood cuttings. Sow hardy annuals for early spring colour.',
-    9:  'October: lift dahlias, cannas, and gladioli corms for winter storage. Plant garlic. Mulch beds with well-rotted compost. Rake fallen leaves for leaf mould.',
-    10: 'November: plant bare-root roses, trees, and hedging. Insulate outdoor containers. Clear annual beds and add compost. Check stakes and ties are secure before winter storms.',
-    11: 'December: clean and oil garden tools. Check stored bulbs and corms for rot. Order seed catalogues. Plan next year\u2019s planting on paper while the garden rests.',
+    0:  '▸ Order seeds & bare-root plants ▸ Prune apples & pears on dry days ▸ Force rhubarb under upturned pots',
+    1:  '▸ Sow sweet peas & broad beans under glass ▸ Chit seed potatoes ▸ Prune late clematis hard',
+    2:  '▸ Sow tomatoes, peppers & aubergines under glass ▸ Divide snowdrops after flowering ▸ Feed roses with balanced fertiliser',
+    3:  '▸ Plant onion sets & early potatoes ▸ Stake delphiniums before they lean ▸ Dead-head bulbs, leave foliage to die back',
+    4:  '▸ Direct-sow salad, beetroot & carrots ▸ Pinch out sweet pea side-shoots ▸ Plant out bedding after last frost',
+    5:  '▸ Harvest strawberries, remove runners ▸ Feed tomatoes weekly (high potash) ▸ Deadhead roses to keep flowering',
+    6:  '▸ Harvest courgettes before they marrow ▸ Pinch tomato side-shoots ▸ Prune wisteria laterals to 5 leaves',
+    7:  '▸ Take semi-ripe cuttings of tender perennials ▸ Collect seed from annuals ▸ Order spring bulbs now',
+    8:  '▸ Plant tulip, allium & narcissus bulbs ▸ Harvest & store root vegetables ▸ Sow hardy annuals for spring',
+    9:  '▸ Lift dahlias & cannas before frost ▸ Plant garlic & rake leaves for leaf mould ▸ Mulch beds with compost',
+    10: '▸ Plant bare-root roses, trees & hedging ▸ Insulate outdoor containers ▸ Check stakes before winter storms',
+    11: '▸ Clean & oil garden tools ▸ Check stored bulbs for rot ▸ Plan next year’s planting with seed catalogues',
   };
 
   var tasksText = MONTHLY_TASKS[monthIdx] || '';
@@ -341,7 +341,8 @@ function buildMonthPage(opts) {
   if (commentary.care)        bullets.push(commentary.care);
   if (commentary.facts && commentary.facts.length) bullets.push(commentary.facts[0]);
 
-  var commHtml = bullets.map(function(b) {
+  // Limit to 2 bullets to leave space for inspo + footer
+  var commHtml = bullets.slice(0, 2).map(function(b) {
     return '<p class="comm-bullet">' + esc(b) + '</p>';
   }).join('');
 
@@ -354,18 +355,26 @@ function buildMonthPage(opts) {
   // ── Assemble ──────────────────────────────────────────────────────────────
   var ts = f.topSafeMm, ss = f.sideSafeMm, bs = f.botSafeMm;
 
+  // Content heights (top 50% and bottom 50% of usable area)
+  var usableH = f.heightMm - ts - bs;
+  var halfH   = usableH / 2;
+
   return '<div class="cal-page" style="width:' + f.widthMm + 'mm;height:' + f.heightMm + 'mm;">'
 
-    // ── TOP HALF ──
-    + '<div class="top-half" style="'
+    // Outer flex column filling the page (inside the bleed/safe zone)
+    + '<div class="page-inner" style="'
     +   'position:absolute;'
     +   'top:' + ts + 'mm;'
     +   'left:' + ss + 'mm;'
     +   'right:' + ss + 'mm;'
-    +   'height:calc(50% - ' + ts + 'mm + ' + (f.heightMm/2 - ts) + 'mm - ' + (f.heightMm/2) + 'mm);'
+    +   'bottom:' + bs + 'mm;'
+    +   'display:flex;flex-direction:column;'
     + '">'
 
-    // We use a flex row: illustration left (~40%) | right panel (~60%)
+    // ── TOP HALF ──
+    + '<div class="top-half" style="height:' + halfH + 'mm;flex-shrink:0;overflow:hidden;">'
+
+    // We use a flex row: illustration left (~38%) | right panel (~62%)
     + '<div class="top-inner">'
 
     // Illustration column
@@ -423,13 +432,7 @@ function buildMonthPage(opts) {
     + '</div>' // top-half
 
     // ── BOTTOM HALF ──
-    + '<div class="bot-half" style="'
-    +   'position:absolute;'
-    +   'top:50%;'
-    +   'left:' + ss + 'mm;'
-    +   'right:' + ss + 'mm;'
-    +   'bottom:' + bs + 'mm;'
-    + '">'
+    + '<div class="bot-half" style="height:' + halfH + 'mm;overflow:hidden;">'
 
     + '<div class="cal-grid">' + gridCells + '</div>'
 
@@ -439,6 +442,7 @@ function buildMonthPage(opts) {
     + '</div>'
 
     + '</div>' // bot-half
+    + '</div>' // page-inner
 
     + '</div>'; // cal-page
 }
@@ -446,41 +450,32 @@ function buildMonthPage(opts) {
 // ── Shared CSS ────────────────────────────────────────────────────────────────
 function buildSharedCSS(fmt) {
   var f = FORMATS[fmt] || FORMATS.a3;
-  var ts = f.topSafeMm, ss = f.sideSafeMm, bs = f.botSafeMm;
 
-  // Top-half content height in mm (from topSafe to 50%)
-  var topContentH = (f.heightMm / 2) - ts;
-  // Bot-half content height in mm (from 50% to botSafe from bottom)
-  var botContentH = (f.heightMm / 2) - bs;
-
-  // Illustration column width as fraction of top half
-  var illusW = 38; // %
-  var rightW = 100 - illusW;
-
-  // Font sizes scaled to format
+  // Font sizes scale down for A4 (smaller page)
   var scale = fmt === 'a4' ? 0.72 : 1.0;
   function pt(n) { return (n * scale).toFixed(1) + 'pt'; }
   function mm(n) { return (n * scale).toFixed(1) + 'mm'; }
 
+  var illusW = 38; // illustration column %
+
   return [
     "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&display=swap');",
-    ':root{',
-    '  --ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;',
-    '  --parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;',
-    '  --border:rgba(139,105,20,0.22);',
-    '}',
+    ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
     'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
-    // Page container
+    // Page container - exact bleed size, everything else inside
     '.cal-page{position:relative;overflow:hidden;background:var(--parchment);page-break-after:always;page-break-inside:avoid;box-sizing:border-box;}',
     '.cal-blank{background:var(--parchment);}',
 
-    // Top half inner layout
-    '.top-half{box-sizing:border-box;overflow:hidden;}',
-    '.top-inner{display:flex;height:' + topContentH + 'mm;gap:0;}',
+    // page-inner: fills usable area (inside binding+bleed safe zones), flex column
+    '.page-inner{box-sizing:border-box;display:flex;flex-direction:column;}',
 
-    // Illustration column
-    '.col-illus{width:' + illusW + '%;flex-shrink:0;display:flex;flex-direction:column;border-right:0.4mm solid var(--border);background:#F7F2E8;overflow:hidden;}',
+    // TOP HALF — explicit height set inline, flex row
+    '.top-half{flex-shrink:0;overflow:hidden;box-sizing:border-box;border-bottom:0.5mm solid var(--gold);}',
+    '.top-inner{display:flex;height:100%;gap:0;}',
+
+    // Illustration column (left, fixed %)
+    '.col-illus{width:' + illusW + '%;flex-shrink:0;display:flex;flex-direction:column;border-right:0.4mm solid var(--border);background:#F7F2E8;overflow:hidden;box-sizing:border-box;}',
     '.artwork-img{flex:1;width:100%;min-height:0;object-fit:contain;display:block;filter:sepia(5%) contrast(1.06);}',
     '.artwork-ph{flex:1;display:flex;align-items:center;justify-content:center;background:#F0EBE0;}',
     '.artwork-ph span{font-family:"Playfair Display",serif;font-style:italic;font-size:' + pt(16) + ';color:var(--muted);opacity:0.5;}',
@@ -488,8 +483,8 @@ function buildSharedCSS(fmt) {
     '.artwork-name{font-family:"Playfair Display",serif;font-style:italic;font-size:' + pt(8) + ';color:var(--ink);}',
     '.artwork-credit{font-size:' + pt(6) + ';color:var(--muted);opacity:0.6;}',
 
-    // Right panel
-    '.col-right{flex:1;min-width:0;display:flex;flex-direction:column;padding:' + mm(2.5) + ' ' + mm(3) + ';gap:' + mm(1.5) + ';overflow:hidden;}',
+    // Right panel (fills remaining top-half width, flex column)
+    '.col-right{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;padding:' + mm(2) + ' ' + mm(2.5) + ';gap:' + mm(1) + ';overflow:hidden;box-sizing:border-box;}',
 
     // Page header
     '.page-header{flex-shrink:0;border-bottom:0.4mm solid var(--gold);padding-bottom:' + mm(1.5) + ';}',
@@ -504,14 +499,14 @@ function buildSharedCSS(fmt) {
     // Sections
     '.section-label{font-family:"Playfair Display",serif;font-size:' + pt(7) + ';text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);display:block;margin-bottom:' + mm(0.8) + ';}',
     '.tasks-section{flex-shrink:0;}',
-    '.tasks-text{font-size:' + pt(8) + ';line-height:1.45;color:var(--ink);}',
-    '.comm-section{flex-shrink:0;}',
+    '.tasks-text{font-size:' + pt(8) + ';line-height:1.5;color:var(--ink);word-spacing:0.1em;}',
+    '.comm-section{flex-shrink:1;overflow:hidden;}',
     '.comm-bullet{font-size:' + pt(7.5) + ';line-height:1.45;color:var(--ink);margin-bottom:' + mm(0.5) + ';}',
 
     // Inspo block
     '.inspo-block{flex-shrink:0;padding:' + mm(1.5) + ' ' + mm(2) + ';background:rgba(139,105,20,0.04);border-left:0.7mm solid var(--gold);}',
-    '.inspo-photo{width:100%;height:' + (fmt === 'a4' ? mm(18) : mm(30)) + ';overflow:hidden;margin-bottom:' + mm(1) + ';}',
-    '.inspo-photo img{width:100%;height:100%;object-fit:cover;filter:sepia(8%) contrast(1.04);}',
+    '.inspo-photo{width:100%;max-height:' + (fmt === 'a4' ? mm(20) : mm(32)) + ';overflow:hidden;margin-bottom:' + mm(1) + ';background:#E8E4DC;}',
+    '.inspo-photo img{width:100%;height:auto;max-height:' + (fmt === 'a4' ? mm(20) : mm(32)) + ';object-fit:contain;display:block;filter:sepia(8%) contrast(1.04);}',
     '.inspo-name{font-family:"Playfair Display",serif;font-size:' + pt(9) + ';font-weight:600;color:var(--ink);}',
     '.inspo-loc{font-size:' + pt(7.5) + ';color:var(--muted);margin-top:' + mm(0.4) + ';}',
     '.inspo-highlight{font-size:' + pt(7.5) + ';line-height:1.4;color:var(--ink);margin-top:' + mm(0.6) + ';}',
@@ -519,7 +514,7 @@ function buildSharedCSS(fmt) {
     '.inspo-qr-row img{border:0.3mm solid var(--border);border-radius:1mm;padding:1mm;background:white;}',
     '.inspo-qr-lbl{font-size:' + pt(7) + ';color:var(--muted);font-style:italic;}',
 
-    // Right footer
+    // Right footer (quote + app QR) — pushed to bottom with margin-top:auto
     '.right-footer{margin-top:auto;border-top:0.3mm solid var(--border);padding-top:' + mm(1.5) + ';display:flex;align-items:flex-end;justify-content:space-between;flex-shrink:0;}',
     '.quote-block{flex:1;min-width:0;}',
     '.quote-text{display:block;font-family:"Playfair Display",serif;font-style:italic;font-size:' + pt(7.5) + ';line-height:1.5;color:var(--ink);}',
@@ -528,11 +523,11 @@ function buildSharedCSS(fmt) {
     '.app-qr-row img{border:0.3mm solid var(--border);border-radius:1mm;padding:1mm;background:white;}',
     '.app-qr-lbl{font-size:' + pt(6) + ';color:var(--muted);text-align:center;line-height:1.3;}',
 
-    // Bottom half
-    '.bot-half{box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;}',
+    // BOTTOM HALF — explicit height set inline, flex column
+    '.bot-half{flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;background:var(--parchment);}',
 
-    // Calendar grid
-    '.cal-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:auto;align-content:start;border-left:0.3mm solid var(--border);border-top:0.3mm solid var(--border);}',
+    // Calendar grid fills the bottom half (minus footer strip)
+    '.cal-grid{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,1fr);align-content:start;border-left:0.3mm solid var(--border);border-top:0.3mm solid var(--border);}',
     '.cal-dow{font-size:' + pt(7) + ';text-align:center;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;padding:' + mm(1) + ';border-right:0.3mm solid var(--border);border-bottom:0.4mm solid var(--gold);background:rgba(139,105,20,0.04);}',
     '.cal-weekend-hdr{color:var(--rust);opacity:0.8;}',
     '.cal-cell{padding:' + mm(1.2) + ' ' + mm(1.5) + ';border-right:0.3mm solid var(--border);border-bottom:0.3mm solid var(--border);display:flex;flex-direction:column;gap:' + mm(0.5) + ';overflow:hidden;}',
@@ -547,11 +542,18 @@ function buildSharedCSS(fmt) {
     '.hol-label{font-size:' + pt(6.5) + ';color:var(--sage);font-style:italic;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
     '.event-label{font-size:' + pt(7) + ';color:var(--rust);line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
 
-    // Calendar footer
+    // Calendar footer bar
     '.cal-footer{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:' + mm(1) + ' ' + mm(1.5) + ';border-top:0.3mm solid var(--border);}',
     '.footer-brand{font-family:"Playfair Display",serif;font-size:' + pt(7) + ';font-style:italic;color:var(--gold);}',
     '.footer-source{font-size:' + pt(5.5) + ';color:var(--muted);opacity:0.55;}',
   ].join('\n');
+}
+
+
+// ── Blank page ────────────────────────────────────────────────────────────────
+function buildBlankPage(fmt) {
+  var f = FORMATS[fmt] || FORMATS.a3;
+  return '<div class="cal-page cal-blank" style="width:' + f.widthMm + 'mm;height:' + f.heightMm + 'mm;"></div>';
 }
 
 // ── Full HTML document ────────────────────────────────────────────────────────
