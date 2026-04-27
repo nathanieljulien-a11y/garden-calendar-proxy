@@ -13,6 +13,28 @@ var tpl       = require('./calendarTemplate.js');
 var fs        = require('fs');
 var path      = require('path');
 
+// Load garden photo manifest once at startup
+var _gardenPhotoManifest = {};
+try {
+  var _manifestPath = path.join(__dirname, 'garden-photos', 'manifest.json');
+  _gardenPhotoManifest = JSON.parse(fs.readFileSync(_manifestPath, 'utf8'));
+  console.log('[pdfService] Garden photo manifest loaded:', Object.keys(_gardenPhotoManifest).length, 'gardens');
+} catch(e) {
+  console.warn('[pdfService] Garden photo manifest not found — will fetch live:', e.message);
+}
+
+function readGardenPhotoFromDisk(gardenName) {
+  if (!gardenName) return null;
+  var fname = _gardenPhotoManifest[gardenName];
+  if (!fname) return null;
+  var fpath = path.join(__dirname, 'garden-photos', fname);
+  try {
+    if (!fs.existsSync(fpath)) return null;
+    var buf = fs.readFileSync(fpath);
+    return 'data:image/jpeg;base64,' + buf.toString('base64');
+  } catch(e) { return null; }
+}
+
 // Load plant commentary once at startup
 try {
   var _commentary = JSON.parse(
@@ -466,9 +488,11 @@ async function buildFullHTML(order, apiKey) {
     plants, inspoMonthNames, inspoMonthIdxs,
     climate, geo && geo.lat, geo && geo.lng, apiKey
   );
-  console.log('[PDF] Inspo gardens done. Fetching Wikipedia photos...');
+  console.log('[PDF] Loading inspo garden photos (disk first, then Wikipedia)...');
   var inspoPhotoPromises = inspos.map(function(inspo) {
     if (!inspo || !inspo.name) return Promise.resolve(null);
+    var diskPhoto = readGardenPhotoFromDisk(inspo.name);
+    if (diskPhoto) return Promise.resolve(diskPhoto);
     var wikiTitle = inspo.wikipedia || inspo.name;
     return fetchWikipediaPhoto(wikiTitle);
   });
