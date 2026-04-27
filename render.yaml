@@ -12,7 +12,7 @@ services:
     name: garden-calendar-pdf
     env: node
     plan: starter          # 512MB — upgrade to standard (1GB) if OOM errors
-    buildCommand: npm install
+    buildCommand: npm install apt-get install -y ghostscript
     startCommand: npm start
     envVars:
       - key: NODE_ENV
