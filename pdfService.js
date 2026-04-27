@@ -146,6 +146,58 @@ function normaliseGardenName(name) {
 }
 
 // Single inspo fetch — returns Promise<{name,location,highlight,wikipedia?}|null>
+// Curated garden seed lists by rough UK region (lat bands)
+// Used to ground the model's suggestions to real, nearby, verified gardens
+function getRegionalGardens(lat, lng) {
+  if (!lat) return [];
+  // London & South East (lat 51.0-51.8, lng -0.8 to 0.5)
+  if (lat >= 51.0 && lat <= 51.8 && lng >= -0.8 && lng <= 0.5) return [
+    'Royal Botanic Gardens, Kew', 'RHS Garden Wisley', 'Sissinghurst Castle Garden',
+    'Great Dixter', 'Wakehurst', 'Hampton Court Palace Garden', 'Chelsea Physic Garden',
+    'Emmetts Garden', 'Nymans', 'Sheffield Park and Garden', 'Penshurst Place',
+    'Hever Castle Gardens', 'Chartwell', 'Knole Park', 'Scotney Castle',
+    "Bateman's", 'Borde Hill Garden', 'Leonardslee Lakes and Gardens',
+    'Parham House and Gardens', 'West Dean Gardens', 'Denmans Garden',
+    'Loseley Park', 'Painshill Park', 'Claremont Landscape Garden',
+    'Polesden Lacey', 'The Savill Garden', 'Mottisfont', 'Exbury Gardens',
+    'Jenkyn Place', 'Hannah Peschar Sculpture Garden',
+  ];
+  // South West (lat 50.0-51.5, lng -6.0 to -2.0)
+  if (lat >= 50.0 && lat < 51.5 && lng >= -6.0 && lng < -2.0) return [
+    'Trebah Garden', 'Glendurgan Garden', 'Heligan Gardens', 'Trelissick Garden',
+    'Tresco Abbey Garden', 'Penjerrick Garden', 'RHS Garden Rosemoor',
+    'Bicton Park Botanical Gardens', 'Greenway', 'Coleton Fishacre',
+    'Killerton', 'Knightshayes', 'Tyntesfield', 'Montacute House',
+    'Forde Abbey', 'Mapperton Gardens', 'Abbotsbury Subtropical Gardens',
+    'Hestercombe Gardens', 'Prior Park Landscape Garden',
+  ];
+  // Midlands (lat 51.5-53.0, lng -3.0 to -0.5)
+  if (lat >= 51.5 && lat < 53.0 && lng >= -3.0 && lng < -0.5) return [
+    'Hidcote', 'Kiftsgate Court Gardens', 'Bodnant Garden',
+    'RHS Garden Hyde Hall', 'Barnsley House', 'Bourton House Garden',
+    'Ryton Organic Gardens', 'Birmingham Botanical Gardens',
+    'Belvoir Castle Gardens', 'Holdenby House Gardens',
+    'Kelmarsh Hall', 'Coton Manor Garden', 'Cottesbrooke Hall Gardens',
+    'Canons Ashby', 'Upton House', 'Packwood House', 'Baddesley Clinton',
+  ];
+  // North of England (lat 53.0+)
+  if (lat >= 53.0) return [
+    'RHS Garden Harlow Carr', 'Studley Royal Water Garden', 'Newby Hall',
+    'Castle Howard', 'Scampston Hall Walled Garden', 'York Gate Garden',
+    'Parcevall Hall Gardens', 'Constable Burton Hall Gardens',
+    'Alnwick Garden', 'Cragside', 'Wallington', 'Belsay Hall Gardens',
+    'Levens Hall', 'Sizergh Castle', 'Holker Hall', 'Dalemain',
+  ];
+  // Scotland
+  if (lat >= 55.0) return [
+    'Royal Botanic Garden Edinburgh', 'Crarae Garden', 'Arduaine Garden',
+    'Inverewe Garden', 'Crathes Castle Garden', 'Pitmedden Garden',
+    'Branklyn Garden', 'Drummond Castle Gardens', 'Cawdor Castle Gardens',
+    'Logan Botanic Garden', 'Threave Garden',
+  ];
+  return [];
+}
+
 function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
   return new Promise(function(resolve) {
     if (!apiKey) { resolve(null); return; }
@@ -157,15 +209,26 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
     var excludeClause = recentUsed.length
       ? '\n\nDo NOT suggest any of these: ' + recentUsed.join(', ') + '.'
       : '';
+    var regionalGardens = getRegionalGardens(lat, lng);
+    // Remove already-used gardens from the candidate list
+    var candidates = regionalGardens.filter(function(g) {
+      return usedNames.indexOf(g) === -1 && normaliseGardenName(g) !== '' &&
+        usedNames.every(function(u) { return normaliseGardenName(u) !== normaliseGardenName(g); });
+    });
+    var gardenHint = candidates.length > 0
+      ? '\n\nChoose from these verified gardens near ' + climate + ' (all are real and within day-trip distance): '
+        + candidates.slice(0, 12).join(', ') + '.'
+        + ' Pick the one that is most interesting specifically in ' + monthName + '.'
+      : '';
+
     var prompt =
       'Suggest one real, publicly accessible garden worth visiting in ' + monthName
       + ' for someone based in ' + climate + locationHint + '.'
-      + ' It must be reachable as a day trip (roughly within 2 hours by car or public transport).'
-      + ' Vary the type across suggestions: include a mix of RHS gardens, National Trust properties, historic house gardens, walled gardens, arboreta, and botanic gardens.'
-      + ' Only suggest gardens you are certain exist and are open to the public in ' + monthName + '.'
-      + ' The highlight should mention something specific and seasonal to that month.'
+      + ' It must be within a comfortable day trip — preferably under 1.5 hours away.'
+      + gardenHint
       + excludeClause
-      + '\n\nReturn ONLY valid JSON, no markdown, no explanation:'
+      + '\n\nThe highlight should mention something specific happening in that garden in ' + monthName + '.'
+      + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after the JSON object:'
       + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
 
     var body = JSON.stringify({
@@ -330,6 +393,8 @@ async function buildFullHTML(order, apiKey) {
   var recipientName = order.recipientName || '';
 
   // Geocode and fetch climate data once upfront
+  console.log('[PDF] keyDates received:', JSON.stringify(keyDates));
+  console.log('[PDF] holidays received:', JSON.stringify(holidays));
   console.log('[PDF] Geocoding city: ' + city);
   var geo = await geocodeCity(city);
   var climateData = null;
@@ -368,7 +433,7 @@ async function buildFullHTML(order, apiKey) {
   // Generate QR codes locally using qrcode package (no external HTTP needed)
   async function makeQrB64(url) {
     try {
-      var dataUrl = await QRCode.toDataURL(url, { width: 80, margin: 1, color: { dark: '#2C1A0A', light: '#FDFAF4' } });
+      var dataUrl = await QRCode.toDataURL(url, { width: 150, margin: 2, color: { dark: '#000000', light: '#FFFFFF' } });
       return dataUrl; // already a data: URI
     } catch(e) { console.error('[PDF] QR gen error:', e.message); return ''; }
   }
@@ -403,11 +468,12 @@ async function buildFullHTML(order, apiKey) {
       var sp = h.startDate.split('-'), ep = h.endDate.split('-');
       var sy = parseInt(sp[0],10), sm = parseInt(sp[1],10)-1;
       var ey = parseInt(ep[0],10), em = parseInt(ep[1],10)-1;
-      // Overlaps this month if start <= end-of-month AND end >= start-of-month
       var startsBeforeMonthEnd = (sy < mYear) || (sy === mYear && sm <= mIdx);
       var endsAfterMonthStart  = (ey > mYear) || (ey === mYear && em >= mIdx);
       return startsBeforeMonthEnd && endsAfterMonthStart;
     });
+    if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
+    if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
     pages.push(tpl.buildPageA({
       monthName: mName, monthIdx: mIdx, year: mYear,
