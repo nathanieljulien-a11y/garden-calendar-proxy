@@ -53,7 +53,6 @@ var FORMATS = {
   a4: { widthMm: 305, heightMm: 218, label: 'A4 Landscape Wire-O Calendar' },
 };
 
-// MONTH_NAMES imported from template module
 
 // ── Read artwork from disk (downloaded at build time by download-artwork.js) ───
 var path = require('path');
@@ -454,6 +453,7 @@ function validateOrder(body) {
 
 // ── Build full 24-page HTML ────────────────────────────────────────────────────
 async function buildFullHTML(order, apiKey) {
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var fmt           = (order.format || 'a3').toLowerCase();
   var fmtConfig     = FORMATS[fmt] || FORMATS.a3;
   var startMonth    = order.startMonth - 1; // convert 1-12 to 0-11
@@ -527,7 +527,6 @@ async function buildFullHTML(order, apiKey) {
   // Build pages: blank cover + 12 months + blank back
   // A3: 14 pages (1 cover + 12 combined + 1 back)
   // A4: 26 pages (1 cover + 12 illus + 12 grid + 1 back)
-  var MONTH_NAMES = tpl.MONTH_NAMES;
   // 14 pages: blank cover + 12 months + blank back
   var pages = [];
   try {
