@@ -530,7 +530,7 @@ async function buildFullHTML(order, apiKey) {
   // 14 pages: blank cover + 12 months + blank back
   var pages = [];
   try {
-    pages.push(tpl.buildBlankPage(fmt)); // page 1: cover
+    pages.push(tpl.buildBlankPage()); // page 1: cover
     console.log('[PDF] Blank cover built OK');
   } catch(blankErr) {
     console.error('[PDF] buildBlankPage CRASH:', blankErr.stack);
@@ -560,31 +560,27 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    try {
-      pages.push(tpl.buildMonthPage({
-        format: fmt,
-        monthName: mName, monthIdx: mIdx, year: mYear,
-        plant: plt, artworkB64: artworks[j] || '',
-        inspo: inspos[j] || null,
-        inspoPhotoB64: inspoPhotos[j] || '',
-        inspoQrB64: inspoQrB64s[j] || '',
-        appQrB64: appQrB64,
-        climate: climate, climateData: climateData,
-        recipientName: recipientName,
-        keyDates: monthKeyDates, holidays: monthHolidays,
-      }));
-      console.log('[PDF] Month page ' + (j+1) + ' (' + mName + ') built OK');
-    } catch(pageErr) {
-      console.error('[PDF] buildMonthPage CRASH month ' + (j+1) + ' ' + mName + ':', pageErr.stack);
-      throw pageErr;
-    }
+    var monthOpts = {
+      monthName: mName, monthIdx: mIdx, year: mYear,
+      plant: plt, artworkB64: artworks[j] || '',
+      inspo: inspos[j] || null,
+      inspoPhotoB64: inspoPhotos[j] || '',
+      inspoQrB64: inspoQrB64s[j] || '',
+      appQrB64: appQrB64,
+      climate: climate, climateData: climateData,
+      recipientName: recipientName,
+      keyDates: monthKeyDates, holidays: monthHolidays,
+    };
+    pages.push(tpl.buildPageA(monthOpts));
+    pages.push(tpl.buildPageB(monthOpts));
+    console.log('[PDF] Month ' + (j+1) + ' (' + mName + ') built OK');
   }
 
-  pages.push(tpl.buildBlankPage(fmt)); // page 14: blank back
+  pages.push(tpl.buildBlankPage()); // page 14: blank back
   console.log('[PDF] Pages built: ' + pages.length + ' (14 = cover + 12 months + back, ' + fmt.toUpperCase() + ')');
 
   try {
-    var doc = tpl.buildDocument(pages, fmt);
+    var doc = tpl.buildDocument(pages);
     console.log('[PDF] buildDocument OK, length:', doc.length);
     return doc;
   } catch(docErr) {
@@ -594,8 +590,9 @@ async function buildFullHTML(order, apiKey) {
 }
 
 // ── Render PDF ────────────────────────────────────────────────────────────────
-async function generatePDF(html, fmtCfg) {
-  fmtCfg = fmtCfg || FORMATS.a3;
+async function generatePDF(html) {
+  // A3 portrait with bleed: 305mm × 428mm
+  var widthMm = 305, heightMm = 428;
   var browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -606,15 +603,15 @@ async function generatePDF(html, fmtCfg) {
   try {
     var page = await browser.newPage();
     await page.setViewport({
-      width:  Math.round(fmtCfg.widthMm * 150 / 25.4),
-      height: Math.round(fmtCfg.heightMm * 150 / 25.4),
+      width:  Math.round(widthMm * 150 / 25.4),
+      height: Math.round(heightMm * 150 / 25.4),
       deviceScaleFactor: 2,
     });
     // Images are base64 embedded — domcontentloaded is sufficient
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await new Promise(function(r) { setTimeout(r, 2000); }); // font render time
     return await page.pdf({
-      width: fmtCfg.widthMm + 'mm', height: fmtCfg.heightMm + 'mm',
+      width: widthMm + 'mm', height: heightMm + 'mm',
       printBackground: true, margin: { top:0, right:0, bottom:0, left:0 },
       timeout: 120000,
     });
@@ -638,7 +635,7 @@ router.post('/generate-pdf', async function(req, res) {
   try {
     var html = await buildFullHTML(req.body, apiKey);
     console.log('[PDF] HTML built (' + Math.round(html.length / 1024) + 'KB). Rendering...');
-    var pdfBuffer = await generatePDF(html, fmtConfig);
+    var pdfBuffer = await generatePDF(html);
 
     // ── PDF/X-4 conversion with Ghostscript ───────────────────────────────
     var finalBuffer = pdfBuffer;
@@ -675,12 +672,10 @@ router.post('/generate-pdf', async function(req, res) {
       finalBuffer = pdfBuffer;
     }
 
-    var fmt = (req.body.format || 'a3').toLowerCase();
-    var fmtConfig = tpl.FORMATS[fmt] || tpl.FORMATS.a3;
     console.log('[PDF] Done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's — ' + Math.round(finalBuffer.length / 1024) + 'KB');
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="garden-calendar-' + fmt + '.pdf"',
+      'Content-Disposition': 'attachment; filename="garden-calendar.pdf"',
       'Content-Length': finalBuffer.length,
     });
     res.end(finalBuffer);
