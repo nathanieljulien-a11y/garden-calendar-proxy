@@ -49,7 +49,7 @@ try {
 var router = express.Router();
 
 var FORMATS = {
-  a3: { widthMm: 305, heightMm: 428, label: 'A3 Portrait Standard Wall Calendar' },
+  a3: { widthMm: 279.42, heightMm: 401.14, label: 'A3 Portrait Standard Wall Calendar' },
   a4: { widthMm: 305, heightMm: 218, label: 'A4 Landscape Wire-O Calendar' },
 };
 
@@ -592,7 +592,7 @@ async function buildFullHTML(order, apiKey) {
 // ── Render PDF ────────────────────────────────────────────────────────────────
 async function generatePDF(html) {
   // A3 portrait with bleed: 305mm × 428mm
-  var widthMm = 305, heightMm = 428;
+  var widthMm = 279.42, heightMm = 401.14;
   var browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
