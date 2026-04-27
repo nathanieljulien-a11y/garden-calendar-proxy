@@ -185,16 +185,21 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
       var data = '';
       res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
+        console.log('[PDF] inspo API status:', res.statusCode);
         try {
           var p = JSON.parse(data);
+          if (p.error) { console.error('[PDF] inspo API error:', JSON.stringify(p.error)); resolve(null); return; }
           var text = (p.content && p.content[0] && p.content[0].text || '').trim();
           text = text.replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
           resolve(JSON.parse(text));
-        } catch(e) { resolve(null); }
+        } catch(e) {
+          console.error('[PDF] inspo parse error:', e.message, 'raw:', data.slice(0,200));
+          resolve(null);
+        }
       });
     });
-    req.on('error', function() { resolve(null); });
-    req.setTimeout(15000, function() { req.destroy(); resolve(null); });
+    req.on('error', function(e) { console.error('[PDF] inspo req error:', e.message); resolve(null); });
+    req.setTimeout(15000, function() { console.error('[PDF] inspo timeout'); req.destroy(); resolve(null); });
     req.write(body);
     req.end();
   });
@@ -286,10 +291,10 @@ function fetchWikipediaPhoto(title) {
           var thumb = d.thumbnail && d.thumbnail.source;
           if (!thumb) { resolve(null); return; }
           fetchImageAsBase64(thumb).then(resolve);
-        } catch(e) { resolve(null); }
+        } catch(e) { console.error('[PDF] wiki parse error:', e.message); resolve(null); }
       });
     });
-    req.on('error', function() { resolve(null); });
+    req.on('error', function(e) { console.error('[PDF] wiki req error:', e.message); resolve(null); });
     req.setTimeout(8000, function() { req.destroy(); resolve(null); });
   });
 }
@@ -381,13 +386,21 @@ async function buildFullHTML(order, apiKey) {
     var mName = MONTH_NAMES[mIdx];
     var plt   = plants[j] || '';
 
+    // Parse dates as plain strings to avoid timezone shift
     var monthKeyDates = keyDates.filter(function(d) {
-      var dt = new Date(d.date);
-      return dt.getFullYear() === mYear && dt.getMonth() === mIdx;
+      if (!d.date) return false;
+      var parts = d.date.split('-');
+      return parseInt(parts[0], 10) === mYear && (parseInt(parts[1], 10) - 1) === mIdx;
     });
     var monthHolidays = holidays.filter(function(h) {
-      var s = new Date(h.startDate), e = new Date(h.endDate);
-      return s <= new Date(mYear, mIdx + 1, 0) && e >= new Date(mYear, mIdx, 1);
+      if (!h.startDate || !h.endDate) return false;
+      var sp = h.startDate.split('-'), ep = h.endDate.split('-');
+      var sy = parseInt(sp[0],10), sm = parseInt(sp[1],10)-1;
+      var ey = parseInt(ep[0],10), em = parseInt(ep[1],10)-1;
+      // Overlaps this month if start <= end-of-month AND end >= start-of-month
+      var startsBeforeMonthEnd = (sy < mYear) || (sy === mYear && sm <= mIdx);
+      var endsAfterMonthStart  = (ey > mYear) || (ey === mYear && em >= mIdx);
+      return startsBeforeMonthEnd && endsAfterMonthStart;
     });
 
     pages.push(tpl.buildPageA({
