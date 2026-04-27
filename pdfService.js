@@ -4,6 +4,7 @@
 // Page B: full calendar grid with key dates and holidays
 
 var express   = require('express');
+var QRCode    = require('qrcode');
 var puppeteer = require('puppeteer-core');
 var chromium  = require('@sparticuz/chromium');
 var https     = require('https');
@@ -190,8 +191,10 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
           var p = JSON.parse(data);
           if (p.error) { console.error('[PDF] inspo API error:', JSON.stringify(p.error)); resolve(null); return; }
           var text = (p.content && p.content[0] && p.content[0].text || '').trim();
-          text = text.replace(/^```[a-z]*\n?/i,'').replace(/\n?```$/,'').trim();
-          resolve(JSON.parse(text));
+          // Strip markdown fences robustly - find the actual JSON object
+          var jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) { console.error('[PDF] inspo no JSON found in:', text.slice(0,100)); resolve(null); return; }
+          resolve(JSON.parse(jsonMatch[0]));
         } catch(e) {
           console.error('[PDF] inspo parse error:', e.message, 'raw:', data.slice(0,200));
           resolve(null);
@@ -362,20 +365,23 @@ async function buildFullHTML(order, apiKey) {
   var inspoPhotos = await Promise.all(inspoPhotoPromises);
   console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found.');
 
-  // Pre-fetch QR codes as base64 (Puppeteer may not load external URLs)
-  var appUrl    = 'https://garden-calendar-frontend.vercel.app';
-  var appQrSrc  = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(appUrl) + '&margin=2';
-  var appQrB64  = await fetchImageAsBase64(appQrSrc) || '';
+  // Generate QR codes locally using qrcode package (no external HTTP needed)
+  async function makeQrB64(url) {
+    try {
+      var dataUrl = await QRCode.toDataURL(url, { width: 80, margin: 1, color: { dark: '#2C1A0A', light: '#FDFAF4' } });
+      return dataUrl; // already a data: URI
+    } catch(e) { console.error('[PDF] QR gen error:', e.message); return ''; }
+  }
+
+  var appUrl   = 'https://garden-calendar-frontend.vercel.app';
+  var appQrB64 = await makeQrB64(appUrl);
   console.log('[PDF] App QR: ' + (appQrB64 ? 'ok' : 'failed'));
 
-  // Fetch all QRs in parallel - qrserver.com is fast and doesn't rate-limit parallel
-  var inspoQrPromises = inspos.map(function(ins) {
+  var inspoQrB64s = await Promise.all(inspos.map(function(ins) {
     if (!ins || !ins.name) return Promise.resolve('');
     var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
-    var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' + encodeURIComponent(searchUrl) + '&margin=2';
-    return fetchImageAsBase64(qrSrc).then(function(b64) { return b64 || ''; });
-  });
-  var inspoQrB64s = await Promise.all(inspoQrPromises);
+    return makeQrB64(searchUrl);
+  }));
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
   // Build all 24 pages
