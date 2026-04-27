@@ -146,55 +146,100 @@ function normaliseGardenName(name) {
 }
 
 // Single inspo fetch — returns Promise<{name,location,highlight,wikipedia?}|null>
-// Curated garden seed lists by rough UK region (lat bands)
-// Used to ground the model's suggestions to real, nearby, verified gardens
+// Curated garden seed lists by region — lat/lng bounding boxes [minLat,maxLat,minLng,maxLng]
+var GARDEN_REGIONS = [
+  { box:[50.8,51.9,-0.9,1.5], gardens:[
+    'Royal Botanic Gardens, Kew','RHS Garden Wisley','Sissinghurst Castle Garden',
+    'Great Dixter','Wakehurst','Hampton Court Palace Garden','Chelsea Physic Garden',
+    'Emmetts Garden','Nymans','Sheffield Park and Garden','Penshurst Place',
+    'Hever Castle Gardens','Chartwell','Knole Park','Scotney Castle',
+    "Bateman's",'Borde Hill Garden','Leonardslee Lakes and Gardens',
+    'Parham House and Gardens','West Dean Gardens','Denmans Garden',
+    'Loseley Park','Painshill Park','Claremont Landscape Garden',
+    'Polesden Lacey','The Savill Garden','Mottisfont','Exbury Gardens',
+    'Jenkyn Place','Hannah Peschar Sculpture Garden','Pashley Manor Gardens',
+  ]},
+  { box:[49.9,51.5,-6.5,-1.8], gardens:[
+    'Trebah Garden','Glendurgan Garden','Heligan Gardens','Trelissick Garden',
+    'Tresco Abbey Garden','RHS Garden Rosemoor','Bicton Park Botanical Gardens',
+    'Greenway','Coleton Fishacre','Killerton','Knightshayes','Tyntesfield',
+    'Montacute House','Forde Abbey','Mapperton Gardens','Abbotsbury Subtropical Gardens',
+    'Hestercombe Gardens','Prior Park Landscape Garden','Iford Manor','Stourhead',
+    'Kingston Lacy','Athelhampton House',
+  ]},
+  { box:[51.5,53.5,-1.0,2.0], gardens:[
+    'RHS Garden Hyde Hall','Beth Chatto Gardens','Anglesey Abbey',
+    'Blickling Estate','Sandringham Gardens','Bressingham Gardens',
+    'Helmingham Hall Gardens','Somerleyton Hall Gardens','Mannington Hall',
+    'Benington Lordship','Doddington Hall Gardens','Burghley House Gardens',
+  ]},
+  { box:[51.3,53.5,-5.5,-1.0], gardens:[
+    'Hidcote','Kiftsgate Court Gardens','Bodnant Garden','Powis Castle Garden',
+    'Barnsley House','Bourton House Garden','Birmingham Botanical Gardens',
+    'Upton House','Packwood House','Baddesley Clinton','Coton Manor Garden',
+    'Cottesbrooke Hall Gardens','Erddig','Aberglasney Gardens',
+    'National Botanic Garden of Wales',
+  ]},
+  { box:[53.0,55.8,-3.5,0.0], gardens:[
+    'RHS Garden Harlow Carr','Studley Royal Water Garden','Newby Hall',
+    'Castle Howard','Scampston Hall Walled Garden','York Gate Garden',
+    'Alnwick Garden','Cragside','Wallington','Belsay Hall Gardens',
+    'Levens Hall','Sizergh Castle','Holker Hall','Dalemain',
+    'Tatton Park','Dunham Massey','Biddulph Grange Garden',
+    'Wentworth Castle Gardens',
+  ]},
+  { box:[54.5,61.0,-8.0,-0.5], gardens:[
+    'Royal Botanic Garden Edinburgh','Crarae Garden','Arduaine Garden',
+    'Inverewe Garden','Crathes Castle Garden','Pitmedden Garden',
+    'Branklyn Garden','Drummond Castle Gardens','Logan Botanic Garden',
+    'Threave Garden','Culzean Castle and Country Park','Glenarn Garden',
+  ]},
+  { box:[51.3,55.5,-10.5,-5.5], gardens:[
+    'National Botanic Gardens Dublin','Powerscourt Estate Gardens',
+    'Killarney House Gardens','Glenveagh Castle Gardens',
+    'Mount Usher Gardens','Birr Castle Demesne','Altamont Garden',
+    'Rowallane Garden','Mount Stewart','Benvarden Garden',
+  ]},
+  { box:[49.5,53.6,2.5,7.2], gardens:[
+    'Keukenhof','Hortus Botanicus Amsterdam','Clingendael Park',
+    'Paleis Het Loo Gardens','Arboretum Kalmthout','Hex Castle Gardens',
+  ]},
+  { box:[41.5,51.1,-5.5,9.6], gardens:[
+    "Giverny (Monet's Garden)",'Versailles Gardens','Vaux-le-Vicomte',
+    'Villandry Gardens','Jardins de Marqueyssac','Jardin des Plantes Paris',
+    'Château de Chaumont-sur-Loire Gardens',
+  ]},
+  { box:[46.0,55.5,5.5,17.5], gardens:[
+    'Sanssouci Gardens Potsdam','Herrenhausen Gardens Hanover',
+    'Munich Botanical Garden','Berlin Botanical Garden',
+    'Schwetzingen Palace Gardens','Wilhelma Stuttgart',
+    'Schönbrunn Palace Gardens','Belvedere Gardens Vienna','Insel Mainau',
+  ]},
+  { box:[24.0,50.0,-90.0,-60.0], gardens:[
+    'Longwood Gardens','New York Botanical Garden','Brooklyn Botanic Garden',
+    'Arnold Arboretum Boston','Dumbarton Oaks Washington DC',
+    'Winterthur Garden','Chanticleer Garden','Wave Hill',
+    'Ladew Topiary Gardens',
+  ]},
+  { box:[30.0,50.0,-130.0,-100.0], gardens:[
+    'Butchart Gardens Victoria','Van Dusen Botanical Garden Vancouver',
+    'Portland Japanese Garden','Huntington Library Gardens',
+    'Filoli','San Francisco Botanical Garden','UC Berkeley Botanical Garden',
+  ]},
+  { box:[-47.0,-10.0,110.0,178.0], gardens:[
+    'Royal Botanic Garden Sydney','Royal Botanic Gardens Melbourne',
+    'Adelaide Botanic Garden','Kings Park Perth',
+    'Christchurch Botanic Gardens','Hamilton Gardens New Zealand',
+  ]},
+];
+
 function getRegionalGardens(lat, lng) {
-  if (!lat) return [];
-  // London & South East (lat 51.0-51.8, lng -0.8 to 0.5)
-  if (lat >= 51.0 && lat <= 51.8 && lng >= -0.8 && lng <= 0.5) return [
-    'Royal Botanic Gardens, Kew', 'RHS Garden Wisley', 'Sissinghurst Castle Garden',
-    'Great Dixter', 'Wakehurst', 'Hampton Court Palace Garden', 'Chelsea Physic Garden',
-    'Emmetts Garden', 'Nymans', 'Sheffield Park and Garden', 'Penshurst Place',
-    'Hever Castle Gardens', 'Chartwell', 'Knole Park', 'Scotney Castle',
-    "Bateman's", 'Borde Hill Garden', 'Leonardslee Lakes and Gardens',
-    'Parham House and Gardens', 'West Dean Gardens', 'Denmans Garden',
-    'Loseley Park', 'Painshill Park', 'Claremont Landscape Garden',
-    'Polesden Lacey', 'The Savill Garden', 'Mottisfont', 'Exbury Gardens',
-    'Jenkyn Place', 'Hannah Peschar Sculpture Garden',
-  ];
-  // South West (lat 50.0-51.5, lng -6.0 to -2.0)
-  if (lat >= 50.0 && lat < 51.5 && lng >= -6.0 && lng < -2.0) return [
-    'Trebah Garden', 'Glendurgan Garden', 'Heligan Gardens', 'Trelissick Garden',
-    'Tresco Abbey Garden', 'Penjerrick Garden', 'RHS Garden Rosemoor',
-    'Bicton Park Botanical Gardens', 'Greenway', 'Coleton Fishacre',
-    'Killerton', 'Knightshayes', 'Tyntesfield', 'Montacute House',
-    'Forde Abbey', 'Mapperton Gardens', 'Abbotsbury Subtropical Gardens',
-    'Hestercombe Gardens', 'Prior Park Landscape Garden',
-  ];
-  // Midlands (lat 51.5-53.0, lng -3.0 to -0.5)
-  if (lat >= 51.5 && lat < 53.0 && lng >= -3.0 && lng < -0.5) return [
-    'Hidcote', 'Kiftsgate Court Gardens', 'Bodnant Garden',
-    'RHS Garden Hyde Hall', 'Barnsley House', 'Bourton House Garden',
-    'Ryton Organic Gardens', 'Birmingham Botanical Gardens',
-    'Belvoir Castle Gardens', 'Holdenby House Gardens',
-    'Kelmarsh Hall', 'Coton Manor Garden', 'Cottesbrooke Hall Gardens',
-    'Canons Ashby', 'Upton House', 'Packwood House', 'Baddesley Clinton',
-  ];
-  // North of England (lat 53.0+)
-  if (lat >= 53.0) return [
-    'RHS Garden Harlow Carr', 'Studley Royal Water Garden', 'Newby Hall',
-    'Castle Howard', 'Scampston Hall Walled Garden', 'York Gate Garden',
-    'Parcevall Hall Gardens', 'Constable Burton Hall Gardens',
-    'Alnwick Garden', 'Cragside', 'Wallington', 'Belsay Hall Gardens',
-    'Levens Hall', 'Sizergh Castle', 'Holker Hall', 'Dalemain',
-  ];
-  // Scotland
-  if (lat >= 55.0) return [
-    'Royal Botanic Garden Edinburgh', 'Crarae Garden', 'Arduaine Garden',
-    'Inverewe Garden', 'Crathes Castle Garden', 'Pitmedden Garden',
-    'Branklyn Garden', 'Drummond Castle Gardens', 'Cawdor Castle Gardens',
-    'Logan Botanic Garden', 'Threave Garden',
-  ];
+  if (lat == null || lng == null) return [];
+  for (var i = 0; i < GARDEN_REGIONS.length; i++) {
+    var b = GARDEN_REGIONS[i].box;
+    if (lat >= b[0] && lat <= b[1] && lng >= b[2] && lng <= b[3])
+      return GARDEN_REGIONS[i].gardens;
+  }
   return [];
 }
 
