@@ -1,4 +1,4 @@
-name: Download Botanical Artwork (Pass 5)
+name: Download Botanical Artwork (Pass 6 - fennel via API)
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: pip install pillow requests -q
 
-      - name: Download artwork
+      - name: Download fennel
         run: |
           python3 << 'PYEOF'
           import requests, hashlib, time, os, io, json
@@ -21,10 +21,7 @@ jobs:
           from PIL import Image
 
           DELAY = 4.0
-          HEADERS = {
-              'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)',
-              'Accept': 'image/jpeg,image/png,image/*',
-          }
+          HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)'}
 
           def save_image(content, dest):
               img = Image.open(io.BytesIO(content))
@@ -36,122 +33,74 @@ jobs:
               return os.path.getsize(dest) // 1024
 
           def wm_url(title):
-              # Commons MD5 uses the page title with spaces replaced by underscores
               name = title.replace(' ', '_')
               md5 = hashlib.md5(name.encode('utf-8')).hexdigest()
               a, ab = md5[0], md5[:2]
-              enc = quote(name, safe='')
-              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{enc}"
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
 
-          def download_file(title, dest):
-              url = wm_url(title)
-              for attempt in range(2):
-                  try:
-                      r = requests.get(url, headers=HEADERS, timeout=25)
-                      if r.ok and len(r.content) > 5000:
-                          ct = r.headers.get('content-type', '')
-                          if 'image' in ct or 'jpeg' in ct:
-                              kb = save_image(r.content, dest)
-                              return kb
-                      if r.status_code == 429:
-                          print(f'    429 rate limited, waiting 30s')
-                          time.sleep(30)
-                  except Exception as e:
-                      print(f'    error: {e}')
-                  time.sleep(2)
+          def download_title(title, dest):
+              r = requests.get(wm_url(title), headers={**HEADERS, 'Accept': 'image/jpeg,image/*'}, timeout=25)
+              if r.ok and len(r.content) > 5000 and 'image' in r.headers.get('content-type',''):
+                  return save_image(r.content, dest)
               return None
 
-          def commons_api_find_file(search_term):
-              """Find a Commons file title by searching for a term (e.g. POM ID)."""
-              url = (
-                  'https://commons.wikimedia.org/w/api.php'
-                  f'?action=query&list=search&srsearch={quote(search_term)}'
-                  '&srnamespace=6&srlimit=3&format=json&origin=*'
-              )
-              try:
-                  r = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']}, timeout=15)
-                  data = r.json()
-                  hits = data.get('query', {}).get('search', [])
-                  if hits:
-                      # Strip "File:" prefix
-                      return hits[0]['title'].replace('File:', '')
-              except Exception as e:
-                  print(f'    API error: {e}')
-              return None
+          def api_search(query):
+              url = (f'https://commons.wikimedia.org/w/api.php'
+                     f'?action=query&list=search&srsearch={quote(query)}'
+                     f'&srnamespace=6&srlimit=5&format=json&origin=*')
+              r = requests.get(url, headers=HEADERS, timeout=15)
+              hits = r.json().get('query', {}).get('search', [])
+              return [h['title'].replace('File:', '') for h in hits]
 
           os.makedirs('artwork', exist_ok=True)
-
-          # ── 1. Köhler: lemon and rosemary (confirmed plate numbers) ───────────
-          # MD5 computed on underscore-normalised title
-          KOHLER = {
-              'lemon':    'Citrus x limon - Köhler–s Medizinal-Pflanzen-041.jpg',
-              'rosemary': 'Rosmarinus officinalis - Köhler–s Medizinal-Pflanzen-258.jpg',
-          }
-          print('=== Köhler confirmed plates ===')
-          for name, title in KOHLER.items():
-              dest = f'artwork/{name}.jpg'
-              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-                  print(f'  skip {name}'); continue
-              time.sleep(DELAY)
-              kb = download_file(title, dest)
-              if kb:
-                  print(f'  OK   {name} ({kb}KB)')
-              else:
-                  # Try replacing ö and – with ASCII variants
-                  alt = title.replace('Köhler', 'Kohler').replace('–', '-')
-                  kb = download_file(alt, dest)
-                  if kb:
-                      print(f'  OK   {name} (alt) ({kb}KB)')
-                  else:
-                      print(f'  FAIL {name}')
-
-          # ── 2. Fennel: probe Bd.3 plate range with correct MD5 method ────────
-          print('\n=== Fennel probe (Bd.3 range, correct MD5) ===')
           dest = 'artwork/fennel.jpg'
+
           if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-              print('  skip fennel')
-          else:
-              found = False
-              for plate in list(range(196, 220)) + list(range(56, 62)):
-                  title = f'Foeniculum vulgare - Köhler–s Medizinal-Pflanzen-{plate:03d}.jpg'
-                  time.sleep(DELAY)
-                  kb = download_file(title, dest)
-                  if kb:
-                      print(f'  OK   fennel = plate {plate:03d} ({kb}KB)')
-                      found = True
-                      break
-              if not found:
-                  print('  MISS fennel')
+              print('skip fennel'); exit(0)
 
-          # ── 3. USDA Pomological via Commons API lookup ────────────────────────
-          # Query Commons API by POM ID → get exact filename → download via CDN
-          print('\n=== USDA Pomological (via Commons API) ===')
-          USDA = {
-              'fig':        'POM00001044',
-              'peach':      'POM00001895',
-              'strawberry': 'POM00001148',
-              'apricot':    'POM00001788',
-              'almond':     'POM00001053',
-              'mulberry':   'POM00001117',
-          }
-          for name, pom_id in USDA.items():
-              dest = f'artwork/{name}.jpg'
+          # Strategy 1: Commons API search for "Foeniculum Köhler"
+          print('=== Searching Commons API for fennel ===')
+          for query in ['Foeniculum vulgare Köhler', 'Foeniculum Köhler Medizinal', 'Foeniculum Kohler']:
+              time.sleep(DELAY)
+              results = api_search(query)
+              print(f'  Query "{query}": {results}')
+              for title in results:
+                  if 'Foeniculum' in title or 'fennel' in title.lower():
+                      time.sleep(DELAY)
+                      kb = download_title(title, dest)
+                      if kb:
+                          print(f'  OK fennel via API: {title} ({kb}KB)')
+                          break
               if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-                  print(f'  skip {name}'); continue
-              time.sleep(DELAY)
-              title = commons_api_find_file(pom_id)
-              if not title:
-                  print(f'  MISS {name}: no Commons file found for {pom_id}')
-                  continue
-              print(f'  Found: {title[:70]}')
-              time.sleep(DELAY)
-              kb = download_file(title, dest)
-              if kb:
-                  print(f'  OK   {name} ({kb}KB)')
-              else:
-                  print(f'  FAIL {name}: file found but download failed')
+                  break
 
-          print('\nPass 5 complete.')
+          # Strategy 2: Try alternative Köhler filename spellings
+          # The species list uses "Foeniculum vulgare Mill." - Mill. might be in filename
+          # Also try Anethum foeniculum (old synonym used in 1880s literature)
+          if not (os.path.exists(dest) and os.path.getsize(dest) > 5000):
+              print('\n=== Trying alternative species names ===')
+              alts = [
+                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-057.jpg',
+                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-058.jpg',
+                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-059.jpg',
+                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-060.jpg',
+              ] + [
+                  f'Foeniculum vulgare - Köhler–s Medizinal-Pflanzen-{p:03d}.jpg'
+                  for p in [196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,57,58,59,60,61,62]
+              ]
+              for title in alts:
+                  time.sleep(DELAY)
+                  kb = download_title(title, dest)
+                  if kb:
+                      print(f'  OK: {title} ({kb}KB)')
+                      break
+                  else:
+                      print(f'  miss: {title[:60]}')
+
+          if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+              print(f'\nfennel downloaded ({os.path.getsize(dest)//1024}KB)')
+          else:
+              print('\nfennel not found - will use placeholder in PDF')
           PYEOF
 
       - name: Commit
@@ -159,5 +108,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add artwork/
-          git diff --staged --quiet || git commit -m "Botanical artwork pass 5 [automated]"
+          git diff --staged --quiet || git commit -m "Botanical artwork pass 6 - fennel [automated]"
           git push
