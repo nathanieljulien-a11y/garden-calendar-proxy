@@ -530,7 +530,13 @@ async function buildFullHTML(order, apiKey) {
   var MONTH_NAMES = tpl.MONTH_NAMES;
   // 14 pages: blank cover + 12 months + blank back
   var pages = [];
-  pages.push(tpl.buildBlankPage(fmt)); // page 1: cover
+  try {
+    pages.push(tpl.buildBlankPage(fmt)); // page 1: cover
+    console.log('[PDF] Blank cover built OK');
+  } catch(blankErr) {
+    console.error('[PDF] buildBlankPage CRASH:', blankErr.stack);
+    throw blankErr;
+  }
 
   for (var j = 0; j < 12; j++) {
     var mIdx  = (startMonth + j) % 12;
@@ -555,24 +561,37 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    pages.push(tpl.buildMonthPage({
-      format: fmt,
-      monthName: mName, monthIdx: mIdx, year: mYear,
-      plant: plt, artworkB64: artworks[j] || '',
-      inspo: inspos[j] || null,
-      inspoPhotoB64: inspoPhotos[j] || '',
-      inspoQrB64: inspoQrB64s[j] || '',
-      appQrB64: appQrB64,
-      climate: climate, climateData: climateData,
-      recipientName: recipientName,
-      keyDates: monthKeyDates, holidays: monthHolidays,
-    }));
+    try {
+      pages.push(tpl.buildMonthPage({
+        format: fmt,
+        monthName: mName, monthIdx: mIdx, year: mYear,
+        plant: plt, artworkB64: artworks[j] || '',
+        inspo: inspos[j] || null,
+        inspoPhotoB64: inspoPhotos[j] || '',
+        inspoQrB64: inspoQrB64s[j] || '',
+        appQrB64: appQrB64,
+        climate: climate, climateData: climateData,
+        recipientName: recipientName,
+        keyDates: monthKeyDates, holidays: monthHolidays,
+      }));
+      console.log('[PDF] Month page ' + (j+1) + ' (' + mName + ') built OK');
+    } catch(pageErr) {
+      console.error('[PDF] buildMonthPage CRASH month ' + (j+1) + ' ' + mName + ':', pageErr.stack);
+      throw pageErr;
+    }
   }
 
   pages.push(tpl.buildBlankPage(fmt)); // page 14: blank back
   console.log('[PDF] Pages built: ' + pages.length + ' (14 = cover + 12 months + back, ' + fmt.toUpperCase() + ')');
 
-  return tpl.buildDocument(pages, fmt)
+  try {
+    var doc = tpl.buildDocument(pages, fmt);
+    console.log('[PDF] buildDocument OK, length:', doc.length);
+    return doc;
+  } catch(docErr) {
+    console.error('[PDF] buildDocument CRASH:', docErr.stack);
+    throw docErr;
+  }
 }
 
 // ── Render PDF ────────────────────────────────────────────────────────────────
@@ -668,7 +687,7 @@ router.post('/generate-pdf', async function(req, res) {
     res.end(finalBuffer);
   } catch(err) {
     console.error('[PDF] Error:', err.message);
-    res.status(500).json({ error: 'PDF generation failed', message: err.message });
+    console.error('[PDF] STACK:', err.stack); res.status(500).json({ error: 'PDF generation failed', message: err.message, stack: err.stack });
   }
 });
 
