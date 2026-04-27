@@ -1,4 +1,4 @@
-name: Download Botanical Artwork (Pass 6 - fennel via API)
+name: Download Botanical Artwork (Pass 7 - fennel plate 148)
 
 on:
   workflow_dispatch:
@@ -12,101 +12,35 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: pip install pillow requests -q
-
       - name: Download fennel
         run: |
           python3 << 'PYEOF'
-          import requests, hashlib, time, os, io, json
+          import requests, hashlib, io, os
           from urllib.parse import quote
           from PIL import Image
 
-          DELAY = 4.0
-          HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)'}
+          filename = 'Foeniculum vulgare - K\u00f6hler\u2013s Medizinal-Pflanzen-148.jpg'
+          name = filename.replace(' ', '_')
+          md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+          url  = f"https://upload.wikimedia.org/wikipedia/commons/{md5[0]}/{md5[:2]}/{quote(name, safe='')}"
 
-          def save_image(content, dest):
-              img = Image.open(io.BytesIO(content))
+          r = requests.get(url, headers={'User-Agent': 'GardenCalendarBot/1.0', 'Accept': 'image/*'}, timeout=30)
+          if r.ok and len(r.content) > 5000:
+              img = Image.open(io.BytesIO(r.content))
               if img.width > 800:
                   h = int(img.height * 800 / img.width)
                   img = img.resize((800, h), Image.LANCZOS)
               if img.mode == 'RGBA': img = img.convert('RGB')
-              img.save(dest, 'JPEG', quality=85, optimize=True)
-              return os.path.getsize(dest) // 1024
-
-          def wm_url(title):
-              name = title.replace(' ', '_')
-              md5 = hashlib.md5(name.encode('utf-8')).hexdigest()
-              a, ab = md5[0], md5[:2]
-              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
-
-          def download_title(title, dest):
-              r = requests.get(wm_url(title), headers={**HEADERS, 'Accept': 'image/jpeg,image/*'}, timeout=25)
-              if r.ok and len(r.content) > 5000 and 'image' in r.headers.get('content-type',''):
-                  return save_image(r.content, dest)
-              return None
-
-          def api_search(query):
-              url = (f'https://commons.wikimedia.org/w/api.php'
-                     f'?action=query&list=search&srsearch={quote(query)}'
-                     f'&srnamespace=6&srlimit=5&format=json&origin=*')
-              r = requests.get(url, headers=HEADERS, timeout=15)
-              hits = r.json().get('query', {}).get('search', [])
-              return [h['title'].replace('File:', '') for h in hits]
-
-          os.makedirs('artwork', exist_ok=True)
-          dest = 'artwork/fennel.jpg'
-
-          if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-              print('skip fennel'); exit(0)
-
-          # Strategy 1: Commons API search for "Foeniculum Köhler"
-          print('=== Searching Commons API for fennel ===')
-          for query in ['Foeniculum vulgare Köhler', 'Foeniculum Köhler Medizinal', 'Foeniculum Kohler']:
-              time.sleep(DELAY)
-              results = api_search(query)
-              print(f'  Query "{query}": {results}')
-              for title in results:
-                  if 'Foeniculum' in title or 'fennel' in title.lower():
-                      time.sleep(DELAY)
-                      kb = download_title(title, dest)
-                      if kb:
-                          print(f'  OK fennel via API: {title} ({kb}KB)')
-                          break
-              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-                  break
-
-          # Strategy 2: Try alternative Köhler filename spellings
-          # The species list uses "Foeniculum vulgare Mill." - Mill. might be in filename
-          # Also try Anethum foeniculum (old synonym used in 1880s literature)
-          if not (os.path.exists(dest) and os.path.getsize(dest) > 5000):
-              print('\n=== Trying alternative species names ===')
-              alts = [
-                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-057.jpg',
-                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-058.jpg',
-                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-059.jpg',
-                  'Anethum foeniculum - Köhler–s Medizinal-Pflanzen-060.jpg',
-              ] + [
-                  f'Foeniculum vulgare - Köhler–s Medizinal-Pflanzen-{p:03d}.jpg'
-                  for p in [196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,57,58,59,60,61,62]
-              ]
-              for title in alts:
-                  time.sleep(DELAY)
-                  kb = download_title(title, dest)
-                  if kb:
-                      print(f'  OK: {title} ({kb}KB)')
-                      break
-                  else:
-                      print(f'  miss: {title[:60]}')
-
-          if os.path.exists(dest) and os.path.getsize(dest) > 5000:
-              print(f'\nfennel downloaded ({os.path.getsize(dest)//1024}KB)')
+              os.makedirs('artwork', exist_ok=True)
+              img.save('artwork/fennel.jpg', 'JPEG', quality=85)
+              print(f'OK fennel plate 148 ({os.path.getsize("artwork/fennel.jpg")//1024}KB)')
           else:
-              print('\nfennel not found - will use placeholder in PDF')
+              print(f'FAIL: HTTP {r.status_code}')
           PYEOF
-
       - name: Commit
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add artwork/
-          git diff --staged --quiet || git commit -m "Botanical artwork pass 6 - fennel [automated]"
+          git add artwork/fennel.jpg
+          git diff --staged --quiet || git commit -m "Add fennel artwork Köhler plate 148 [automated]"
           git push
