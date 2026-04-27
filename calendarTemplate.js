@@ -323,11 +323,13 @@ var SHARED_CSS = [
 
   // Each half-page is exactly 271.42mm × 191.57mm
   '.cal-page{width:271.42mm;height:191.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;}',
-  '.cal-blank{background:white;}',
+  // Blank cover/back page spans the full sheet height so Puppeteer treats it as one complete page
+  '.cal-blank{height:393.14mm;background:white;page-break-after:always;}',
 
   // 10mm white gap between page-a and page-b
   '.page-a{margin-bottom:10mm;}',
-  '.page-b{}',
+  // page-break-after on page-b ensures each month pair occupies exactly one full sheet
+  '.page-b{page-break-after:always;}',
 
   // ── PAGE A ──────────────────────────────────────────────────────────────
   // illustration ~38% width (~103mm), right panel fills the rest
