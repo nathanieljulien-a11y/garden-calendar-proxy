@@ -321,10 +321,11 @@ var SHARED_CSS = [
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
-  // Each half-page fills exactly 271.42mm × 191.57mm — no margin or padding anywhere
-  '.cal-page{width:271.42mm;height:191.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:0;padding:0;}',
-  // Blank cover/back page: full sheet height, no margins
-  '.cal-blank{width:271.42mm;height:393.14mm;background:white;page-break-after:always;margin:0;padding:0;}',
+  // Dimensions: content 271.42 × 393.14mm + 4mm bleed each side = 279.42 × 401.14mm
+  // Each half-page: 279.42mm wide × 195.57mm tall  (401.14 - 10mm gap) / 2
+  // Blank full-sheet: 279.42mm × 401.14mm
+  '.cal-page{width:279.42mm;height:195.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:0;padding:0;}',
+  '.cal-blank{width:279.42mm;height:401.14mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
   // 10mm white gap between page-a and page-b
   '.page-a{margin-bottom:10mm;}',
@@ -332,66 +333,66 @@ var SHARED_CSS = [
   '.page-b{page-break-after:always;}',
 
   // ── PAGE A ──────────────────────────────────────────────────────────────
-  // Left column: exactly 40% of 271.42mm = 108.57mm; right fills remainder
-  '.page-a-layout{display:grid;grid-template-columns:108.57mm 1fr;height:100%;margin:0;}',
+  // 50-50 split: left = 139.71mm, right = 139.71mm
+  '.page-a-layout{display:grid;grid-template-columns:139.71mm 1fr;height:100%;margin:0;}',
 
   // Artwork column
   '.col-artwork{position:relative;overflow:hidden;background:#F7F2E8;border-right:0.4mm solid var(--border);display:flex;flex-direction:column;}',
   '.artwork-img{flex:1;width:100%;min-height:0;object-fit:contain;display:block;filter:sepia(5%) contrast(1.06);}',
   '.artwork-placeholder{flex:1;display:flex;align-items:center;justify-content:center;}',
   '.artwork-placeholder-text{font-family:"Playfair Display",serif;font-style:italic;font-size:14pt;color:var(--muted);opacity:0.4;}',
-  '.artwork-footer{flex-shrink:0;padding:1.5mm 2.5mm;background:rgba(240,235,224,0.95);border-top:0.3mm solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:2mm;}',
+  '.artwork-footer{flex-shrink:0;padding:2mm 3mm;background:rgba(240,235,224,0.95);border-top:0.3mm solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:2mm;}',
   '.artwork-plant-name{font-family:"Playfair Display",serif;font-style:italic;font-size:8pt;color:var(--ink);white-space:nowrap;}',
   '.artwork-credit{font-size:5pt;color:var(--muted);opacity:0.6;text-align:right;}',
 
-  // Right column
-  '.col-right{display:flex;flex-direction:column;padding:3mm 3.5mm;overflow:hidden;gap:0;}',
+  // Right column — justify-content:space-between spreads sections evenly
+  '.col-right{display:flex;flex-direction:column;padding:4mm 4.5mm;overflow:hidden;justify-content:space-between;}',
 
   // Header
-  '.page-header{border-bottom:0.4mm solid var(--gold);padding-bottom:1.5mm;margin-bottom:1.5mm;flex-shrink:0;}',
+  '.page-header{border-bottom:0.4mm solid var(--gold);padding-bottom:2mm;flex-shrink:0;}',
   '.header-month{font-family:"Playfair Display",serif;font-size:14pt;font-weight:600;color:var(--ink);}',
-  '.header-recipient{font-size:7pt;color:var(--muted);letter-spacing:0.04em;margin-top:0.3mm;}',
+  '.header-recipient{font-size:7pt;color:var(--muted);letter-spacing:0.04em;margin-top:0.5mm;}',
 
   // Climate bar
-  '.climate-bar{display:flex;justify-content:space-between;align-items:baseline;padding:1mm 2mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);margin-bottom:1.5mm;flex-shrink:0;}',
+  '.climate-bar{display:flex;justify-content:space-between;align-items:baseline;padding:1.5mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
   '.climate-region{font-size:7pt;font-style:italic;color:var(--muted);}',
   '.climate-stats{font-size:6.5pt;color:var(--ink);font-family:"Playfair Display",serif;}',
 
   // Section label (shared)
-  '.section-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:0.8mm;display:block;}',
+  '.section-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:1mm;display:block;}',
 
   // Plant commentary box
-  '.plant-box{margin-bottom:1.5mm;flex-shrink:0;}',
+  '.plant-box{flex-shrink:0;}',
   '.plant-bullets{list-style:none;padding:0;margin:0;}',
-  '.plant-bullets li{font-size:7.5pt;line-height:1.4;color:var(--ink);padding-left:3mm;position:relative;margin-bottom:0.6mm;}',
+  '.plant-bullets li{font-size:7.5pt;line-height:1.55;color:var(--ink);padding-left:3mm;position:relative;margin-bottom:0.8mm;}',
   '.plant-bullets li::before{content:"\u2022";position:absolute;left:0;color:var(--gold);}',
 
   // Garden tasks box
-  '.tasks-box{margin-bottom:1.5mm;flex-shrink:0;}',
-  '.tasks-intro{font-size:7.5pt;line-height:1.4;color:var(--ink);margin-bottom:1.2mm;font-style:italic;}',
-  '.tasks-question{font-size:7.5pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}',
-  '.tasks-lines{display:flex;flex-direction:column;gap:2mm;}',
+  '.tasks-box{flex-shrink:0;}',
+  '.tasks-intro{font-size:7.5pt;line-height:1.55;color:var(--ink);margin-bottom:1.5mm;font-style:italic;}',
+  '.tasks-question{font-size:7.5pt;font-weight:600;color:var(--ink);margin-bottom:2mm;}',
+  '.tasks-lines{display:flex;flex-direction:column;gap:2.5mm;}',
   '.task-line{display:flex;align-items:center;gap:2mm;}',
   '.checkbox{font-size:8.5pt;color:var(--gold);flex-shrink:0;line-height:1;}',
   '.task-rule{flex:1;border-bottom:0.3mm solid rgba(139,105,20,0.3);height:0;}',
 
   // Compact inspo block: image | text | QR in a row
-  '.inspo-block{margin-bottom:1.5mm;padding:1.5mm 2mm;background:rgba(139,105,20,0.04);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
-  '.inspo-row{display:flex;align-items:flex-start;gap:2mm;margin-top:0.8mm;}',
-  '.inspo-photo-col{flex-shrink:0;width:20mm;height:20mm;overflow:hidden;}',
+  '.inspo-block{padding:2mm 2.5mm;background:rgba(139,105,20,0.04);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
+  '.inspo-row{display:flex;align-items:flex-start;gap:2mm;margin-top:1mm;}',
+  '.inspo-photo-col{flex-shrink:0;width:22mm;height:22mm;overflow:hidden;}',
   '.inspo-photo-col img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(8%) contrast(1.04);}',
   '.inspo-text-col{flex:1;min-width:0;overflow:hidden;}',
-  '.inspo-name{font-family:"Playfair Display",serif;font-size:8pt;font-weight:600;color:var(--ink);margin-bottom:0.4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
-  '.inspo-location{font-size:6.5pt;color:var(--muted);margin-bottom:0.6mm;}',
-  '.inspo-highlight{font-size:7pt;line-height:1.35;color:var(--ink);}',
+  '.inspo-name{font-family:"Playfair Display",serif;font-size:8pt;font-weight:600;color:var(--ink);margin-bottom:0.5mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+  '.inspo-location{font-size:6.5pt;color:var(--muted);margin-bottom:0.8mm;}',
+  '.inspo-highlight{font-size:7pt;line-height:1.45;color:var(--ink);}',
   '.inspo-qr-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1mm;}',
   '.inspo-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;}',
   '.inspo-qr-lbl{font-size:5pt;color:var(--muted);font-style:italic;text-align:center;}',
 
   // Footer: quote left + app QR right, side by side
-  '.page-footer{margin-top:auto;border-top:0.3mm solid var(--border);padding-top:1.5mm;flex-shrink:0;display:flex;align-items:flex-start;gap:3mm;}',
+  '.page-footer{border-top:0.3mm solid var(--border);padding-top:2mm;flex-shrink:0;display:flex;align-items:flex-start;gap:3mm;}',
   '.footer-quote-col{flex:1;min-width:0;}',
-  '.quote-text{font-family:"Playfair Display",serif;font-style:italic;font-size:7pt;line-height:1.4;color:var(--ink);margin-bottom:0.6mm;}',
+  '.quote-text{font-family:"Playfair Display",serif;font-style:italic;font-size:7pt;line-height:1.5;color:var(--ink);margin-bottom:0.8mm;}',
   '.quote-attr{font-size:6pt;color:var(--muted);}',
   '.footer-qr-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1mm;}',
   '.footer-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;}',
@@ -438,12 +439,12 @@ var SHARED_CSS = [
 ].join('\n');
 
 // ── Full HTML document ────────────────────────────────────────────────────────
-// @page exactly matches the full pasteable area: 271.42mm × 393.14mm
+// @page: content (271.42 × 393.14mm) + 4mm bleed each side = 279.42 × 401.14mm
 function buildDocument(pages) {
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
     + '* { box-sizing:border-box; margin:0; padding:0; }\n'
-    + '@page { size:271.42mm 393.14mm; margin:0; }\n'
-    + 'html,body { width:271.42mm; margin:0; padding:0; background:white; }\n'
+    + '@page { size:279.42mm 401.14mm; margin:0; }\n'
+    + 'html,body { width:279.42mm; margin:0; padding:0; background:white; }\n'
     + SHARED_CSS + '\n'
     + '</style></head><body>\n'
     + pages.join('\n')
