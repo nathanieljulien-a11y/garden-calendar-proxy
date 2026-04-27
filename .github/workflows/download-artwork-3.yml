@@ -1,4 +1,4 @@
-name: Download Botanical Artwork (Pass 7 - fennel plate 148)
+name: Download Botanical Artwork (Pass 8 - ornamentals via Commons API)
 
 on:
   workflow_dispatch:
@@ -12,35 +12,160 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install dependencies
         run: pip install pillow requests -q
-      - name: Download fennel
+
+      - name: Download ornamental plant illustrations
         run: |
           python3 << 'PYEOF'
-          import requests, hashlib, io, os
+          import requests, hashlib, time, os, io, json
           from urllib.parse import quote
           from PIL import Image
 
-          filename = 'Foeniculum vulgare - K\u00f6hler\u2013s Medizinal-Pflanzen-148.jpg'
-          name = filename.replace(' ', '_')
-          md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
-          url  = f"https://upload.wikimedia.org/wikipedia/commons/{md5[0]}/{md5[:2]}/{quote(name, safe='')}"
+          DELAY = 3.0
+          HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)'}
 
-          r = requests.get(url, headers={'User-Agent': 'GardenCalendarBot/1.0', 'Accept': 'image/*'}, timeout=30)
-          if r.ok and len(r.content) > 5000:
-              img = Image.open(io.BytesIO(r.content))
+          def save_image(content, dest):
+              img = Image.open(io.BytesIO(content))
               if img.width > 800:
                   h = int(img.height * 800 / img.width)
                   img = img.resize((800, h), Image.LANCZOS)
               if img.mode == 'RGBA': img = img.convert('RGB')
-              os.makedirs('artwork', exist_ok=True)
-              img.save('artwork/fennel.jpg', 'JPEG', quality=85)
-              print(f'OK fennel plate 148 ({os.path.getsize("artwork/fennel.jpg")//1024}KB)')
-          else:
-              print(f'FAIL: HTTP {r.status_code}')
+              img.save(dest, 'JPEG', quality=85, optimize=True)
+              return os.path.getsize(dest) // 1024
+
+          def wm_url(title):
+              name = title.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def download_title(title, dest):
+              r = requests.get(wm_url(title),
+                  headers={**HEADERS, 'Accept': 'image/jpeg,image/*'}, timeout=25)
+              ct = r.headers.get('content-type', '')
+              if r.ok and len(r.content) > 5000 and 'image' in ct:
+                  return save_image(r.content, dest)
+              return None
+
+          def api_search(query, limit=8):
+              url = (f'https://commons.wikimedia.org/w/api.php'
+                     f'?action=query&list=search&srsearch={quote(query)}'
+                     f'&srnamespace=6&srlimit={limit}&format=json&origin=*')
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=15)
+                  hits = r.json().get('query', {}).get('search', [])
+                  return [h['title'].replace('File:', '') for h in hits]
+              except Exception as e:
+                  print(f'    API error: {e}')
+                  return []
+
+          os.makedirs('artwork', exist_ok=True)
+
+          # ── Plants with known plate numbers ────────────────────────────────
+          # Curtis's Botanical Magazine uses Flickr BHL format on Commons:
+          # "Curtis's botanical magazine (Plate NNNN) (FLICKR_ID).jpg"
+          # We search by plate number to find the Flickr ID, then download.
+          # Also try alternative sources where Curtis may not be on Commons.
+
+          TARGETS = [
+              # (plant, primary_queries, fallback_queries)
+              ('tulip',      ['Curtis botanical magazine Plate 2762 Tulipa',
+                              'Tulipa suaveolens botanical magazine'],
+                             ['Tulipa gesneriana botanical illustration Redoute']),
+
+              ('hydrangea',  ['Curtis botanical magazine Plate 438 Hydrangea',
+                              'Hydrangea hortensis botanical magazine 438'],
+                             ['Hydrangea macrophylla botanical illustration']),
+
+              ('sunflower',  ['Curtis botanical magazine Plate 1105 Helianthus',
+                              'Helianthus annuus botanical magazine 1105'],
+                             ['Helianthus annuus Köhler Medizinal-Pflanzen',
+                              'Helianthus annuus botanical illustration Blackwell']),
+
+              ('camellia',   ['Curtis botanical magazine Plate 42 Camellia',
+                              'Camellia japonica botanical magazine 42'],
+                             ['Camellia japonica Redoute botanical illustration',
+                              'Köhler Medizinal-Pflanzen Plate 136 Camellia sinensis']),
+
+              ('magnolia',   ['Curtis botanical magazine Plate 977 Magnolia',
+                              'Magnolia grandiflora botanical magazine 977'],
+                             ['Magnolia botanical illustration Redoute',
+                              'Magnolia grandiflora botanical illustration']),
+
+              ('wisteria',   ['Curtis botanical magazine Plate 2083 Wisteria',
+                              'Wisteria sinensis botanical magazine 2083'],
+                             ['Glycine sinensis botanical magazine 2083']),
+
+              ('peony',      ['Curtis botanical magazine Plate 1784 Paeonia',
+                              'Paeonia lactiflora botanical magazine'],
+                             ['Paeonia officinalis Redoute botanical illustration',
+                              'Paeonia botanical illustration Redoute']),
+
+              ('oleander',   ['Curtis botanical magazine Plate 166 Nerium',
+                              'Nerium oleander botanical magazine 166'],
+                             ['Nerium oleander Köhler Medizinal-Pflanzen',
+                              'Nerium oleander botanical illustration']),
+
+              ('snapdragon', ['Antirrhinum majus Blackwell curious herbal',
+                              'Antirrhinum majus botanical illustration'],
+                             ['Antirrhinum botanical illustration herbal']),
+
+              ('borage',     ['Borago officinalis Blackwell curious herbal',
+                              'Borago officinalis botanical illustration'],
+                             ['Borago officinalis herbal illustration']),
+
+              ('nasturtium', ['Tropaeolum majus botanical magazine',
+                              'Tropaeolum majus botanical illustration'],
+                             ['Nasturtium botanical illustration herbal']),
+
+              ('pansy',      ['Viola tricolor Blackwell curious herbal',
+                              'Viola tricolor botanical illustration herbal'],
+                             ['Viola tricolor botanical illustration']),
+          ]
+
+          for plant, primary_q, fallback_q in TARGETS:
+              dest = f'artwork/{plant}.jpg'
+              if os.path.exists(dest) and os.path.getsize(dest) > 5000:
+                  print(f'  skip {plant}'); continue
+
+              found = False
+              all_queries = primary_q + fallback_q
+              for q in all_queries:
+                  time.sleep(DELAY)
+                  hits = api_search(q)
+                  # Prefer portrait botanical illustrations, not photos
+                  scored = []
+                  for h in hits:
+                      hl = h.lower()
+                      score = 0
+                      if any(x in hl for x in ['botanical', 'magazine', 'medizinal', 'herbal',
+                                                'illustration', 'köhler', 'blackwell', 'redoute',
+                                                'plantarum', 'curtis', 'bhl']): score += 2
+                      if any(x in hl for x in ['plate', 'tab', 'tafel']): score += 1
+                      if any(x in hl for x in ['.jpg', '.jpeg']): score += 1
+                      # Penalise photos
+                      if any(x in hl for x in ['photo', 'photograph', 'garden', 'park']): score -= 3
+                      scored.append((score, h))
+                  scored.sort(reverse=True)
+
+                  for score, title in scored:
+                      if score < 1: continue
+                      time.sleep(DELAY)
+                      kb = download_title(title, dest)
+                      if kb:
+                          print(f'  OK   {plant} ({kb}KB) <- {title[:65]}')
+                          found = True
+                          break
+                  if found: break
+
+              if not found:
+                  print(f'  MISS {plant}')
+          print('\nPass 8 complete.')
           PYEOF
-      - name: Commit
+
+      - name: Commit artwork to repo
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add artwork/fennel.jpg
-          git diff --staged --quiet || git commit -m "Add fennel artwork Köhler plate 148 [automated]"
+          git add artwork/
+          git diff --staged --quiet || git commit -m "Add ornamental plant illustrations pass 8 [automated]"
           git push
