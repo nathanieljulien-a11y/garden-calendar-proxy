@@ -186,8 +186,8 @@ function buildPageA(opts) {
     + (recipientName ? '<div class="header-recipient">' + esc(recipientName) + '\u2019s Garden Calendar</div>' : '')
     + '</div>'
     + climateHtml
-    + plantBoxHtml
     + tasksHtml
+    + plantBoxHtml
     + inspoHtml
     + footerHtml
     + '</div>'
@@ -321,10 +321,10 @@ var SHARED_CSS = [
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
-  // Each half-page is exactly 271.42mm × 191.57mm
-  '.cal-page{width:271.42mm;height:191.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;}',
-  // Blank cover/back page spans the full sheet height so Puppeteer treats it as one complete page
-  '.cal-blank{height:393.14mm;background:white;page-break-after:always;}',
+  // Each half-page fills exactly 271.42mm × 191.57mm — no margin or padding anywhere
+  '.cal-page{width:271.42mm;height:191.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:0;padding:0;}',
+  // Blank cover/back page: full sheet height, no margins
+  '.cal-blank{width:271.42mm;height:393.14mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
   // 10mm white gap between page-a and page-b
   '.page-a{margin-bottom:10mm;}',
@@ -332,8 +332,8 @@ var SHARED_CSS = [
   '.page-b{page-break-after:always;}',
 
   // ── PAGE A ──────────────────────────────────────────────────────────────
-  // illustration ~38% width (~103mm), right panel fills the rest
-  '.page-a-layout{display:grid;grid-template-columns:103mm 1fr;height:100%;}',
+  // Left column: exactly 40% of 271.42mm = 108.57mm; right fills remainder
+  '.page-a-layout{display:grid;grid-template-columns:108.57mm 1fr;height:100%;margin:0;}',
 
   // Artwork column
   '.col-artwork{position:relative;overflow:hidden;background:#F7F2E8;border-right:0.4mm solid var(--border);display:flex;flex-direction:column;}',
