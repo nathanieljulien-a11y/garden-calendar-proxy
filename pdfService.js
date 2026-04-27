@@ -48,10 +48,12 @@ try {
 
 var router = express.Router();
 
-var GELATO = { widthMm: 426, heightMm: 303 };
+var FORMATS = {
+  a3: { widthMm: 305, heightMm: 428, label: 'A3 Portrait Standard Wall Calendar' },
+  a4: { widthMm: 305, heightMm: 218, label: 'A4 Landscape Wire-O Calendar' },
+};
 
-var MONTH_NAMES = ['January','February','March','April','May','June',
-                   'July','August','September','October','November','December'];
+// MONTH_NAMES imported from template module
 
 // ── Read artwork from disk (downloaded at build time by download-artwork.js) ───
 var path = require('path');
@@ -437,6 +439,8 @@ function validateOrder(body) {
   var errors = [];
   if (body.startMonth == null || body.startMonth < 1 || body.startMonth > 12)
     errors.push('startMonth must be 1-12 (January=1)');
+  if (body.format && body.format !== 'a3' && body.format !== 'a4')
+    errors.push('format must be a3 or a4 (default: a3)');
   if (!body.climate || typeof body.climate !== 'string')
     errors.push('climate region required');
   if (!Array.isArray(body.plants) || body.plants.length !== 12)
@@ -450,6 +454,8 @@ function validateOrder(body) {
 
 // ── Build full 24-page HTML ────────────────────────────────────────────────────
 async function buildFullHTML(order, apiKey) {
+  var fmt           = (order.format || 'a3').toLowerCase();
+  var fmtConfig     = FORMATS[fmt] || FORMATS.a3;
   var startMonth    = order.startMonth - 1; // convert 1-12 to 0-11
   var year          = order.year || new Date().getFullYear();
   var plants        = order.plants;
@@ -518,15 +524,20 @@ async function buildFullHTML(order, apiKey) {
   }));
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
-  // Build all 24 pages
+  // Build pages: blank cover + 12 months + blank back
+  // A3: 14 pages (1 cover + 12 combined + 1 back)
+  // A4: 26 pages (1 cover + 12 illus + 12 grid + 1 back)
+  var MONTH_NAMES = tpl.MONTH_NAMES;
+  // 14 pages: blank cover + 12 months + blank back
   var pages = [];
+  pages.push(tpl.buildBlankPage(fmt)); // page 1: cover
+
   for (var j = 0; j < 12; j++) {
     var mIdx  = (startMonth + j) % 12;
     var mYear = year + Math.floor((startMonth + j) / 12);
     var mName = MONTH_NAMES[mIdx];
     var plt   = plants[j] || '';
 
-    // Parse dates as plain strings to avoid timezone shift
     var monthKeyDates = keyDates.filter(function(d) {
       if (!d.date) return false;
       var parts = d.date.split('-');
@@ -544,7 +555,8 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    pages.push(tpl.buildPageA({
+    pages.push(tpl.buildMonthPage({
+      format: fmt,
       monthName: mName, monthIdx: mIdx, year: mYear,
       plant: plt, artworkB64: artworks[j] || '',
       inspo: inspos[j] || null,
@@ -553,26 +565,19 @@ async function buildFullHTML(order, apiKey) {
       appQrB64: appQrB64,
       climate: climate, climateData: climateData,
       recipientName: recipientName,
-    }));
-
-    pages.push(tpl.buildPageB({
-      monthName: mName, monthIdx: mIdx, year: mYear,
-      plant: plt, keyDates: monthKeyDates, holidays: monthHolidays,
-      climate: climate, recipientName: recipientName,
+      keyDates: monthKeyDates, holidays: monthHolidays,
     }));
   }
 
-  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
-    + '* { box-sizing:border-box; margin:0; padding:0; }\n'
-    + '@page { size:' + GELATO.widthMm + 'mm ' + GELATO.heightMm + 'mm; margin:0; }\n'
-    + 'html,body { width:' + GELATO.widthMm + 'mm; height:' + GELATO.heightMm + 'mm; margin:0; padding:0; }\n'
-    + tpl.SHARED_CSS + '\n'
-    + '</style></head><body>\n'
-    + pages.join('\n') + '\n</body></html>';
+  pages.push(tpl.buildBlankPage(fmt)); // page 14: blank back
+  console.log('[PDF] Pages built: ' + pages.length + ' (14 = cover + 12 months + back, ' + fmt.toUpperCase() + ')');
+
+  return tpl.buildDocument(pages, fmt)
 }
 
 // ── Render PDF ────────────────────────────────────────────────────────────────
-async function generatePDF(html) {
+async function generatePDF(html, fmtCfg) {
+  fmtCfg = fmtCfg || FORMATS.a3;
   var browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -583,15 +588,15 @@ async function generatePDF(html) {
   try {
     var page = await browser.newPage();
     await page.setViewport({
-      width:  Math.round(GELATO.widthMm * 150 / 25.4),
-      height: Math.round(GELATO.heightMm * 150 / 25.4),
+      width:  Math.round(fmtCfg.widthMm * 150 / 25.4),
+      height: Math.round(fmtCfg.heightMm * 150 / 25.4),
       deviceScaleFactor: 2,
     });
     // Images are base64 embedded — domcontentloaded is sufficient
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await new Promise(function(r) { setTimeout(r, 2000); }); // font render time
     return await page.pdf({
-      width: GELATO.widthMm + 'mm', height: GELATO.heightMm + 'mm',
+      width: fmtCfg.widthMm + 'mm', height: fmtCfg.heightMm + 'mm',
       printBackground: true, margin: { top:0, right:0, bottom:0, left:0 },
       timeout: 120000,
     });
@@ -615,14 +620,52 @@ router.post('/generate-pdf', async function(req, res) {
   try {
     var html = await buildFullHTML(req.body, apiKey);
     console.log('[PDF] HTML built (' + Math.round(html.length / 1024) + 'KB). Rendering...');
-    var pdf = await generatePDF(html);
-    console.log('[PDF] Done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's — ' + Math.round(pdf.length / 1024) + 'KB');
+    var pdfBuffer = await generatePDF(html, fmtConfig);
+
+    // ── PDF/X-4 conversion with Ghostscript ───────────────────────────────
+    var finalBuffer = pdfBuffer;
+    try {
+      var execSync = require('child_process').execSync;
+      var tmpIn    = '/tmp/calendar_raw_' + Date.now() + '.pdf';
+      var tmpOut   = '/tmp/calendar_x4_'  + Date.now() + '.pdf';
+      var iccPath  = path.join(__dirname, 'GRACoL2006_Coated1v2.icc');
+      fs.writeFileSync(tmpIn, pdfBuffer);
+      var gsAvail  = require('child_process').spawnSync('which', ['gs']).status === 0;
+      var iccAvail = fs.existsSync(iccPath);
+      if (gsAvail && iccAvail) {
+        var gsCmd = [
+          'gs', '-dBATCH', '-dNOPAUSE', '-dNOSAFER', '-dQUIET',
+          '-sDEVICE=pdfwrite',
+          '-dPDFX',
+          '-dCompatibilityLevel=1.6',
+          '-sColorConversionStrategy=UseDeviceIndependentColor',
+          '-dEncodeColorImages=true', '-dEncodeGrayImages=true',
+          '-dAutoRotatePages=/None',
+          '-sOutputFile=' + tmpOut,
+          tmpIn,
+        ].join(' ');
+        execSync(gsCmd, { timeout: 60000 });
+        finalBuffer = fs.readFileSync(tmpOut);
+        console.log('[PDF] PDF/X-4 conversion OK (' + Math.round(finalBuffer.length/1024) + 'KB)');
+      } else {
+        console.warn('[PDF] Skipping PDF/X-4: gs=' + gsAvail + ' icc=' + iccAvail);
+      }
+      try { fs.unlinkSync(tmpIn); } catch(e){}
+      try { fs.unlinkSync(tmpOut); } catch(e){}
+    } catch(gsErr) {
+      console.error('[PDF] PDF/X-4 failed, using standard PDF:', gsErr.message);
+      finalBuffer = pdfBuffer;
+    }
+
+    var fmt = (req.body.format || 'a3').toLowerCase();
+    var fmtConfig = tpl.FORMATS[fmt] || tpl.FORMATS.a3;
+    console.log('[PDF] Done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's — ' + Math.round(finalBuffer.length / 1024) + 'KB');
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': 'attachment; filename="garden-calendar.pdf"',
-      'Content-Length': pdf.length,
+      'Content-Disposition': 'attachment; filename="garden-calendar-' + fmt + '.pdf"',
+      'Content-Length': finalBuffer.length,
     });
-    res.end(pdf);
+    res.end(finalBuffer);
   } catch(err) {
     console.error('[PDF] Error:', err.message);
     res.status(500).json({ error: 'PDF generation failed', message: err.message });
