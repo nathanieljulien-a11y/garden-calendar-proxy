@@ -206,6 +206,14 @@ function buildPageB(opts) {
   var holidays      = opts.holidays || [];
   var climate       = opts.climate || '';
   var recipientName = opts.recipientName || '';
+  var monthIcsB64   = opts.monthIcsB64 || '';
+  // Calculate grid layout for QR placement
+  var _firstDow2    = getFirstDayMon(year, monthIdx);
+  var _daysInMonth2 = getDaysInMonth(year, monthIdx);
+  var _totalCells   = _firstDow2 + _daysInMonth2;
+  var _rowsNeeded   = Math.ceil(_totalCells / 7);
+  var _trailing     = _totalCells % 7 === 0 ? 0 : 7 - (_totalCells % 7);
+  // QR goes in last cell: either last trailing cell or last blank-row cell
 
   // Key date map — pure string parsing, no Date() timezone issues
   var keyDateMap = {};
@@ -281,11 +289,29 @@ function buildPageB(opts) {
     gridHtml += '<div class="' + cls + '">' + inner + '</div>';
   }
 
-  // Trailing empty cells with next month's day numbers (lighter colour)
+  // Trailing cells + blank row — last cell gets holiday QR if present
   var total    = firstDow + daysInMonth;
   var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
-  for (var t = 0; t < trailing; t++) {
-    gridHtml += '<div class="cal-cell cal-empty"><div class="day-top-row"><span class="day-num day-num-other">' + (t + 1) + '</span></div></div>';
+  var rowsNeeded = Math.ceil(total / 7);
+  var totalCells = rowsNeeded * 7; // always render full rows
+  var trailingCount = totalCells - total; // trailing + blank row cells
+
+  for (var t = 0; t < trailingCount; t++) {
+    var isLast = (t === trailingCount - 1);
+    var nextDay = t < trailing ? (t + 1) : null; // null = blank-row cell
+    if (isLast && monthIcsB64) {
+      // Last cell: show QR code for holiday(s) starting this month
+      gridHtml += '<div class="cal-cell cal-empty cal-ics-cell">'
+        + '<div class="cal-ics-qr-wrap">'
+        + '<img src="' + monthIcsB64 + '" class="cal-ics-qr" alt="Add to calendar"/>'
+        + '<span class="cal-ics-lbl">Add to calendar</span>'
+        + '</div>'
+        + '</div>';
+    } else {
+      gridHtml += '<div class="cal-cell cal-empty">'
+        + (nextDay ? '<div class="day-top-row"><span class="day-num day-num-other">' + nextDay + '</span></div>' : '')
+        + '</div>';
+    }
   }
 
   return '<div class="cal-page page-b">'
@@ -300,6 +326,12 @@ function buildPageB(opts) {
     + '<div class="cal-footer">'
     + '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
     + (climate ? '<span class="cal-footer-climate">' + esc(climate) + '</span>' : '')
+    + (monthIcsB64
+        ? '<div class="cal-footer-ics">'
+          + '<img src="' + monthIcsB64 + '" width="28" height="28" alt="Add to calendar"/>'
+          + '<span class="cal-footer-ics-lbl">Add dates to calendar \u2197</span>'
+          + '</div>'
+        : '')
     + '</div>'
     + '</div>'
     + '</div>';
@@ -400,6 +432,9 @@ var SHARED_CSS = [
   '.qr-label{font-size:7pt;color:var(--muted);line-height:1.4;text-align:right;max-width:25mm;}',
 
   // ── COVER PAGE ──────────────────────────────────────────────────────────────
+  '.cv-chart-block{display:flex;flex-direction:column;overflow:hidden;justify-content:center;}',
+  '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
+  '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-after:always;margin:0;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
@@ -420,6 +455,10 @@ var SHARED_CSS = [
   '.cv-qr-empty{background:rgba(139,105,20,0.04);}',
   '.cv-ics-heading{font-family:"Playfair Display",serif;font-size:16pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}',
   '.cv-ics-explain{font-size:13pt;color:var(--muted);line-height:1.5;}',
+  '.cv-dates-explain{font-size:12pt;color:var(--ink);line-height:1.6;}',
+  '.cv-dates-explain p{margin-bottom:2mm;}',
+  '.cv-dates-explain p:last-child{margin-bottom:0;}',
+  '.cv-dates-explain strong{color:var(--gold);font-weight:600;}',
   /* rows 4+5 share a wrapper that spans 2 grid rows */
   '.cv-msg-prov-wrapper{grid-row:span 2;display:flex;flex-direction:column;gap:7.03mm;overflow:hidden;}',
   '.cv-message-block{flex:1;min-height:0;justify-content:stretch;}',
@@ -474,6 +513,13 @@ var SHARED_CSS = [
 
   // Footer
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
+  '.cal-footer-ics{display:flex;align-items:center;gap:1.5mm;flex-shrink:0;}',
+  '.cal-ics-cell{display:flex;align-items:center;justify-content:center;padding:1mm;background:rgba(139,105,20,0.03);}',
+  '.cal-ics-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:0.8mm;}',
+  '.cal-ics-qr{width:18mm;height:18mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:white;}',
+  '.cal-ics-lbl{font-size:5pt;color:var(--muted);font-style:italic;text-align:center;line-height:1.3;}',
+  '.cal-footer-ics img{border:0.3mm solid var(--border);border-radius:0.8mm;padding:0.3mm;background:white;}',
+  '.cal-footer-ics-lbl{font-size:6pt;color:var(--muted);font-style:italic;}',
   '.cal-footer-text{font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
   '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
 ].join('\n');
@@ -500,9 +546,125 @@ module.exports = {
   setPlantCommentary: setPlantCommentary,
   getCommentary:      getCommentary,
   buildICS:           buildICS,
+  buildMonthICS:      buildMonthICS,
   SHARED_CSS:         SHARED_CSS,
   MONTH_NAMES:        MONTH_NAMES,
 };
+
+// ── Climate chart for cover page row 2 ───────────────────────────────────────
+// Inline SVG: temperature lines (high/low) on left axis, precip bars on right axis.
+// 12 months starting from startMonthIdx. Rendered at 130×52mm in cover page.
+function _buildClimateChart(climateData, startMonthIdx, monthNames) {
+  // Abbreviated month labels
+  var MON_ABBR = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  var W = 500, H = 180;  // SVG units (maps to ~130×52mm at cover scale)
+  var padL = 38, padR = 38, padT = 16, padB = 28;
+  var cW = W - padL - padR, cH = H - padT - padB;
+
+  var cd = (climateData && climateData._cd) || null;
+  if (!cd) {
+    // No data — show placeholder
+    return '<div class="cv-chart-block"><span class="cv-section-label">Average climate</span>'
+      + '<div class="cv-chart-empty">Climate data not available</div></div>';
+  }
+
+  // Reorder data to start from startMonthIdx
+  var tMaxR=[], tMinR=[], precipR=[], labelsR=[];
+  for (var i=0;i<12;i++) {
+    var mi = (startMonthIdx + i) % 12;
+    tMaxR.push(cd.tMax[mi]);
+    tMinR.push(cd.tMin[mi]);
+    precipR.push(cd.precip[mi]);
+    labelsR.push(monthNames[i] ? monthNames[i].slice(0,1) : MON_ABBR[mi]);
+  }
+
+  // Scales
+  var allTemps = tMaxR.concat(tMinR).filter(function(v){return v!=null;});
+  var tLo = Math.floor(Math.min.apply(null,allTemps) / 5) * 5 - 5;
+  var tHi = Math.ceil(Math.max.apply(null,allTemps) / 5) * 5 + 5;
+  var pHi = Math.ceil(Math.max.apply(null,precipR) / 20) * 20;
+
+  function tY(v) { return padT + cH - (v - tLo) / (tHi - tLo) * cH; }
+  function pY(v) { return padT + cH - v / pHi * cH; }
+  function xMid(i) { return padL + (i + 0.5) * (cW / 12); }
+  function xLeft(i){ return padL + i * (cW / 12); }
+  var barW = cW / 12 * 0.65;
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" '
+    + 'style="width:100%;height:100%;display:block;">';
+
+  // Background
+  svg += '<rect width="'+W+'" height="'+H+'" fill="#FDFAF4"/>';
+
+  // Grid lines (temperature)
+  var tStep = (tHi - tLo) <= 30 ? 5 : 10;
+  for (var t = tLo; t <= tHi; t += tStep) {
+    var gy = tY(t);
+    if (gy < padT || gy > padT+cH+1) continue;
+    svg += '<line x1="'+padL+'" y1="'+gy+'" x2="'+(padL+cW)+'" y2="'+gy+'" '
+      + 'stroke="rgba(139,105,20,0.12)" stroke-width="0.8"/>';
+    svg += '<text x="'+(padL-4)+'" y="'+(gy+3)+'" text-anchor="end" '
+      + 'font-family="Crimson Pro,Georgia,serif" font-size="11" fill="#7A5C2A">'+t+'°</text>';
+  }
+
+  // Precipitation bars (right axis, sage green, behind lines)
+  var pStep = pHi <= 80 ? 20 : 40;
+  for (var p = 0; p <= pHi; p += pStep) {
+    var py = pY(p);
+    if (py < padT || py > padT+cH+1) continue;
+    svg += '<text x="'+(padL+cW+4)+'" y="'+(py+3)+'" text-anchor="start" '
+      + 'font-family="Crimson Pro,Georgia,serif" font-size="11" fill="#5A7A32">'+p+'</text>';
+  }
+  for (var i=0;i<12;i++) {
+    if (precipR[i] == null) continue;
+    var bx = xLeft(i) + (cW/12 - barW)/2;
+    var by = pY(precipR[i]);
+    var bh = padT + cH - by;
+    svg += '<rect x="'+bx+'" y="'+by+'" width="'+barW+'" height="'+bh+'" '
+      + 'fill="rgba(90,122,50,0.22)" rx="1"/>';
+  }
+
+  // Temperature lines
+  // tMax line (rust/warm)
+  var maxPts = tMaxR.map(function(v,i){return xMid(i)+','+tY(v);}).join(' ');
+  svg += '<polyline points="'+maxPts+'" fill="none" stroke="#8A3A10" stroke-width="2" stroke-linejoin="round"/>';
+  // tMin line (gold)
+  var minPts = tMinR.map(function(v,i){return xMid(i)+','+tY(v);}).join(' ');
+  svg += '<polyline points="'+minPts+'" fill="none" stroke="#8B6914" stroke-width="2" stroke-linejoin="round"/>';
+
+  // Dots on lines
+  for (var i=0;i<12;i++) {
+    svg += '<circle cx="'+xMid(i)+'" cy="'+tY(tMaxR[i])+'" r="3" fill="#8A3A10"/>';
+    svg += '<circle cx="'+xMid(i)+'" cy="'+tY(tMinR[i])+'" r="3" fill="#8B6914"/>';
+  }
+
+  // Month labels
+  for (var i=0;i<12;i++) {
+    svg += '<text x="'+xMid(i)+'" y="'+(padT+cH+14)+'" text-anchor="middle" '
+      + 'font-family="Playfair Display,serif" font-size="11" fill="#2C1A0A">'+labelsR[i]+'</text>';
+  }
+
+  // Legend
+  var ly = padT - 5;
+  svg += '<line x1="'+padL+'" y1="'+ly+'" x2="'+(padL+18)+'" y2="'+ly+'" stroke="#8A3A10" stroke-width="2"/>';
+  svg += '<text x="'+(padL+22)+'" y="'+(ly+4)+'" font-family="Crimson Pro,Georgia,serif" font-size="11" fill="#8A3A10">High</text>';
+  svg += '<line x1="'+(padL+60)+'" y1="'+ly+'" x2="'+(padL+78)+'" y2="'+ly+'" stroke="#8B6914" stroke-width="2"/>';
+  svg += '<text x="'+(padL+82)+'" y="'+(ly+4)+'" font-family="Crimson Pro,Georgia,serif" font-size="11" fill="#8B6914">Low °C</text>';
+  svg += '<rect x="'+(padL+145)+'" y="'+(ly-7)+'" width="14" height="10" fill="rgba(90,122,50,0.3)" rx="1"/>';
+  svg += '<text x="'+(padL+163)+'" y="'+(ly+4)+'" font-family="Crimson Pro,Georgia,serif" font-size="11" fill="#5A7A32">Rain mm</text>';
+
+  // Axis lines
+  svg += '<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(padT+cH)+'" stroke="rgba(44,26,10,0.2)" stroke-width="1"/>';
+  svg += '<line x1="'+padL+'" y1="'+(padT+cH)+'" x2="'+(padL+cW)+'" y2="'+(padT+cH)+'" stroke="rgba(44,26,10,0.2)" stroke-width="1"/>';
+  svg += '<line x1="'+(padL+cW)+'" y1="'+padT+'" x2="'+(padL+cW)+'" y2="'+(padT+cH)+'" stroke="rgba(90,122,50,0.2)" stroke-width="1"/>';
+
+  svg += '</svg>';
+
+  return '<div class="cv-chart-block">'
+    + '<span class="cv-section-label">Average climate — 12-month outlook</span>'
+    + '<div class="cv-chart-svg">' + svg + '</div>'
+    + '</div>';
+}
 
 // ── Cover page ────────────────────────────────────────────────────────────────
 // Full sheet: 279.42mm × 401.14mm
@@ -515,11 +677,11 @@ function buildCoverPage(opts) {
   var artworks      = opts.artworks      || [];   // array of 12 base64 strings
   var plants        = opts.plants        || [];   // array of 12 plant names
   var monthNames    = opts.monthNames    || [];   // array of 12 month name strings
-  var icsKeyQrB64   = opts.icsKeyQrB64   || '';   // QR for key dates ICS
-  var icsHolQrB64   = opts.icsHolQrB64   || '';   // QR for holidays ICS
+  // icsKeyQrB64 / icsHolQrB64 removed — cover no longer has ICS QRs
   var appQrB64      = opts.appQrB64      || '';
   var personalMsg   = opts.personalMsg   || '';
   var etsyUrl       = opts.etsyUrl       || 'etsy.com/shop/yourshophere';
+  var startMonthIdx = opts.startMonthIdx || 0;
 
   // Build 12 thumbnail items
   var thumbsHtml = '';
@@ -537,25 +699,18 @@ function buildCoverPage(opts) {
       + '</div>';
   }
 
-  // ICS key dates block
-  var icsKeyHtml = '<div class="cv-ics-block">'
-    + '<span class="cv-section-label">Your key dates</span>'
-    + '<div class="cv-ics-row">'
-    + (icsKeyQrB64 ? '<img class="cv-qr" src="' + icsKeyQrB64 + '" alt="Key dates QR"/>' : '<div class="cv-qr cv-qr-empty"></div>')
-    + '<div class="cv-ics-text">'
-    + '<div class="cv-ics-heading">Birthdays &amp; anniversaries</div>'
-    + '<div class="cv-ics-explain">Scan to add all your special dates to your phone\'s calendar in one tap.</div>'
-    + '</div></div></div>';
+  // Row 2: 12-month climate chart (temperature lines + precipitation bars)
+  var climateChartHtml = _buildClimateChart(opts.climateData, opts.startMonthIdx || 0, opts.monthNames || []);
 
-  // ICS holidays block
-  var icsHolHtml = '<div class="cv-ics-block">'
-    + '<span class="cv-section-label">Your holiday periods</span>'
-    + '<div class="cv-ics-row">'
-    + (icsHolQrB64 ? '<img class="cv-qr" src="' + icsHolQrB64 + '" alt="Holidays QR"/>' : '<div class="cv-qr cv-qr-empty"></div>')
-    + '<div class="cv-ics-text">'
-    + '<div class="cv-ics-heading">Holidays &amp; breaks</div>'
-    + '<div class="cv-ics-explain">Scan to add all your holiday periods as multi-day events.</div>'
-    + '</div></div></div>';
+  // Row 3: single dates/holidays explanation box (replaces two separate ICS blocks)
+  var datesExplainHtml = '<div class="cv-ics-block">'
+    + '<span class="cv-section-label">Your special dates &amp; holidays</span>'
+    + '<div class="cv-dates-explain">'
+    + '<p><strong>Birthdays &amp; anniversaries</strong> are marked on each monthly calendar page.</p>'
+    + '<p><strong>Holiday periods</strong> are shaded on each monthly calendar page. '
+    + 'Scan the QR code on the relevant month to load your holiday into your phone\'s calendar.</p>'
+    + '</div>'
+    + '</div>';
 
   // Personal message box
   // Rows 4+5: message (flex:1) + provenance (fixed 46.79mm) in shared wrapper
@@ -605,8 +760,8 @@ function buildCoverPage(opts) {
     + '<div class="cv-daterange">' + esc(dateRange) + (climate ? ' \u00b7 ' + esc(climate) : '') + '</div>'
     + '<div class="cv-gold-rule"></div>'
     + '</div>'
-    + icsKeyHtml
-    + icsHolHtml
+    + climateChartHtml
+    + datesExplainHtml
     + msgHtml
     + provHtml
     + bottomHtml
@@ -615,52 +770,59 @@ function buildCoverPage(opts) {
 }
 
 // ── ICS generation ────────────────────────────────────────────────────────────
-// Generates a minimal valid ICS string.
-// type: 'single' (key dates) or 'multi' (holidays)
-// events: array of {label, date} or {label, startDate, endDate}
-// Labels truncated to 30 chars to stay within QR capacity.
-function buildICS(events, type) {
-  var CRLF = '\r\n';
+// Generates a data:text/calendar URI encoding an ICS calendar file.
+// events: mixed array — each item either:
+//   {label, date}              — single-day key date
+//   {label, startDate, endDate} — multi-day holiday
+// Labels truncated to 30 chars. Returns '' if events is empty.
+function buildICS(events) {
+  if (!events || !events.length) return '';
   var lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Garden Calendar//EN',
   ];
-
   for (var i = 0; i < events.length; i++) {
     var ev  = events[i];
     var lbl = String(ev.label || '').slice(0, 30).replace(/[\r\n,;\\]/g, ' ');
     var uid = (i + 1) + '@gc';
-
-    if (type === 'single') {
-      // Single-day: DTSTART = event date, DTEND = next day
-      var d     = (ev.date || '').replace(/-/g, '');         // 20260915
-      var dNext = _isoDatePlusOne(ev.date);
-      lines.push(
-        'BEGIN:VEVENT',
-        'UID:' + uid,
-        'DTSTART;VALUE=DATE:' + d,
-        'SUMMARY:'            + lbl,
-        'END:VEVENT'
-      );
-
+    if (ev.date) {
+      // Single-day key date with 1-week + on-day reminders
+      lines.push('BEGIN:VEVENT', 'UID:' + uid,
+        'DTSTART;VALUE=DATE:' + ev.date.replace(/-/g, ''),
+        'SUMMARY:' + lbl,
+        'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
+        'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
+        'END:VEVENT');
     } else {
-      // Multi-day holiday: DTSTART = start, DTEND = day after end
-      var ds    = (ev.startDate || '').replace(/-/g, '');
-      var de    = _isoDatePlusOne(ev.endDate);
-      lines.push(
-        'BEGIN:VEVENT',
-        'UID:' + uid,
-        'DTSTART;VALUE=DATE:' + ds,
-        'DTEND;VALUE=DATE:'   + de,
-        'SUMMARY:'            + lbl,
-        'END:VEVENT'
-      );
+      // Multi-day holiday with 1-week + on-day (start) reminders
+      lines.push('BEGIN:VEVENT', 'UID:' + uid,
+        'DTSTART;VALUE=DATE:' + (ev.startDate || '').replace(/-/g, ''),
+        'DTEND;VALUE=DATE:'   + _isoDatePlusOne(ev.endDate),
+        'SUMMARY:' + lbl,
+        'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
+        'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
+        'END:VEVENT');
     }
   }
-
   lines.push('END:VCALENDAR');
-  return lines.join(CRLF);
+  // data: URI triggers full calendar file import on phone — all events at once
+  return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\n'));
+}
+
+// Build combined ICS for one calendar month.
+// Holidays STARTING in this calendar month only.
+// Key dates are printed on the grid — no QR needed for them.
+// Returns '' when no holiday starts this month (no QR rendered).
+function buildMonthICS(monthIdx, year, keyDates, holidays) {
+  var events = [];
+  (holidays || []).forEach(function(h) {
+    if (!h.startDate) return;
+    var p = h.startDate.split('-');
+    if (parseInt(p[0],10) === year && (parseInt(p[1],10)-1) === monthIdx)
+      events.push(h);
+  });
+  return buildICS(events);
 }
 
 // Add one day to an ISO date string (YYYY-MM-DD) — pure arithmetic, no Date() timezone issues
