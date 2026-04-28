@@ -560,7 +560,7 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    var monthOpts = {
+      var monthOpts = {
       monthName: mName, monthIdx: mIdx, year: mYear,
       plant: plt, artworkB64: artworks[j] || '',
       inspo: inspos[j] || null,
@@ -568,7 +568,7 @@ async function buildFullHTML(order, apiKey) {
       inspoQrB64: inspoQrB64s[j] || '',
       appQrB64: appQrB64,
       climate: climate, climateData: climateData,
-      recipientName: recipientName,
+      calendarName: order.calendarName || order.recipientName || '',
       keyDates: monthKeyDates, holidays: monthHolidays,
     };
     pages.push(tpl.buildPageA(monthOpts));
