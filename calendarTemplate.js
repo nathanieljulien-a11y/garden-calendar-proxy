@@ -640,14 +640,9 @@ function buildICS(events, type) {
         'BEGIN:VEVENT',
         'UID:' + uid,
         'DTSTART;VALUE=DATE:' + d,
-        'DTEND;VALUE=DATE:'   + dNext,
-        'SUMMARY:'            + lbl
+        'SUMMARY:'            + lbl,
+        'END:VEVENT'
       );
-      // 1-week reminder
-      lines.push('BEGIN:VALARM','TRIGGER:-P7D','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
-      // On-the-day reminder
-      lines.push('BEGIN:VALARM','TRIGGER:PT0S','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
-      lines.push('END:VEVENT');
 
     } else {
       // Multi-day holiday: DTSTART = start, DTEND = day after end
@@ -658,11 +653,9 @@ function buildICS(events, type) {
         'UID:' + uid,
         'DTSTART;VALUE=DATE:' + ds,
         'DTEND;VALUE=DATE:'   + de,
-        'SUMMARY:'            + lbl
+        'SUMMARY:'            + lbl,
+        'END:VEVENT'
       );
-      lines.push('BEGIN:VALARM','TRIGGER:-P7D','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
-      lines.push('BEGIN:VALARM','TRIGGER:PT0S','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
-      lines.push('END:VEVENT');
     }
   }
 
