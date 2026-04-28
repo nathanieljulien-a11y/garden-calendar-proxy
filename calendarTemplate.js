@@ -318,7 +318,7 @@ function buildBlankPage() {
 // Total:  393.14mm ✓
 
 var SHARED_CSS = [
-  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&display=swap');",
+  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Pinyon+Script&display=swap');",
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
@@ -399,6 +399,43 @@ var SHARED_CSS = [
   '.footer-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;flex-shrink:0;}',
   '.qr-label{font-size:7pt;color:var(--muted);line-height:1.4;text-align:right;max-width:25mm;}',
 
+  // ── COVER PAGE ──────────────────────────────────────────────────────────────
+  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-after:always;margin:0;padding:0;}',
+  '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
+  '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
+  '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
+  '.cv-thumb-img img{width:100%;height:100%;object-fit:cover;object-position:top left;filter:sepia(5%) contrast(1.06);}',
+  '.cv-thumb-placeholder{font-family:"Playfair Display",serif;font-style:italic;font-size:12pt;color:var(--muted);opacity:0.5;text-align:center;padding:1mm;}',
+  '.cv-thumb-month{font-size:12pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--gold);text-align:center;flex-shrink:0;line-height:1;font-family:"Playfair Display",serif;}',
+  '.cv-right-panel{flex:1;height:100%;display:grid;grid-template-rows:repeat(6,1fr);gap:7.03mm;padding:5mm 5mm 10.05mm 5mm;overflow:hidden;}',
+  '.cv-right-panel>*{display:flex;flex-direction:column;justify-content:center;overflow:hidden;}',
+  '.cv-section-label{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:2mm;flex-shrink:0;}',
+  '.cv-cal-label{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.18em;color:var(--gold);margin-bottom:1.5mm;}',
+  '.cv-name{font-family:"Playfair Display",serif;font-size:38pt;font-weight:700;color:var(--ink);line-height:1.05;margin-bottom:1.5mm;}',
+  '.cv-daterange{font-family:"Crimson Pro",serif;font-size:15pt;color:var(--muted);font-style:italic;margin-bottom:2mm;}',
+  '.cv-gold-rule{height:0.4mm;background:linear-gradient(to right,var(--gold) 60%,transparent);flex-shrink:0;}',
+  '.cv-ics-block{border-left:0.8mm solid var(--gold);background:rgba(139,105,20,0.04);padding:2mm 2.5mm;justify-content:center;}',
+  '.cv-ics-row{display:flex;align-items:center;gap:3mm;margin-top:1.5mm;}',
+  '.cv-qr{width:26mm;height:26mm;flex-shrink:0;border:0.3mm solid var(--border);border-radius:1mm;background:white;}',
+  '.cv-qr-empty{background:rgba(139,105,20,0.04);}',
+  '.cv-ics-heading{font-family:"Playfair Display",serif;font-size:16pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}',
+  '.cv-ics-explain{font-size:13pt;color:var(--muted);line-height:1.5;}',
+  '.cv-message-block{justify-content:stretch;}',
+  '.cv-message-area{flex:1;min-height:0;border:0.3mm solid var(--border);border-radius:1mm;background:rgba(255,255,255,0.4);display:flex;flex-direction:column;overflow:hidden;}',
+  '.cv-message-label{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);padding:2mm 2.5mm 1.5mm;border-bottom:0.3mm solid var(--border);flex-shrink:0;}',
+  '.cv-message-text{font-family:"Pinyon Script",cursive;font-size:20pt;color:var(--ink);line-height:1.7;padding:2mm 3mm;}',
+  '.cv-message-placeholder{opacity:0.35;}',
+  '.cv-provenance-block{border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;justify-content:center;}',
+  '.cv-provenance-text{font-size:13pt;color:var(--muted);line-height:1.55;} .cv-provenance-text em{font-style:italic;color:var(--ink);}',
+  '.cv-bottom-row{justify-content:space-between;}',
+  '.cv-etsy-row{display:flex;align-items:center;gap:3mm;padding:2mm 2.5mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(255,255,255,0.3);}',
+  '.cv-etsy-badge{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);flex-shrink:0;}',
+  '.cv-etsy-url{font-family:"Crimson Pro",serif;font-size:15pt;color:var(--muted);font-style:italic;}',
+  '.cv-webapp-row{display:flex;align-items:center;gap:3.5mm;padding:3mm;background:var(--ink);border-radius:1mm;}',
+  '.cv-webapp-qr{width:24mm;height:24mm;flex-shrink:0;border-radius:0.6mm;background:white;}',
+  '.cv-webapp-title{font-family:"Playfair Display",serif;font-size:16pt;font-weight:600;color:var(--parchment);margin-bottom:1mm;}',
+  '.cv-webapp-url{font-family:"Crimson Pro",serif;font-size:12pt;color:rgba(253,250,244,0.6);font-style:italic;}',
+
   // ── PAGE B ──────────────────────────────────────────────────────────────
   '.page-b-layout{display:flex;flex-direction:column;height:100%;}',
 
@@ -456,9 +493,191 @@ module.exports = {
   buildPageA:         buildPageA,
   buildPageB:         buildPageB,
   buildBlankPage:     buildBlankPage,
+  buildCoverPage:     buildCoverPage,
   buildDocument:      buildDocument,
   setPlantCommentary: setPlantCommentary,
   getCommentary:      getCommentary,
+  buildICS:           buildICS,
   SHARED_CSS:         SHARED_CSS,
   MONTH_NAMES:        MONTH_NAMES,
 };
+
+// ── Cover page ────────────────────────────────────────────────────────────────
+// Full sheet: 279.42mm × 401.14mm
+// Left panel: 2×6 thumbnail grid aligned to photo areas (not labels)
+// Right panel: 6 sections grid-aligned to photo tops/bottoms
+function buildCoverPage(opts) {
+  var calendarName  = opts.calendarName  || '';
+  var dateRange     = opts.dateRange     || '';   // e.g. "June 2026 – May 2027"
+  var climate       = opts.climate       || '';
+  var artworks      = opts.artworks      || [];   // array of 12 base64 strings
+  var plants        = opts.plants        || [];   // array of 12 plant names
+  var monthNames    = opts.monthNames    || [];   // array of 12 month name strings
+  var icsKeyQrB64   = opts.icsKeyQrB64   || '';   // QR for key dates ICS
+  var icsHolQrB64   = opts.icsHolQrB64   || '';   // QR for holidays ICS
+  var appQrB64      = opts.appQrB64      || '';
+  var personalMsg   = opts.personalMsg   || '';
+  var etsyUrl       = opts.etsyUrl       || 'etsy.com/shop/yourshophere';
+
+  // Build 12 thumbnail items
+  var thumbsHtml = '';
+  for (var i = 0; i < 12; i++) {
+    var plantName  = plants[i]    ? (plants[i].charAt(0).toUpperCase() + plants[i].slice(1)) : '';
+    var monthName  = monthNames[i] || '';
+    var art        = artworks[i]   || '';
+    thumbsHtml += '<div class="cv-thumb-item">'
+      + '<div class="cv-thumb-img">'
+      + (art
+          ? '<img src="' + art + '" alt="' + esc(plantName) + '"/>'
+          : '<span class="cv-thumb-placeholder">' + esc(plantName) + '</span>')
+      + '</div>'
+      + '<div class="cv-thumb-month">' + esc(monthName) + '</div>'
+      + '</div>';
+  }
+
+  // ICS key dates block
+  var icsKeyHtml = '<div class="cv-ics-block">'
+    + '<span class="cv-section-label">Your key dates</span>'
+    + '<div class="cv-ics-row">'
+    + (icsKeyQrB64 ? '<img class="cv-qr" src="' + icsKeyQrB64 + '" alt="Key dates QR"/>' : '<div class="cv-qr cv-qr-empty"></div>')
+    + '<div class="cv-ics-text">'
+    + '<div class="cv-ics-heading">Birthdays &amp; anniversaries</div>'
+    + '<div class="cv-ics-explain">Scan to add all your special dates to your phone\'s calendar in one tap.</div>'
+    + '</div></div></div>';
+
+  // ICS holidays block
+  var icsHolHtml = '<div class="cv-ics-block">'
+    + '<span class="cv-section-label">Your holiday periods</span>'
+    + '<div class="cv-ics-row">'
+    + (icsHolQrB64 ? '<img class="cv-qr" src="' + icsHolQrB64 + '" alt="Holidays QR"/>' : '<div class="cv-qr cv-qr-empty"></div>')
+    + '<div class="cv-ics-text">'
+    + '<div class="cv-ics-heading">Holidays &amp; breaks</div>'
+    + '<div class="cv-ics-explain">Scan to add all your holiday periods as multi-day events.</div>'
+    + '</div></div></div>';
+
+  // Personal message box
+  var msgHtml = '<div class="cv-message-block">'
+    + '<div class="cv-message-area">'
+    + '<div class="cv-message-label">A personal message</div>'
+    + (personalMsg
+        ? '<div class="cv-message-text">' + esc(personalMsg) + '</div>'
+        : '<div class="cv-message-text cv-message-placeholder">With love\u2026</div>')
+    + '</div>'
+    + '</div>';
+
+  // Provenance block
+  var provHtml = '<div class="cv-provenance-block">'
+    + '<span class="cv-section-label">About the illustrations</span>'
+    + '<div class="cv-provenance-text">'
+    + 'The botanical plates are drawn from <em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898), '
+    + 'illustrated by Josef Pohl and Walter M\u00fcller. All plates are public domain, '
+    + 'digitised by the Missouri Botanical Garden via Wikimedia Commons.'
+    + '</div>'
+    + '</div>';
+
+  // Bottom row: Etsy top, web app QR bottom
+  var bottomHtml = '<div class="cv-bottom-row">'
+    + '<div class="cv-etsy-row">'
+    + '<span class="cv-etsy-badge">Find us on Etsy</span>'
+    + '<span class="cv-etsy-url">' + esc(etsyUrl) + '</span>'
+    + '</div>'
+    + '<div class="cv-webapp-row">'
+    + (appQrB64 ? '<img class="cv-webapp-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
+    + '<div class="cv-webapp-text">'
+    + '<div class="cv-webapp-title">Your digital garden calendar</div>'
+    + '<div class="cv-webapp-url">garden-calendar-frontend.vercel.app</div>'
+    + '</div>'
+    + '</div>'
+    + '</div>';
+
+  return '<div class="cv-cover">'
+    // Left: thumbnail grid
+    + '<div class="cv-thumb-panel">' + thumbsHtml + '</div>'
+    // Right: 6-section grid
+    + '<div class="cv-right-panel">'
+    + '<div class="cv-title-block">'
+    + '<span class="cv-cal-label">A personalised garden calendar</span>'
+    + '<div class="cv-name">' + esc(calendarName) + '</div>'
+    + '<div class="cv-daterange">' + esc(dateRange) + (climate ? ' \u00b7 ' + esc(climate) : '') + '</div>'
+    + '<div class="cv-gold-rule"></div>'
+    + '</div>'
+    + icsKeyHtml
+    + icsHolHtml
+    + msgHtml
+    + provHtml
+    + bottomHtml
+    + '</div>'
+    + '</div>';
+}
+
+// ── ICS generation ────────────────────────────────────────────────────────────
+// Generates a minimal valid ICS string.
+// type: 'single' (key dates) or 'multi' (holidays)
+// events: array of {label, date} or {label, startDate, endDate}
+// Labels truncated to 30 chars to stay within QR capacity.
+function buildICS(events, type) {
+  var CRLF = '\r\n';
+  var lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Garden Calendar//EN',
+  ];
+
+  for (var i = 0; i < events.length; i++) {
+    var ev  = events[i];
+    var lbl = String(ev.label || '').slice(0, 30).replace(/[\r\n,;\\]/g, ' ');
+    var uid = (i + 1) + '@gc';
+
+    if (type === 'single') {
+      // Single-day: DTSTART = event date, DTEND = next day
+      var d     = (ev.date || '').replace(/-/g, '');         // 20260915
+      var dNext = _isoDatePlusOne(ev.date);
+      lines.push(
+        'BEGIN:VEVENT',
+        'UID:' + uid,
+        'DTSTART;VALUE=DATE:' + d,
+        'DTEND;VALUE=DATE:'   + dNext,
+        'SUMMARY:'            + lbl
+      );
+      // 1-week reminder
+      lines.push('BEGIN:VALARM','TRIGGER:-P7D','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
+      // On-the-day reminder
+      lines.push('BEGIN:VALARM','TRIGGER:PT0S','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
+      lines.push('END:VEVENT');
+
+    } else {
+      // Multi-day holiday: DTSTART = start, DTEND = day after end
+      var ds    = (ev.startDate || '').replace(/-/g, '');
+      var de    = _isoDatePlusOne(ev.endDate);
+      lines.push(
+        'BEGIN:VEVENT',
+        'UID:' + uid,
+        'DTSTART;VALUE=DATE:' + ds,
+        'DTEND;VALUE=DATE:'   + de,
+        'SUMMARY:'            + lbl
+      );
+      lines.push('BEGIN:VALARM','TRIGGER:-P7D','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
+      lines.push('BEGIN:VALARM','TRIGGER:PT0S','ACTION:DISPLAY','DESCRIPTION:Reminder','END:VALARM');
+      lines.push('END:VEVENT');
+    }
+  }
+
+  lines.push('END:VCALENDAR');
+  return lines.join(CRLF);
+}
+
+// Add one day to an ISO date string (YYYY-MM-DD) — pure arithmetic, no Date() timezone issues
+function _isoDatePlusOne(isoStr) {
+  if (!isoStr) return '';
+  var p   = isoStr.split('-');
+  var y   = parseInt(p[0], 10);
+  var m   = parseInt(p[1], 10);
+  var d   = parseInt(p[2], 10) + 1;
+  var dim = new Date(y, m - 1 + (d > 28 ? 1 : 0), 0).getDate(); // days in month
+  // Simple overflow
+  var daysInM = [0,31,28,31,30,31,30,31,31,30,31,30,31];
+  if (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) daysInM[2] = 29;
+  if (d > daysInM[m]) { d = 1; m++; }
+  if (m > 12)         { m = 1; y++; }
+  return y + ('0'+m).slice(-2) + ('0'+d).slice(-2);
+}
