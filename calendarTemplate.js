@@ -420,12 +420,14 @@ var SHARED_CSS = [
   '.cv-qr-empty{background:rgba(139,105,20,0.04);}',
   '.cv-ics-heading{font-family:"Playfair Display",serif;font-size:16pt;font-weight:600;color:var(--ink);margin-bottom:1.5mm;}',
   '.cv-ics-explain{font-size:13pt;color:var(--muted);line-height:1.5;}',
-  '.cv-message-block{justify-content:stretch;}',
+  /* rows 4+5 share a wrapper that spans 2 grid rows */
+  '.cv-msg-prov-wrapper{grid-row:span 2;display:flex;flex-direction:column;gap:7.03mm;overflow:hidden;}',
+  '.cv-message-block{flex:1;min-height:0;justify-content:stretch;}',
   '.cv-message-area{flex:1;min-height:0;border:0.3mm solid var(--border);border-radius:1mm;background:rgba(255,255,255,0.4);display:flex;flex-direction:column;overflow:hidden;}',
   '.cv-message-label{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);padding:2mm 2.5mm 1.5mm;border-bottom:0.3mm solid var(--border);flex-shrink:0;}',
-  '.cv-message-text{font-family:"Pinyon Script",cursive;font-size:20pt;color:var(--ink);line-height:1.7;padding:2mm 3mm;}',
+  '.cv-message-text{font-family:"Pinyon Script",cursive;font-size:13pt;color:var(--ink);line-height:1.7;padding:2mm 3mm;}',
   '.cv-message-placeholder{opacity:0.35;}',
-  '.cv-provenance-block{border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;justify-content:center;}',
+  '.cv-provenance-block{flex-shrink:0;height:46.79mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}',
   '.cv-provenance-text{font-size:13pt;color:var(--muted);line-height:1.55;} .cv-provenance-text em{font-style:italic;color:var(--ink);}',
   '.cv-bottom-row{justify-content:space-between;}',
   '.cv-etsy-row{display:flex;align-items:center;gap:3mm;padding:2mm 2.5mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(255,255,255,0.3);}',
@@ -556,7 +558,8 @@ function buildCoverPage(opts) {
     + '</div></div></div>';
 
   // Personal message box
-  var msgHtml = '<div class="cv-message-block">'
+  // Rows 4+5: message (flex:1) + provenance (fixed 46.79mm) in shared wrapper
+  var msgHtml = '<div class="cv-msg-prov-wrapper"><div class="cv-message-block">'
     + '<div class="cv-message-area">'
     + '<div class="cv-message-label">A personal message</div>'
     + (personalMsg
@@ -573,7 +576,8 @@ function buildCoverPage(opts) {
     + 'illustrated by Josef Pohl and Walter M\u00fcller. All plates are public domain, '
     + 'digitised by the Missouri Botanical Garden via Wikimedia Commons.'
     + '</div>'
-    + '</div>';
+    + '</div>'
+    + '</div>'; // end cv-msg-prov-wrapper
 
   // Bottom row: Etsy top, web app QR bottom
   var bottomHtml = '<div class="cv-bottom-row">'
