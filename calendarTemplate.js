@@ -72,30 +72,36 @@ function buildPageA(opts) {
   var appQrB64      = opts.appQrB64 || '';
   var climate       = opts.climate || '';
   var climateData   = opts.climateData || null;
-  var recipientName = opts.recipientName || '';
+  var calendarName  = opts.calendarName || opts.recipientName || '';
 
   var plantDisplay = plant ? (plant.charAt(0).toUpperCase() + plant.slice(1)) : monthName;
   var commentary   = getCommentary(plant);
   var quote        = QUOTES[monthIdx % QUOTES.length];
   var taskText     = MONTHLY_TASKS[monthIdx] || '';
 
-  // Climate bar
+  // Climate bar — symbols + 2-line layout
   var climateHtml = '';
   if (climateData && climateData._cd) {
     var cd   = climateData._cd;
     var tMax = cd.tMax  && cd.tMax[monthIdx]  != null ? Math.round(cd.tMax[monthIdx])  + '\u00b0C' : null;
     var tMin = cd.tMin  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
     var rain = cd.precip && cd.precip[monthIdx] != null ? Math.round(cd.precip[monthIdx]) + 'mm' : null;
-    var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs sun/day' : null;
-    var stats = [tMax ? ('High ' + tMax) : '', tMin ? ('Low ' + tMin) : '', rain ? (rain + ' rain') : '', sun || ''].filter(Boolean).join(' \u00b7 ');
-    if (stats) {
-      climateHtml = '<div class="climate-bar">'
-        + '<span class="climate-region">' + esc(climate) + '</span>'
-        + '<span class="climate-stats">' + stats + '</span>'
-        + '</div>';
-    }
+    var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs' : null;
+    var line1Parts = [];
+    var line2Parts = [];
+    if (tMax) line1Parts.push('\uD83C\uDF21\uFE0F ' + tMax + ' high');
+    if (tMin) line1Parts.push(tMin + ' low');
+    if (rain) line2Parts.push('\uD83C\uDF27\uFE0F ' + rain + ' rain');
+    if (sun)  line2Parts.push('\u2600\uFE0F ' + sun + ' sun/day');
+    var line1 = line1Parts.join(' \u00b7 ');
+    var line2 = line2Parts.join(' \u00b7 ');
+    climateHtml = '<div class="climate-bar">'
+      + '<div class="climate-region">' + esc(climate) + '</div>'
+      + (line1 ? '<div class="climate-line">' + line1 + '</div>' : '')
+      + (line2 ? '<div class="climate-line">' + line2 + '</div>' : '')
+      + '</div>';
   } else if (climate) {
-    climateHtml = '<div class="climate-bar"><span class="climate-region">' + esc(climate) + '</span></div>';
+    climateHtml = '<div class="climate-bar"><div class="climate-region">' + esc(climate) + '</div></div>';
   }
 
   // Plant commentary box — title is plant name, 5 bullets from plantCommentary.json
@@ -146,7 +152,7 @@ function buildPageA(opts) {
       + '</div>';
     if (inspoQrB64) {
       inspoHtml += '<div class="inspo-qr-col">'
-        + '<img src="' + inspoQrB64 + '" width="40" height="40" alt="Search QR"/>'
+        + '<img src="' + inspoQrB64 + '" width="52" height="52" alt="Search QR"/>'
         + '<div class="inspo-qr-lbl">Search \u2197</div>'
         + '</div>';
     }
@@ -175,7 +181,7 @@ function buildPageA(opts) {
         ? '<img class="artwork-img" src="' + artworkB64 + '" alt="' + esc(plantDisplay) + ' botanical illustration"/>'
         : '<div class="artwork-placeholder"><div class="artwork-placeholder-text">' + esc(plantDisplay) + '</div></div>')
     + '<div class="artwork-footer">'
-    + '<span class="artwork-plant-name">' + esc(plantDisplay) + '</span>'
+    + '<span class="artwork-plant-name">' + esc(plantDisplay) + (commentary.latin ? ' <span class="artwork-latin">' + esc(commentary.latin) + '</span>' : '') + '</span>'
     + '<span class="artwork-credit">K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Digitised by Missouri Botanical Garden</span>'
     + '</div>'
     + '</div>'
@@ -183,7 +189,7 @@ function buildPageA(opts) {
     + '<div class="col-right">'
     + '<div class="page-header">'
     + '<div class="header-month">' + esc(monthName) + '\u00a0' + year + '</div>'
-    + (recipientName ? '<div class="header-recipient">' + esc(recipientName) + '\u2019s Garden Calendar</div>' : '')
+    + (calendarName ? '<div class="header-recipient">' + esc(calendarName) + '</div>' : '')
     + '</div>'
     + climateHtml
     + tasksHtml
@@ -338,11 +344,11 @@ var SHARED_CSS = [
 
   // Artwork column
   '.col-artwork{position:relative;overflow:hidden;background:#F7F2E8;border-right:0.4mm solid var(--border);display:flex;flex-direction:column;}',
-  '.artwork-img{flex:1;width:100%;min-height:0;object-fit:contain;display:block;filter:sepia(5%) contrast(1.06);}',
+  '.artwork-img{flex:1;width:100%;min-height:0;object-fit:cover;object-position:top left;display:block;filter:sepia(5%) contrast(1.06);}',
   '.artwork-placeholder{flex:1;display:flex;align-items:center;justify-content:center;}',
   '.artwork-placeholder-text{font-family:"Playfair Display",serif;font-style:italic;font-size:14pt;color:var(--muted);opacity:0.4;}',
   '.artwork-footer{flex-shrink:0;padding:2mm 3mm;background:rgba(240,235,224,0.95);border-top:0.3mm solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:2mm;}',
-  '.artwork-plant-name{font-family:"Playfair Display",serif;font-style:italic;font-size:8pt;color:var(--ink);white-space:nowrap;}',
+  '.artwork-plant-name{font-family:"Playfair Display",serif;font-style:italic;font-size:8pt;color:var(--ink);display:flex;align-items:baseline;gap:2mm;flex-wrap:wrap;} .artwork-latin{font-style:italic;font-size:6.5pt;color:var(--muted);}',
   '.artwork-credit{font-size:5pt;color:var(--muted);opacity:0.6;text-align:right;}',
 
   // Right column — justify-content:space-between spreads sections evenly
@@ -354,40 +360,40 @@ var SHARED_CSS = [
   '.header-recipient{font-size:7pt;color:var(--muted);letter-spacing:0.04em;margin-top:0.5mm;}',
 
   // Climate bar
-  '.climate-bar{display:flex;justify-content:space-between;align-items:baseline;padding:1.5mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
-  '.climate-region{font-size:7pt;font-style:italic;color:var(--muted);}',
-  '.climate-stats{font-size:6.5pt;color:var(--ink);font-family:"Playfair Display",serif;}',
+  '.climate-bar{display:flex;flex-direction:column;gap:1mm;padding:1.5mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;} .climate-line{font-size:7pt;color:var(--ink);}',
+  '.climate-region{font-size:6.5pt;font-style:italic;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;}',
+  // .climate-stats removed — replaced by .climate-line in the new 2-line layout,
 
   // Section label (shared)
-  '.section-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:1mm;display:block;}',
+  '.section-label{font-family:"Playfair Display",serif;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:2mm;display:block;}',
 
   // Plant commentary box
   '.plant-box{flex-shrink:0;}',
   '.plant-bullets{list-style:none;padding:0;margin:0;}',
-  '.plant-bullets li{font-size:7.5pt;line-height:1.55;color:var(--ink);padding-left:3mm;position:relative;margin-bottom:0.8mm;}',
+  '.plant-bullets li{font-size:9.5pt;line-height:1.6;color:var(--ink);padding-left:3.5mm;position:relative;margin-bottom:2mm;}',
   '.plant-bullets li::before{content:"\u2022";position:absolute;left:0;color:var(--gold);}',
 
   // Garden tasks box
   '.tasks-box{flex-shrink:0;}',
-  '.tasks-intro{font-size:7.5pt;line-height:1.55;color:var(--ink);margin-bottom:1.5mm;font-style:italic;}',
-  '.tasks-question{font-size:7.5pt;font-weight:600;color:var(--ink);margin-bottom:2mm;}',
-  '.tasks-lines{display:flex;flex-direction:column;gap:2.5mm;}',
+  '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:2mm;font-style:italic;}',
+  '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);margin-bottom:2.5mm;}',
+  '.tasks-lines{display:flex;flex-direction:column;gap:3.5mm;}',
   '.task-line{display:flex;align-items:center;gap:2mm;}',
   '.checkbox{font-size:8.5pt;color:var(--gold);flex-shrink:0;line-height:1;}',
   '.task-rule{flex:1;border-bottom:0.3mm solid rgba(139,105,20,0.3);height:0;}',
 
   // Compact inspo block: image | text | QR in a row
   '.inspo-block{padding:2mm 2.5mm;background:rgba(139,105,20,0.04);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
-  '.inspo-row{display:flex;align-items:flex-start;gap:2mm;margin-top:1mm;}',
-  '.inspo-photo-col{flex-shrink:0;width:22mm;height:22mm;overflow:hidden;}',
+  '.inspo-row{display:flex;align-items:center;gap:2mm;margin-top:1mm;}',
+  '.inspo-photo-col{flex-shrink:0;width:22mm;height:22mm;overflow:hidden;border-radius:0.5mm;}',
   '.inspo-photo-col img{width:100%;height:100%;object-fit:cover;display:block;filter:sepia(8%) contrast(1.04);}',
   '.inspo-text-col{flex:1;min-width:0;overflow:hidden;}',
   '.inspo-name{font-family:"Playfair Display",serif;font-size:8pt;font-weight:600;color:var(--ink);margin-bottom:0.5mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
   '.inspo-location{font-size:6.5pt;color:var(--muted);margin-bottom:0.8mm;}',
   '.inspo-highlight{font-size:7pt;line-height:1.45;color:var(--ink);}',
-  '.inspo-qr-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1mm;}',
+  '.inspo-qr-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:0.8mm;}',
   '.inspo-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;}',
-  '.inspo-qr-lbl{font-size:5pt;color:var(--muted);font-style:italic;text-align:center;}',
+  '.inspo-qr-lbl{font-size:6pt;color:var(--muted);font-style:italic;text-align:center;}',
 
   // Footer: quote left + app QR right, side by side
   '.page-footer{border-top:0.3mm solid var(--border);padding-top:2mm;flex-shrink:0;display:flex;align-items:flex-start;gap:3mm;}',
