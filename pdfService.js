@@ -546,13 +546,31 @@ async function buildFullHTML(order, apiKey) {
   // A3: 14 pages (1 cover + 12 combined + 1 back)
   // A4: 26 pages (1 cover + 12 illus + 12 grid + 1 back)
   // 14 pages: blank cover + 12 months + blank back
+
+  var coverMonthNames = [];
+  for (var ci = 0; ci < 12; ci++) coverMonthNames.push(MONTH_NAMES[(startMonth + ci) % 12]);
+  var endYear   = year + Math.floor((startMonth + 11) / 12);
+  var dateRange = MONTH_NAMES[startMonth] + ' ' + year + ' \u2013 ' + MONTH_NAMES[(startMonth + 11) % 12] + ' ' + endYear;
+
   var pages = [];
   try {
-    pages.push(tpl.buildBlankPage()); // page 1: cover
-    console.log('[PDF] Blank cover built OK');
-  } catch(blankErr) {
-    console.error('[PDF] buildBlankPage CRASH:', blankErr.stack);
-    throw blankErr;
+    pages.push(tpl.buildCoverPage({
+      calendarName: order.calendarName || order.recipientName || '',
+      dateRange:    dateRange,
+      climate:      climate,
+      artworks:     artworks,
+      plants:       plants,
+      monthNames:   coverMonthNames,
+      icsKeyQrB64:  icsKeyQrB64,
+      icsHolQrB64:  icsHolQrB64,
+      appQrB64:     appQrB64,
+      personalMsg:  order.personalMsg  || '',
+      etsyUrl:      order.etsyUrl      || '',
+    }));
+    console.log('[PDF] Cover page built OK');
+  } catch(coverErr) {
+    console.error('[PDF] buildCoverPage CRASH:', coverErr.stack);
+    throw coverErr;
   }
 
   for (var j = 0; j < 12; j++) {
