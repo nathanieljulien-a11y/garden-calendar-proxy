@@ -506,10 +506,14 @@ async function buildFullHTML(order, apiKey) {
   console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found.');
 
   // Generate QR codes locally using qrcode package (no external HTTP needed)
-  async function makeQrB64(url) {
+  async function makeQrB64(url, ecl) {
     try {
-      var dataUrl = await QRCode.toDataURL(url, { width: 150, margin: 2, color: { dark: '#000000', light: '#FFFFFF' } });
-      return dataUrl; // already a data: URI
+      var dataUrl = await QRCode.toDataURL(url, {
+        width: 150, margin: 2,
+        errorCorrectionLevel: ecl || 'M',
+        color: { dark: '#000000', light: '#FFFFFF' }
+      });
+      return dataUrl;
     } catch(e) { console.error('[PDF] QR gen error:', e.message); return ''; }
   }
 
@@ -524,23 +528,8 @@ async function buildFullHTML(order, apiKey) {
   }));
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
-// Generate ICS calendar files and QR-encode them
-  var icsKeyQrB64 = '';
-  if (keyDates && keyDates.length) {
-    try {
-      var icsKeyStr = tpl.buildICS(keyDates, 'single');
-      icsKeyQrB64 = await makeQrB64(icsKeyStr);
-      console.log('[PDF] Key dates ICS QR: ' + (icsKeyQrB64 ? 'ok' : 'failed'));
-    } catch(e) { console.error('[PDF] ICS key dates error:', e.message); }
-  }
-  var icsHolQrB64 = '';
-  if (holidays && holidays.length) {
-    try {
-      var icsHolStr = tpl.buildICS(holidays, 'multi');
-      icsHolQrB64 = await makeQrB64(icsHolStr);
-      console.log('[PDF] Holidays ICS QR: ' + (icsHolQrB64 ? 'ok' : 'failed'));
-    } catch(e) { console.error('[PDF] ICS holidays error:', e.message); }
-  }
+// Per-month holiday ICS QRs are generated inside the month loop below.
+  // Cover page no longer has ICS QR codes.
   
   // Build pages: blank cover + 12 months + blank back
   // A3: 14 pages (1 cover + 12 combined + 1 back)
@@ -555,17 +544,17 @@ async function buildFullHTML(order, apiKey) {
   var pages = [];
   try {
     pages.push(tpl.buildCoverPage({
-      calendarName: order.calendarName || order.recipientName || '',
-      dateRange:    dateRange,
-      climate:      climate,
-      artworks:     artworks,
-      plants:       plants,
-      monthNames:   coverMonthNames,
-      icsKeyQrB64:  icsKeyQrB64,
-      icsHolQrB64:  icsHolQrB64,
-      appQrB64:     appQrB64,
-      personalMsg:  order.personalMsg  || '',
-      etsyUrl:      order.etsyUrl      || '',
+      calendarName:  order.calendarName || order.recipientName || '',
+      dateRange:     dateRange,
+      climate:       climate,
+      climateData:   climateData,
+      startMonthIdx: startMonth,
+      artworks:      artworks,
+      plants:        plants,
+      monthNames:    coverMonthNames,
+      appQrB64:      appQrB64,
+      personalMsg:   order.personalMsg  || '',
+      etsyUrl:       order.etsyUrl      || '',
     }));
     console.log('[PDF] Cover page built OK');
   } catch(coverErr) {
@@ -596,7 +585,12 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-      var monthOpts = {
+    // Holiday ICS QR for this month (holidays starting this month only)
+    var monthIcsStr = tpl.buildMonthICS(mIdx, mYear, keyDates, holidays);
+    var monthIcsB64 = monthIcsStr ? await makeQrB64(monthIcsStr, 'M') : '';
+    if (monthIcsStr) console.log('[PDF] Month ' + mName + ' holiday ICS QR: ' + monthIcsStr.length + ' chars');
+
+    var monthOpts = {
       monthName: mName, monthIdx: mIdx, year: mYear,
       plant: plt, artworkB64: artworks[j] || '',
       inspo: inspos[j] || null,
@@ -606,6 +600,7 @@ async function buildFullHTML(order, apiKey) {
       climate: climate, climateData: climateData,
       calendarName: order.calendarName || order.recipientName || '',
       keyDates: monthKeyDates, holidays: monthHolidays,
+      monthIcsB64: monthIcsB64,
     };
     pages.push(tpl.buildPageA(monthOpts));
     pages.push(tpl.buildPageB(monthOpts));
