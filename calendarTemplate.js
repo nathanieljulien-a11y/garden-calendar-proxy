@@ -79,29 +79,25 @@ function buildPageA(opts) {
   var quote        = QUOTES[monthIdx % QUOTES.length];
   var taskText     = MONTHLY_TASKS[monthIdx] || '';
 
-  // Climate bar — symbols + 2-line layout
+  // Climate bar — ASCII symbols, single line, compact
   var climateHtml = '';
   if (climateData && climateData._cd) {
     var cd   = climateData._cd;
     var tMax = cd.tMax  && cd.tMax[monthIdx]  != null ? Math.round(cd.tMax[monthIdx])  + '\u00b0C' : null;
     var tMin = cd.tMin  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
     var rain = cd.precip && cd.precip[monthIdx] != null ? Math.round(cd.precip[monthIdx]) + 'mm' : null;
-    var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs' : null;
-    var line1Parts = [];
-    var line2Parts = [];
-    if (tMax) line1Parts.push('\uD83C\uDF21\uFE0F ' + tMax + ' high');
-    if (tMin) line1Parts.push(tMin + ' low');
-    if (rain) line2Parts.push('\uD83C\uDF27\uFE0F ' + rain + ' rain');
-    if (sun)  line2Parts.push('\u2600\uFE0F ' + sun + ' sun/day');
-    var line1 = line1Parts.join(' \u00b7 ');
-    var line2 = line2Parts.join(' \u00b7 ');
+    var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs sun/day' : null;
+    var parts = [];
+    if (tMax || tMin) parts.push('[T] ' + (tMax || '') + (tMax && tMin ? ' / ' : '') + (tMin ? tMin + ' low' : ''));
+    if (rain) parts.push('[R] ' + rain);
+    if (sun)  parts.push('[S] ' + sun);
+    var statsLine = parts.join('  \u00b7  ');
     climateHtml = '<div class="climate-bar">'
-      + '<div class="climate-region">' + esc(climate) + '</div>'
-      + (line1 ? '<div class="climate-line">' + line1 + '</div>' : '')
-      + (line2 ? '<div class="climate-line">' + line2 + '</div>' : '')
+      + '<span class="climate-region">' + esc(climate) + '</span>'
+      + (statsLine ? '<span class="climate-stats">' + statsLine + '</span>' : '')
       + '</div>';
   } else if (climate) {
-    climateHtml = '<div class="climate-bar"><div class="climate-region">' + esc(climate) + '</div></div>';
+    climateHtml = '<div class="climate-bar"><span class="climate-region">' + esc(climate) + '</span></div>';
   }
 
   // Plant commentary box — title is plant name, 5 bullets from plantCommentary.json
@@ -113,7 +109,7 @@ function buildPageA(opts) {
     if (commentary.conditions) bullets.push(commentary.conditions);
     if (commentary.care)       bullets.push(commentary.care);
     if (commentary.facts && commentary.facts[0]) bullets.push(commentary.facts[0]);
-    bullets = bullets.slice(0, 5);
+    bullets = bullets.slice(0, 4);
     plantBoxHtml = '<div class="plant-box">'
       + '<div class="section-label">' + esc(plantDisplay) + '</div>'
       + '<ul class="plant-bullets">'
@@ -128,7 +124,6 @@ function buildPageA(opts) {
     + '<div class="tasks-intro">' + esc(taskText) + '</div>'
     + '<div class="tasks-question">What needs doing in your garden this month?</div>'
     + '<div class="tasks-lines">'
-    + '<div class="task-line"><span class="checkbox">\u25a1</span><span class="task-rule"></span></div>'
     + '<div class="task-line"><span class="checkbox">\u25a1</span><span class="task-rule"></span></div>'
     + '<div class="task-line"><span class="checkbox">\u25a1</span><span class="task-rule"></span></div>'
     + '<div class="task-line"><span class="checkbox">\u25a1</span><span class="task-rule"></span></div>'
@@ -159,7 +154,7 @@ function buildPageA(opts) {
     inspoHtml += '</div></div>';
   }
 
-  // Footer: quote left + app QR right, side by side
+  // Footer: quote left, then [text | QR] right-aligned, QR vertically aligned with inspo QR
   var footerHtml = '<div class="page-footer">'
     + '<div class="footer-quote-col">'
     + '<div class="quote-text">\u201c' + esc(quote.text) + '\u201d</div>'
@@ -167,8 +162,8 @@ function buildPageA(opts) {
     + '</div>'
     + (appQrB64
         ? '<div class="footer-qr-col">'
+          + '<div class="qr-label">Your digital garden calendar</div>'
           + '<img src="' + appQrB64 + '" width="52" height="52" alt="App QR"/>'
-          + '<div class="qr-label">Your digital<br/>garden calendar</div>'
           + '</div>'
         : '')
     + '</div>';
@@ -360,21 +355,21 @@ var SHARED_CSS = [
   '.header-recipient{font-size:7pt;color:var(--muted);letter-spacing:0.04em;margin-top:0.5mm;}',
 
   // Climate bar
-  '.climate-bar{display:flex;flex-direction:column;gap:1mm;padding:1.5mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;} .climate-line{font-size:7pt;color:var(--ink);}',
-  '.climate-region{font-size:6.5pt;font-style:italic;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;}',
+  '.climate-bar{display:flex;flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:2mm;padding:1mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
+  '.climate-region{font-size:6.5pt;font-style:italic;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;} .climate-stats{font-size:7pt;color:var(--ink);}',
   // .climate-stats removed — replaced by .climate-line in the new 2-line layout,
 
   // Section label (shared)
   '.section-label{font-family:"Playfair Display",serif;font-size:6.5pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:2mm;display:block;}',
 
   // Plant commentary box
-  '.plant-box{flex-shrink:0;}',
+  '.plant-box{flex-shrink:0;margin-top:1mm;}',
   '.plant-bullets{list-style:none;padding:0;margin:0;}',
-  '.plant-bullets li{font-size:9.5pt;line-height:1.6;color:var(--ink);padding-left:3.5mm;position:relative;margin-bottom:2mm;}',
+  '.plant-bullets li{font-size:9.5pt;line-height:1.45;color:var(--ink);padding-left:3.5mm;position:relative;margin-bottom:1.2mm;}',
   '.plant-bullets li::before{content:"\u2022";position:absolute;left:0;color:var(--gold);}',
 
   // Garden tasks box
-  '.tasks-box{flex-shrink:0;}',
+  '.tasks-box{flex-shrink:0;margin-top:2mm;}',
   '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:2mm;font-style:italic;}',
   '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);margin-bottom:2.5mm;}',
   '.tasks-lines{display:flex;flex-direction:column;gap:3.5mm;}',
@@ -396,13 +391,13 @@ var SHARED_CSS = [
   '.inspo-qr-lbl{font-size:6pt;color:var(--muted);font-style:italic;text-align:center;}',
 
   // Footer: quote left + app QR right, side by side
-  '.page-footer{border-top:0.3mm solid var(--border);padding-top:2mm;flex-shrink:0;display:flex;align-items:flex-start;gap:3mm;}',
+  '.page-footer{border-top:0.3mm solid var(--border);padding-top:1.5mm;flex-shrink:0;display:flex;align-items:center;gap:3mm;}',
   '.footer-quote-col{flex:1;min-width:0;}',
   '.quote-text{font-family:"Playfair Display",serif;font-style:italic;font-size:7pt;line-height:1.5;color:var(--ink);margin-bottom:0.8mm;}',
   '.quote-attr{font-size:6pt;color:var(--muted);}',
-  '.footer-qr-col{flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1mm;}',
-  '.footer-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;}',
-  '.qr-label{font-size:5pt;color:var(--muted);line-height:1.3;text-align:center;}',
+  '.footer-qr-col{flex-shrink:0;display:flex;flex-direction:row;align-items:center;gap:2mm;}',
+  '.footer-qr-col img{border:0.3mm solid var(--border);border-radius:1mm;padding:0.5mm;background:white;flex-shrink:0;}',
+  '.qr-label{font-size:7pt;color:var(--muted);line-height:1.4;text-align:right;max-width:25mm;}',
 
   // ── PAGE B ──────────────────────────────────────────────────────────────
   '.page-b-layout{display:flex;flex-direction:column;height:100%;}',
