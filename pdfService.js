@@ -524,6 +524,24 @@ async function buildFullHTML(order, apiKey) {
   }));
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
+// Generate ICS calendar files and QR-encode them
+  var icsKeyQrB64 = '';
+  if (keyDates && keyDates.length) {
+    try {
+      var icsKeyStr = tpl.buildICS(keyDates, 'single');
+      icsKeyQrB64 = await makeQrB64(icsKeyStr);
+      console.log('[PDF] Key dates ICS QR: ' + (icsKeyQrB64 ? 'ok' : 'failed'));
+    } catch(e) { console.error('[PDF] ICS key dates error:', e.message); }
+  }
+  var icsHolQrB64 = '';
+  if (holidays && holidays.length) {
+    try {
+      var icsHolStr = tpl.buildICS(holidays, 'multi');
+      icsHolQrB64 = await makeQrB64(icsHolStr);
+      console.log('[PDF] Holidays ICS QR: ' + (icsHolQrB64 ? 'ok' : 'failed'));
+    } catch(e) { console.error('[PDF] ICS holidays error:', e.message); }
+  }
+  
   // Build pages: blank cover + 12 months + blank back
   // A3: 14 pages (1 cover + 12 combined + 1 back)
   // A4: 26 pages (1 cover + 12 illus + 12 grid + 1 back)
