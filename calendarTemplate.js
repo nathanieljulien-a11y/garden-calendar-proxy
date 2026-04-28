@@ -87,10 +87,14 @@ function buildPageA(opts) {
     var tMin = cd.tMin  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
     var rain = cd.precip && cd.precip[monthIdx] != null ? Math.round(cd.precip[monthIdx]) + 'mm' : null;
     var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs sun/day' : null;
+    // Unicode symbols: ☀ sun (U+2600), ☂ umbrella/rain (U+2602), both BMP — reliable in Chromium
+    // Thermometer: no clean BMP symbol; use ▲▼ arrows for high/low temps
     var parts = [];
-    if (tMax || tMin) parts.push('[T] ' + (tMax || '') + (tMax && tMin ? ' / ' : '') + (tMin ? tMin + ' low' : ''));
-    if (rain) parts.push('[R] ' + rain);
-    if (sun)  parts.push('[S] ' + sun);
+    if (tMax || tMin) parts.push(
+      '▲ ' + (tMax || '') + (tMax && tMin ? '  ▼ ' : '') + (tMin ? tMin : '')
+    );
+    if (rain) parts.push('☂ ' + rain);
+    if (sun)  parts.push('☀ ' + sun);
     var statsLine = parts.join('  \u00b7  ');
     climateHtml = '<div class="climate-bar">'
       + '<span class="climate-region">' + esc(climate) + '</span>'
@@ -326,12 +330,6 @@ function buildPageB(opts) {
     + '<div class="cal-footer">'
     + '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
     + (climate ? '<span class="cal-footer-climate">' + esc(climate) + '</span>' : '')
-    + (monthIcsB64
-        ? '<div class="cal-footer-ics">'
-          + '<img src="' + monthIcsB64 + '" width="28" height="28" alt="Add to calendar"/>'
-          + '<span class="cal-footer-ics-lbl">Add dates to calendar \u2197</span>'
-          + '</div>'
-        : '')
     + '</div>'
     + '</div>'
     + '</div>';
@@ -435,6 +433,7 @@ var SHARED_CSS = [
   '.cv-chart-block{display:flex;flex-direction:column;overflow:hidden;justify-content:center;}',
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
+  '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
   '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-after:always;margin:0;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
@@ -513,13 +512,10 @@ var SHARED_CSS = [
 
   // Footer
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
-  '.cal-footer-ics{display:flex;align-items:center;gap:1.5mm;flex-shrink:0;}',
   '.cal-ics-cell{display:flex;align-items:center;justify-content:center;padding:1mm;background:rgba(139,105,20,0.03);}',
   '.cal-ics-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:0.8mm;}',
   '.cal-ics-qr{width:18mm;height:18mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:white;}',
   '.cal-ics-lbl{font-size:5pt;color:var(--muted);font-style:italic;text-align:center;line-height:1.3;}',
-  '.cal-footer-ics img{border:0.3mm solid var(--border);border-radius:0.8mm;padding:0.3mm;background:white;}',
-  '.cal-footer-ics-lbl{font-size:6pt;color:var(--muted);font-style:italic;}',
   '.cal-footer-text{font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
   '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
 ].join('\n');
@@ -661,8 +657,9 @@ function _buildClimateChart(climateData, startMonthIdx, monthNames) {
   svg += '</svg>';
 
   return '<div class="cv-chart-block">'
-    + '<span class="cv-section-label">Average climate — 12-month outlook</span>'
+    + '<span class="cv-section-label">30-year climate averages (1991–2020)</span>'
     + '<div class="cv-chart-svg">' + svg + '</div>'
+    + '<div class="cv-chart-source">Source: Open-Meteo EC_Earth3P_HR model</div>'
     + '</div>';
 }
 
