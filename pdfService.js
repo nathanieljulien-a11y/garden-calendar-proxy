@@ -99,11 +99,11 @@ function geocodeCity(city) {
 function fetchClimateData(lat, lng) {
   return new Promise(function(resolve) {
     if (lat == null || lng == null) { resolve(null); return; }
-    // Open-Meteo climate API returns DAILY data — we fetch one representative year
-    // and average each variable by calendar month ourselves
+    // Open-Meteo climate API: fetch 1991-2020 (30-year WMO climate normal period)
+    // Average tMax/tMin by day count per month; sum precip per month then divide by 30 years
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat + '&longitude=' + lng
-      + '&start_date=2000-01-01&end_date=2000-12-31'
+      + '&start_date=1991-01-01&end_date=2020-12-31'
       + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
       + '&models=EC_Earth3P_HR';
     https.get(url, { headers: { 'Accept': 'application/json' } }, function(res) {
@@ -140,18 +140,20 @@ function fetchClimateData(lat, lng) {
             counts[mo]++;
           }
           var tMax=[],tMin=[],precip=[],sunHrs=[];
+          var NUM_YEARS = 30; // 1991-2020
           for (var m = 0; m < 12; m++) {
             var n = counts[m] || 1;
             tMax.push(parseFloat((sums.tMax[m] / n).toFixed(1)));
             tMin.push(parseFloat((sums.tMin[m] / n).toFixed(1)));
-            precip.push(parseFloat((sums.precip[m]).toFixed(0)));   // monthly total
+            // precip: average monthly total across 30 years
+            precip.push(parseFloat((sums.precip[m] / NUM_YEARS).toFixed(0)));
             sunHrs.push(parseFloat((sums.sun[m] / n / 3600).toFixed(1))); // avg hrs/day
           }
           resolve({ _cd: { tMax, tMin, precip, sunHrs } });
         } catch(e) { console.error('[PDF] climate parse error', e.message); resolve(null); }
       });
     }).on('error', function(e) { console.error('[PDF] climate fetch error', e.message); resolve(null); })
-      .setTimeout(10000, function() { resolve(null); });
+      .setTimeout(30000, function() { resolve(null); }); // 30yr fetch needs more time
   });
 }
 
