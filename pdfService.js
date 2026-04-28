@@ -13,6 +13,19 @@ var tpl       = require('./calendarTemplate.js');
 var fs        = require('fs');
 var path      = require('path');
 
+// Build artwork filename map once at startup (lowercase key → actual filename)
+// Supports any capitalisation: koehler_rose.jpg, Koehler_Rose.JPG etc.
+var _artworkFileMap = {};
+try {
+  var _artDir = path.join(__dirname, 'artwork');
+  require('fs').readdirSync(_artDir).forEach(function(f) {
+    _artworkFileMap[f.toLowerCase()] = f;
+  });
+  console.log('[pdfService] Artwork files indexed:', Object.keys(_artworkFileMap).length);
+} catch(e) {
+  console.warn('[pdfService] Could not index artwork directory:', e.message);
+}
+
 // Load garden photo manifest once at startup
 var _gardenPhotoManifest = {};
 try {
@@ -57,19 +70,54 @@ var FORMATS = {
 // ── Read artwork from disk (downloaded at build time by download-artwork.js) ───
 var path = require('path');
 
+// Source credits for artwork prefixes
+var ARTWORK_SOURCES = {
+  'koehler': 'Köhler’s Medizinal-Pflanzen, 1887 · Public Domain · Missouri Botanical Garden',
+  'edwards': 'Edwards’ Botanical Register, 1815–1847 · Public Domain',
+};
+var ARTWORK_SOURCE_DEFAULT = 'Köhler’s Medizinal-Pflanzen, 1887 · Public Domain · Missouri Botanical Garden';
+
+// Returns { b64: 'data:...', source: 'credit string' } or null if not found.
+// Filename conventions supported:
+//   Koehler_plantname.jpg   — Köhler's Medizinal-Pflanzen
+//   Edwards_plantname.jpg   — Edwards' Botanical Register
+//   plantname.jpg           — legacy (assumed Köhler)
 function readArtworkAsBase64(plant) {
   if (!plant) return null;
-  var key = plant.toLowerCase().trim();
-  // Try jpg first, then png
+  var key  = plant.toLowerCase().trim();
   var exts = ['.jpg', '.png'];
-  for (var i = 0; i < exts.length; i++) {
-    var fp = path.join(__dirname, 'artwork', key + exts[i]);
-    try {
-      var buf = require('fs').readFileSync(fp);
-      var ct  = exts[i] === '.png' ? 'image/png' : 'image/jpeg';
-      return 'data:' + ct + ';base64,' + buf.toString('base64');
-    } catch(e) { /* try next */ }
+  var prefixes = ['koehler', 'edwards'];
+
+  // Try prefixed filenames (koehler_rose.jpg, edwards_tulip.jpg — any capitalisation)
+  for (var p = 0; p < prefixes.length; p++) {
+    for (var e = 0; e < exts.length; e++) {
+      var target = prefixes[p] + '_' + key + exts[e]; // all lowercase for map lookup
+      var actual = _artworkFileMap[target];
+      if (actual) {
+        var buf = fs.readFileSync(path.join(__dirname, 'artwork', actual));
+        var ct  = exts[e] === '.png' ? 'image/png' : 'image/jpeg';
+        return {
+          b64:    'data:' + ct + ';base64,' + buf.toString('base64'),
+          source: ARTWORK_SOURCES[prefixes[p]] || ARTWORK_SOURCE_DEFAULT,
+        };
+      }
+    }
   }
+
+  // Fall back to legacy unprefixed filename (plantname.jpg — any capitalisation)
+  for (var e = 0; e < exts.length; e++) {
+    var target = key + exts[e];
+    var actual = _artworkFileMap[target];
+    if (actual) {
+      var buf = fs.readFileSync(path.join(__dirname, 'artwork', actual));
+      var ct  = exts[e] === '.png' ? 'image/png' : 'image/jpeg';
+      return {
+        b64:    'data:' + ct + ';base64,' + buf.toString('base64'),
+        source: ARTWORK_SOURCE_DEFAULT,
+      };
+    }
+  }
+
   console.warn('[ART] Not found on disk:', key);
   return null;
 }
@@ -481,8 +529,11 @@ async function buildFullHTML(order, apiKey) {
 
   // Read artwork from disk (downloaded at build time)
   console.log('[PDF] Reading artwork from disk...');
-  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); }); // reads from artwork/ dir committed to repo
+  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); }); // {b64, source} or null
   console.log('[PDF] Artwork loaded: ' + artworks.filter(Boolean).length + '/12');
+  artworks.forEach(function(a, i) {
+    if (a) console.log('[ART] ' + plants[i] + ' → ' + (a.source.includes('Edwards') ? 'Edwards' : 'Köhler'));
+  });
 
   // Fetch 12 inspo gardens sequentially so dedup works across months
   console.log('[PDF] Fetching 12 inspo gardens (sequential + dedup)...');
@@ -551,7 +602,7 @@ async function buildFullHTML(order, apiKey) {
       climate:       climate,
       climateData:   climateData,
       startMonthIdx: startMonth,
-      artworks:      artworks,
+      artworks:      artworks.map(function(a) { return a ? a.b64 : ''; }),
       plants:        plants,
       monthNames:    coverMonthNames,
       appQrB64:      appQrB64,
@@ -594,7 +645,9 @@ async function buildFullHTML(order, apiKey) {
 
     var monthOpts = {
       monthName: mName, monthIdx: mIdx, year: mYear,
-      plant: plt, artworkB64: artworks[j] || '',
+      plant: plt,
+      artworkB64:    artworks[j] ? artworks[j].b64    : '',
+      artworkSource: artworks[j] ? artworks[j].source : '',
       inspo: inspos[j] || null,
       inspoPhotoB64: inspoPhotos[j] || '',
       inspoQrB64: inspoQrB64s[j] || '',
