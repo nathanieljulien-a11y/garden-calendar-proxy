@@ -34,13 +34,22 @@ async function compressToJpegDataUri(buf, widthPx, quality) {
     return 'data:image/jpeg;base64,' + buf.toString('base64');
   }
   try {
-    var pipeline = sharp(buf).rotate(); // .rotate() auto-corrects EXIF orientation
+    // Pass { failOn: 'none' } to tolerate unusual PNG headers / metadata quirks
+    var pipeline = sharp(buf, { failOn: 'none' }).rotate();
     if (widthPx) pipeline = pipeline.resize(widthPx, null, { withoutEnlargement: true });
     var compressed = await pipeline.jpeg({ quality: quality, mozjpeg: true }).toBuffer();
     return 'data:image/jpeg;base64,' + compressed.toString('base64');
   } catch(e) {
-    console.warn('[IMG] sharp compress failed:', e.message, '— using original');
-    return 'data:image/jpeg;base64,' + buf.toString('base64');
+    // Second attempt: let sharp auto-detect format without hints
+    try {
+      var pipeline2 = sharp(buf, { failOn: 'none', animated: false });
+      if (widthPx) pipeline2 = pipeline2.resize(widthPx, null, { withoutEnlargement: true });
+      var compressed2 = await pipeline2.jpeg({ quality: quality }).toBuffer();
+      return 'data:image/jpeg;base64,' + compressed2.toString('base64');
+    } catch(e2) {
+      console.warn('[IMG] sharp compress failed:', e2.message, '— using original');
+      return 'data:image/jpeg;base64,' + buf.toString('base64');
+    }
   }
 }
 
@@ -263,7 +272,9 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, excludeNames
         try {
           var d = JSON.parse(data);
           var text = d.content && d.content[0] && d.content[0].text || '';
-          var jsonMatch = text.match(/\{[\s\S]*\}/);
+          // Strip markdown fences if Haiku wraps JSON in ```json ... ```
+          var cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+          var jsonMatch = cleaned.match(/\{[\s\S]*\}/);
           if (!jsonMatch) { console.error('[PDF] inspo no JSON found in:', text.slice(0,100)); resolve(null); return; }
           resolve(JSON.parse(jsonMatch[0]));
         } catch(e) {
