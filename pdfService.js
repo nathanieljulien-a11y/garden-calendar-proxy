@@ -208,7 +208,7 @@ function fetchClimateDataOnce(lat, lng) {
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
       + '&start_date=1991-01-01&end_date=2020-12-31'
-      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
       + '&models=EC_Earth3P_HR';
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
@@ -236,7 +236,11 @@ function fetchClimateDataOnce(lat, lng) {
             if (daily.temperature_2m_max[i]  != null) sums.tMax[mo]   += daily.temperature_2m_max[i];
             if (daily.temperature_2m_min[i]  != null) sums.tMin[mo]   += daily.temperature_2m_min[i];
             if (daily.precipitation_sum[i]   != null) sums.precip[mo] += daily.precipitation_sum[i];
-            if (daily.sunshine_duration[i]   != null) sums.sun[mo]    += daily.sunshine_duration[i];
+            // EC_Earth3P_HR often returns 0 for sunshine_duration — fall back to daylight_duration
+            var sunVal = (daily.sunshine_duration && daily.sunshine_duration[i] > 0)
+              ? daily.sunshine_duration[i]
+              : (daily.daylight_duration && daily.daylight_duration[i] != null ? daily.daylight_duration[i] : 0);
+            if (sunVal > 0) sums.sun[mo] += sunVal;
             counts[mo]++;
           }
           var tMax=[], tMin=[], precip=[], sunHrs=[];
@@ -697,6 +701,7 @@ async function buildFullHTML(order, apiKey) {
       startMonthIdx: startMonth,
       // Cover thumbnails use the small compressed version
       artworks:      artworks.map(function(a) { return a ? a.thumbB64 : ''; }),
+      artworkSources: artworks.map(function(a) { return a ? a.source : ''; }),
       plants:        plants,
       monthNames:    coverMonthNames,
       appQrB64:      appQrB64,
