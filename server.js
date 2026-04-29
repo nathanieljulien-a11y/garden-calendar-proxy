@@ -1,6 +1,7 @@
 const express = require('express');
 const helmet  = require('helmet');
 const pdfRouter = require('./pdfService.js');   // ← add this line
+const gelatoRouter = require('./gelatoService.js');
 const app    = express();
 const PORT   = process.env.PORT || 3001;
 const API_KEY       = process.env.ANTHROPIC_API_KEY;
@@ -34,7 +35,11 @@ app.use((req, res, next) => {
 
 // Body limit raised to 64kb — calendar prompts with full climate context can reach ~8-10kb
 app.use(express.json({ limit: '64kb' }));
+//Raw body parser for /upload-to-r2 (PDF binary upload)
+app.use('/upload-to-r2', express.raw({ type: 'application/pdf', limit: '30mb' }));
 app.use(pdfRouter);
+app.use(gelatoRouter);
+
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
 const ipHourly = {}; // { ip: { count, resetAt } }
