@@ -22,7 +22,6 @@ try {
   sharp = null;
 }
 
-
 // ── Image compression helpers ─────────────────────────────────────────────────
 // All return a base64 data-URI string (or the original if sharp is unavailable).
 
@@ -134,18 +133,20 @@ var FORMATS = {
 var ARTWORK_SOURCES = {
   'koehler': 'Köhler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden',
   'edwards': 'Edwards\u2019 Botanical Register, 1815\u20131847 \u00b7 Public Domain',
+  'redoute': 'Trait\u00e9 des Arbres et Arbustes, Redout\u00e9 (1801\u20131819) \u00b7 Public Domain',
 };
 var ARTWORK_SOURCE_DEFAULT = 'Köhler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden';
 
 // Filename conventions supported:
 //   Koehler_plantname.jpg   — Köhler's Medizinal-Pflanzen
 //   Edwards_plantname.jpg   — Edwards' Botanical Register
+//   Redoute_plantname.jpg   — Redouté's Traité des Arbres et Arbustes
 //   plantname.jpg           — legacy (assumed Köhler)
 function readArtworkBuffer(plant) {
   if (!plant) return null;
   var key  = plant.toLowerCase().trim();
   var exts = ['.jpg', '.png'];
-  var prefixes = ['koehler', 'edwards'];
+  var prefixes = ['koehler', 'edwards', 'redoute'];
 
   for (var p = 0; p < prefixes.length; p++) {
     for (var e = 0; e < exts.length; e++) {
@@ -609,15 +610,25 @@ async function buildFullHTML(order, apiKey) {
   var artworkRaw = plants.map(function(p) { return readArtworkBuffer(p); }); // {buf, source} | null
   console.log('[PDF] Artwork loaded: ' + artworkRaw.filter(Boolean).length + '/12');
   artworkRaw.forEach(function(a, i) {
-    if (a) console.log('[ART] ' + plants[i] + ' \u2192 ' + (a.source.includes('Edwards') ? 'Edwards' : 'K\u00f6hler'));
+    if (a) {
+      var src = a.source.includes('Edwards') ? 'Edwards' : a.source.includes('Redout') ? 'Redout\u00e9' : 'K\u00f6hler';
+      console.log('[ART] ' + plants[i] + ' \u2192 ' + src);
+    }
   });
 
-  var artworks = await Promise.all(artworkRaw.map(async function(a) {
-    if (!a) return null;
+  // Process sequentially (not parallel) to avoid simultaneous RAM spikes
+  // when decompressing large source files (Redoute watercolours can be 20MB+)
+  var artworks = [];
+  for (var ai = 0; ai < artworkRaw.length; ai++) {
+    var a = artworkRaw[ai];
+    if (!a) { artworks.push(null); continue; }
+    var rawKB = Math.round(a.buf.length / 1024);
+    console.log('[ART] Compressing ' + plants[ai] + ' (' + rawKB + 'KB raw)...');
     var fullB64  = await compressToJpegDataUri(a.buf, 1800, 82);
     var thumbB64 = await compressToJpegDataUri(a.buf,  500, 75);
-    return { b64: fullB64, thumbB64: thumbB64, source: a.source };
-  }));
+    console.log('[ART] ' + plants[ai] + ' done: full=' + Math.round(fullB64.length*0.75/1024) + 'KB thumb=' + Math.round(thumbB64.length*0.75/1024) + 'KB');
+    artworks.push({ b64: fullB64, thumbB64: thumbB64, source: a.source });
+  }
 
   var beforeKB = artworkRaw.reduce(function(s, a) { return s + (a ? a.buf.length : 0); }, 0) / 1024;
   var afterKB  = artworks.reduce(function(s, a) {
