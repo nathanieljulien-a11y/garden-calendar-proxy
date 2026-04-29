@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'artwork/**'
+  workflow_dispatch:  # enables the "Run workflow" button in GitHub Actions UI
 
 jobs:
   resize:
@@ -45,10 +46,10 @@ jobs:
               const fpath = path.join(ARTWORK_DIR, file);
               const stat  = fs.statSync(fpath);
               if (stat.size <= MAX_BYTES) {
-                console.log(`SKIP  ${file} (${Math.round(stat.size/1024)}KB)`);
+                console.log('SKIP  ' + file + ' (' + Math.round(stat.size/1024) + 'KB)');
                 continue;
               }
-              console.log(`RESIZE ${file} (${Math.round(stat.size/1024)}KB) ...`);
+              console.log('RESIZE ' + file + ' (' + Math.round(stat.size/1024) + 'KB) ...');
               const buf = fs.readFileSync(fpath);
               const outPath = fpath.replace(/\.[^.]+$/, '.jpg');
               await sharp(buf, { failOn: 'none' })
@@ -60,15 +61,14 @@ jobs:
                 .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
                 .toFile(outPath);
               const newSize = fs.statSync(outPath).size;
-              console.log(`       → ${Math.round(newSize/1024)}KB (${outPath !== fpath ? 'converted to .jpg' : 'updated in place'})`);
-              // Remove original if it was a non-JPEG that got converted
+              console.log('       -> ' + Math.round(newSize/1024) + 'KB' + (outPath !== fpath ? ' (converted to .jpg)' : ' (updated in place)'));
               if (outPath !== fpath) fs.unlinkSync(fpath);
               resized++;
             }
-            console.log(`\nDone. ${resized} file(s) resized.`);
+            console.log('\nDone. ' + resized + ' file(s) resized.');
           }
 
-          run().catch(e => { console.error(e); process.exit(1); });
+          run().catch(function(e) { console.error(e); process.exit(1); });
           EOF
 
       - name: Commit resized files
