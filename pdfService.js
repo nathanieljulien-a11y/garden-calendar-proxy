@@ -283,50 +283,167 @@ async function fetchClimateData(lat, lng) {
   return null;
 }
 
-// ── Fetch inspo garden from Claude API ───────────────────────────────────────
-function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, excludeNames) {
+// Curated garden seed lists by region — lat/lng bounding boxes [minLat,maxLat,minLng,maxLng]
+var GARDEN_REGIONS = [
+  { box:[50.8,51.9,-0.9,1.5], gardens:[
+    'Royal Botanic Gardens, Kew','RHS Garden Wisley','Sissinghurst Castle Garden',
+    'Great Dixter','Wakehurst','Hampton Court Palace Garden','Chelsea Physic Garden',
+    'Emmetts Garden','Nymans','Sheffield Park and Garden','Penshurst Place',
+    'Hever Castle Gardens','Chartwell','Knole Park','Scotney Castle',
+    "Bateman's",'Borde Hill Garden','Leonardslee Lakes and Gardens',
+    'Parham House and Gardens','West Dean Gardens','Denmans Garden',
+    'Loseley Park','Painshill Park','Claremont Landscape Garden',
+    'Polesden Lacey','The Savill Garden','Mottisfont','Exbury Gardens',
+    'Jenkyn Place','Hannah Peschar Sculpture Garden','Pashley Manor Gardens',
+  ]},
+  { box:[49.9,51.5,-6.5,-1.8], gardens:[
+    'Trebah Garden','Glendurgan Garden','Heligan Gardens','Trelissick Garden',
+    'Tresco Abbey Garden','RHS Garden Rosemoor','Bicton Park Botanical Gardens',
+    'Greenway','Coleton Fishacre','Killerton','Knightshayes','Tyntesfield',
+    'Montacute House','Forde Abbey','Mapperton Gardens','Abbotsbury Subtropical Gardens',
+    'Hestercombe Gardens','Prior Park Landscape Garden','Iford Manor','Stourhead',
+    'Kingston Lacy','Athelhampton House',
+  ]},
+  { box:[51.5,53.5,-1.0,2.0], gardens:[
+    'RHS Garden Hyde Hall','Beth Chatto Gardens','Anglesey Abbey',
+    'Blickling Estate','Sandringham Gardens','Bressingham Gardens',
+    'Helmingham Hall Gardens','Somerleyton Hall Gardens','Mannington Hall',
+    'Benington Lordship','Doddington Hall Gardens','Burghley House Gardens',
+  ]},
+  { box:[51.3,53.5,-5.5,-1.0], gardens:[
+    'Hidcote','Kiftsgate Court Gardens','Bodnant Garden','Powis Castle Garden',
+    'Barnsley House','Bourton House Garden','Birmingham Botanical Gardens',
+    'Upton House','Packwood House','Baddesley Clinton','Coton Manor Garden',
+    'Cottesbrooke Hall Gardens','Erddig','Aberglasney Gardens',
+    'National Botanic Garden of Wales',
+  ]},
+  { box:[53.0,55.8,-3.5,0.0], gardens:[
+    'RHS Garden Harlow Carr','Studley Royal Water Garden','Newby Hall',
+    'Castle Howard','Scampston Hall Walled Garden','York Gate Garden',
+    'Alnwick Garden','Cragside','Wallington','Belsay Hall Gardens',
+    'Levens Hall','Sizergh Castle','Holker Hall','Dalemain',
+    'Tatton Park','Dunham Massey','Biddulph Grange Garden',
+    'Wentworth Castle Gardens',
+  ]},
+  { box:[54.5,61.0,-8.0,-0.5], gardens:[
+    'Royal Botanic Garden Edinburgh','Crarae Garden','Arduaine Garden',
+    'Inverewe Garden','Crathes Castle Garden','Pitmedden Garden',
+    'Branklyn Garden','Drummond Castle Gardens','Logan Botanic Garden',
+    'Threave Garden','Culzean Castle and Country Park','Glenarn Garden',
+  ]},
+  { box:[51.3,55.5,-10.5,-5.5], gardens:[
+    'National Botanic Gardens Dublin','Powerscourt Estate Gardens',
+    'Killarney House Gardens','Glenveagh Castle Gardens',
+    'Mount Usher Gardens','Birr Castle Demesne','Altamont Garden',
+    'Rowallane Garden','Mount Stewart','Benvarden Garden',
+  ]},
+  { box:[49.5,53.6,2.5,7.2], gardens:[
+    'Keukenhof','Hortus Botanicus Amsterdam','Clingendael Park',
+    'Paleis Het Loo Gardens','Arboretum Kalmthout','Hex Castle Gardens',
+  ]},
+  { box:[41.5,51.1,-5.5,9.6], gardens:[
+    "Giverny (Monet's Garden)",'Versailles Gardens','Vaux-le-Vicomte',
+    'Villandry Gardens','Jardins de Marqueyssac','Jardin des Plantes Paris',
+    'Château de Chaumont-sur-Loire Gardens',
+  ]},
+  { box:[46.0,55.5,5.5,17.5], gardens:[
+    'Sanssouci Gardens Potsdam','Herrenhausen Gardens Hanover',
+    'Munich Botanical Garden','Berlin Botanical Garden',
+    'Schwetzingen Palace Gardens','Wilhelma Stuttgart',
+    'Schönbrunn Palace Gardens','Belvedere Gardens Vienna','Insel Mainau',
+  ]},
+  { box:[24.0,50.0,-90.0,-60.0], gardens:[
+    'Longwood Gardens','New York Botanical Garden','Brooklyn Botanic Garden',
+    'Arnold Arboretum Boston','Dumbarton Oaks Washington DC',
+    'Winterthur Garden','Chanticleer Garden','Wave Hill',
+    'Ladew Topiary Gardens',
+  ]},
+  { box:[30.0,50.0,-130.0,-100.0], gardens:[
+    'Butchart Gardens Victoria','Van Dusen Botanical Garden Vancouver',
+    'Portland Japanese Garden','Huntington Library Gardens',
+    'Filoli','San Francisco Botanical Garden','UC Berkeley Botanical Garden',
+  ]},
+  { box:[-47.0,-10.0,110.0,178.0], gardens:[
+    'Royal Botanic Garden Sydney','Royal Botanic Gardens Melbourne',
+    'Adelaide Botanic Garden','Kings Park Perth',
+    'Christchurch Botanic Gardens','Hamilton Gardens New Zealand',
+  ]},
+];
+
+function getRegionalGardens(lat, lng) {
+  if (lat == null || lng == null) return [];
+  for (var i = 0; i < GARDEN_REGIONS.length; i++) {
+    var b = GARDEN_REGIONS[i].box;
+    if (lat >= b[0] && lat <= b[1] && lng >= b[2] && lng <= b[3])
+      return GARDEN_REGIONS[i].gardens;
+  }
+  return [];
+}
+
+// ── Normalise garden name for dedup ──────────────────────────────────────────
+function normaliseGardenName(name) {
+  if (!name) return '';
+  return name.toLowerCase()
+    .replace(/\b(rhs|nts|english heritage|national trust|the|garden|gardens|park|house|castle|abbey|hall|manor|place|estate|botanical|botanic|arboretum|pleasure grounds)\b/g, ' ')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+// ── Single inspo fetch ────────────────────────────────────────────────────────
+function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
   return new Promise(function(resolve) {
     if (!apiKey) { resolve(null); return; }
-    var excludeClause = excludeNames && excludeNames.length
-      ? ' Do NOT suggest any of these gardens (already used): ' + excludeNames.join(', ') + '.'
+    var locationHint = lat && lng
+      ? ' (approx. ' + Math.round(lat) + '\u00b0N ' + Math.round(Math.abs(lng)) + '\u00b0' + (lng < 0 ? 'W' : 'E') + ')'
       : '';
-    var locationClause = lat && lng
-      ? ' The user is located at approximately ' + lat.toFixed(2) + ', ' + lng.toFixed(2) + ' — prioritise gardens within reasonable travel distance, but include world-class gardens further away if they are particularly relevant.'
+    var recentUsed = usedNames.slice(-4);
+    var excludeClause = recentUsed.length
+      ? '\n\nDo NOT suggest any of these: ' + recentUsed.join(', ') + '.'
       : '';
-    var prompt = 'Suggest one real, publicly accessible garden worth visiting in ' + monthName
-      + ' for someone based in ' + climate + locationClause
-      + ' It must be a well-known, real garden within a comfortable day trip (under 2 hours).'
-      + ' Do NOT invent garden names. Only suggest gardens you are certain exist.'
+    var regionalGardens = getRegionalGardens(lat, lng);
+    var candidates = regionalGardens.filter(function(g) {
+      return usedNames.indexOf(g) === -1 && normaliseGardenName(g) !== '' &&
+        usedNames.every(function(u) { return normaliseGardenName(u) !== normaliseGardenName(g); });
+    });
+    var gardenHint = candidates.length > 0
+      ? '\n\nChoose from these verified gardens near ' + climate + ' (all are real and within day-trip distance): '
+        + candidates.slice(0, 12).join(', ') + '.'
+        + ' Pick the one that is most interesting specifically in ' + monthName + '.'
+      : '';
+
+    var prompt =
+      'Suggest one real, publicly accessible garden worth visiting in ' + monthName
+      + ' for someone based in ' + climate + locationHint + '.'
+      + ' It must be within a comfortable day trip \u2014 preferably under 1.5 hours away.'
+      + gardenHint
       + excludeClause
-      + '\n\nThe highlight should describe what is specifically beautiful or notable about this garden in ' + monthName + ' — seasonal features, what is in bloom, special events.'
-      + ' Do NOT force a connection to any specific plant. Just describe why this garden is worth visiting this month.'
-      + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after:'
-      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title if one exists, else null"}';
+      + '\n\nThe highlight should mention something specific happening in that garden in ' + monthName + '.'
+      + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after the JSON object:'
+      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 250,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [{ role: 'user', content: prompt }],
     });
-
-    var req = https.request({
-      hostname: 'api.anthropic.com',
-      path: '/v1/messages',
-      method: 'POST',
+    var opts = {
+      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'Content-Length': Buffer.byteLength(body),
-      }
-    }, function(res) {
+      },
+    };
+    var req = https.request(opts, function(res) {
       var data = '';
-      res.on('data', function(c) { data += c; });
+      res.on('data', function(chunk) { data += chunk; });
       res.on('end', function() {
         console.log('[PDF] inspo API status:', res.statusCode);
         try {
-          var d = JSON.parse(data);
-          var text = d.content && d.content[0] && d.content[0].text || '';
+          var p = JSON.parse(data);
+          if (p.error) { console.error('[PDF] inspo API error:', JSON.stringify(p.error)); resolve(null); return; }
+          var text = (p.content && p.content[0] && p.content[0].text || '').trim();
           // Strip markdown fences if Haiku wraps JSON in ```json ... ```
           var cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
           var jsonMatch = cleaned.match(/\{[\s\S]*\}/);
@@ -344,13 +461,6 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, excludeNames
     req.end();
   });
 }
-
-// Normalise garden name for dedup comparison
-function normaliseGardenName(name) {
-  return (name || '').toLowerCase()
-    .replace(/\bthe\b/g, '').replace(/[^a-z0-9]/g, '').trim();
-}
-
 // Fetch 12 inspo gardens sequentially so we can pass used-names for dedup
 async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, lng, apiKey) {
   var inspos = [];
