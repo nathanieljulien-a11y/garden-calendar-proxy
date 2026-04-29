@@ -13,6 +13,51 @@ var tpl       = require('./calendarTemplate.js');
 var fs        = require('fs');
 var path      = require('path');
 
+// sharp is optional — if unavailable we skip compression and log a warning
+var sharp;
+try {
+  sharp = require('sharp');
+} catch(e) {
+  console.warn('[pdfService] sharp not available — images will not be compressed. Run: npm install sharp');
+  sharp = null;
+}
+
+// ── Image compression helpers ─────────────────────────────────────────────────
+// All return a base64 data-URI string (or the original if sharp is unavailable).
+
+// Compress a Buffer → JPEG data-URI.
+// widthPx: resize to this width (preserving aspect ratio). null = no resize.
+// quality: JPEG quality 1-100.
+async function compressToJpegDataUri(buf, widthPx, quality) {
+  if (!sharp || !buf || buf.length === 0) {
+    // Fallback: return as-is, best-guess mime type
+    return 'data:image/jpeg;base64,' + buf.toString('base64');
+  }
+  try {
+    var pipeline = sharp(buf).rotate(); // .rotate() auto-corrects EXIF orientation
+    if (widthPx) pipeline = pipeline.resize(widthPx, null, { withoutEnlargement: true });
+    var compressed = await pipeline.jpeg({ quality: quality, mozjpeg: true }).toBuffer();
+    return 'data:image/jpeg;base64,' + compressed.toString('base64');
+  } catch(e) {
+    console.warn('[IMG] sharp compress failed:', e.message, '— using original');
+    return 'data:image/jpeg;base64,' + buf.toString('base64');
+  }
+}
+
+// Compress a base64 data-URI string (any image format) → compressed JPEG data-URI.
+async function compressDataUri(dataUri, widthPx, quality) {
+  if (!sharp || !dataUri) return dataUri;
+  try {
+    // Strip the data:...;base64, prefix
+    var b64 = dataUri.replace(/^data:[^;]+;base64,/, '');
+    var buf  = Buffer.from(b64, 'base64');
+    return await compressToJpegDataUri(buf, widthPx, quality);
+  } catch(e) {
+    console.warn('[IMG] compressDataUri failed:', e.message);
+    return dataUri;
+  }
+}
+
 // Build artwork filename map once at startup (lowercase key → actual filename)
 // Supports any capitalisation: koehler_rose.jpg, Koehler_Rose.JPG etc.
 var _artworkFileMap = {};
@@ -44,7 +89,8 @@ function readGardenPhotoFromDisk(gardenName) {
   try {
     if (!fs.existsSync(fpath)) return null;
     var buf = fs.readFileSync(fpath);
-    return 'data:image/jpeg;base64,' + buf.toString('base64');
+    // Return raw buffer — compression applied later in buildFullHTML
+    return buf;
   } catch(e) { return null; }
 }
 
@@ -67,52 +113,47 @@ var FORMATS = {
 };
 
 
-// ── Read artwork from disk (downloaded at build time by download-artwork.js) ───
-var path = require('path');
+// ── Read artwork from disk ────────────────────────────────────────────────────
+// Returns { buf: Buffer, source: string } or null.
+// Compression (to two sizes) is applied later in buildFullHTML so we only
+// read the file once but compress twice (full-res for page A, thumbnail for cover).
 
-// Source credits for artwork prefixes
 var ARTWORK_SOURCES = {
-  'koehler': 'Köhler’s Medizinal-Pflanzen, 1887 · Public Domain · Missouri Botanical Garden',
-  'edwards': 'Edwards’ Botanical Register, 1815–1847 · Public Domain',
+  'koehler': 'Köhler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden',
+  'edwards': 'Edwards\u2019 Botanical Register, 1815\u20131847 \u00b7 Public Domain',
 };
-var ARTWORK_SOURCE_DEFAULT = 'Köhler’s Medizinal-Pflanzen, 1887 · Public Domain · Missouri Botanical Garden';
+var ARTWORK_SOURCE_DEFAULT = 'Köhler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden';
 
-// Returns { b64: 'data:...', source: 'credit string' } or null if not found.
 // Filename conventions supported:
 //   Koehler_plantname.jpg   — Köhler's Medizinal-Pflanzen
 //   Edwards_plantname.jpg   — Edwards' Botanical Register
 //   plantname.jpg           — legacy (assumed Köhler)
-function readArtworkAsBase64(plant) {
+function readArtworkBuffer(plant) {
   if (!plant) return null;
   var key  = plant.toLowerCase().trim();
   var exts = ['.jpg', '.png'];
   var prefixes = ['koehler', 'edwards'];
 
-  // Try prefixed filenames (koehler_rose.jpg, edwards_tulip.jpg — any capitalisation)
   for (var p = 0; p < prefixes.length; p++) {
     for (var e = 0; e < exts.length; e++) {
-      var target = prefixes[p] + '_' + key + exts[e]; // all lowercase for map lookup
+      var target = prefixes[p] + '_' + key + exts[e];
       var actual = _artworkFileMap[target];
       if (actual) {
-        var buf = fs.readFileSync(path.join(__dirname, 'artwork', actual));
-        var ct  = exts[e] === '.png' ? 'image/png' : 'image/jpeg';
         return {
-          b64:    'data:' + ct + ';base64,' + buf.toString('base64'),
+          buf:    fs.readFileSync(path.join(__dirname, 'artwork', actual)),
           source: ARTWORK_SOURCES[prefixes[p]] || ARTWORK_SOURCE_DEFAULT,
         };
       }
     }
   }
 
-  // Fall back to legacy unprefixed filename (plantname.jpg — any capitalisation)
+  // Fallback: legacy unprefixed filename
   for (var e = 0; e < exts.length; e++) {
     var target = key + exts[e];
     var actual = _artworkFileMap[target];
     if (actual) {
-      var buf = fs.readFileSync(path.join(__dirname, 'artwork', actual));
-      var ct  = exts[e] === '.png' ? 'image/png' : 'image/jpeg';
       return {
-        b64:    'data:' + ct + ';base64,' + buf.toString('base64'),
+        buf:    fs.readFileSync(path.join(__dirname, 'artwork', actual)),
         source: ARTWORK_SOURCE_DEFAULT,
       };
     }
@@ -122,7 +163,7 @@ function readArtworkAsBase64(plant) {
   return null;
 }
 
-// ── Geocode a city string to lat/lng via Photon (same as web app) ─────────────
+// ── Geocode a city string to lat/lng via Photon ───────────────────────────────
 function geocodeCity(city) {
   return new Promise(function(resolve) {
     if (!city) { resolve(null); return; }
@@ -143,236 +184,85 @@ function geocodeCity(city) {
   });
 }
 
-// ── Fetch climate data from Open-Meteo (same approach as web app) ─────────────
+// ── Fetch climate data from Open-Meteo ───────────────────────────────────────
 function fetchClimateData(lat, lng) {
   return new Promise(function(resolve) {
-    if (lat == null || lng == null) { resolve(null); return; }
-    // Open-Meteo climate API: fetch 1991-2020 (30-year WMO climate normal period)
-    // Average tMax/tMin by day count per month; sum precip per month then divide by 30 years
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat + '&longitude=' + lng
       + '&start_date=1991-01-01&end_date=2020-12-31'
-      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
-      + '&models=EC_Earth3P_HR';
-    https.get(url, { headers: { 'Accept': 'application/json' } }, function(res) {
+      + '&models=EC_Earth3P_HR'
+      + '&monthly=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration';
+    https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
-      res.on('data', function(chunk) { data += chunk; });
+      res.on('data', function(c) { data += c; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          if (d.error) { resolve(null); return; }
-          var daily = d.daily || {};
-          var times      = daily.time                || [];
-          var tMaxArr    = daily.temperature_2m_max  || [];
-          var tMinArr    = daily.temperature_2m_min  || [];
-          var precipArr  = daily.precipitation_sum   || [];
-          var sunArr     = daily.sunshine_duration   || [];
-          var dayArr     = daily.daylight_duration    || [];
-
-          // Accumulate sums and counts per calendar month (0-indexed)
-          var sums = { tMax:[],tMin:[],precip:[],sun:[] };
-          var counts = [];
-          for (var m = 0; m < 12; m++) {
-            sums.tMax.push(0); sums.tMin.push(0);
-            sums.precip.push(0); sums.sun.push(0);
-            counts.push(0);
+          if (!d.monthly) { resolve(null); return; }
+          var m = d.monthly;
+          // Convert sunshine_duration (seconds/month) to hours/day
+          var sunHrs = null;
+          if (m.sunshine_duration) {
+            sunHrs = m.sunshine_duration.map(function(s, i) {
+              var daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31][i % 12];
+              return s / 3600 / daysInMonth;
+            });
           }
-          for (var i = 0; i < times.length; i++) {
-            var mo = parseInt((times[i] || '').split('-')[1], 10) - 1;
-            if (mo < 0 || mo > 11) continue;
-            if (tMaxArr[i]   != null) { sums.tMax[mo]   += tMaxArr[i];   }
-            if (tMinArr[i]   != null) { sums.tMin[mo]   += tMinArr[i];   }
-            if (precipArr[i] != null) { sums.precip[mo] += precipArr[i]; }
-            var sunVal = (sunArr[i] != null && sunArr[i] > 0) ? sunArr[i] : (dayArr[i] || 0);
-            sums.sun[mo] += sunVal;
-            counts[mo]++;
-          }
-          var tMax=[],tMin=[],precip=[],sunHrs=[];
-          var NUM_YEARS = 30; // 1991-2020
-          for (var m = 0; m < 12; m++) {
-            var n = counts[m] || 1;
-            tMax.push(parseFloat((sums.tMax[m] / n).toFixed(1)));
-            tMin.push(parseFloat((sums.tMin[m] / n).toFixed(1)));
-            // precip: average monthly total across 30 years
-            precip.push(parseFloat((sums.precip[m] / NUM_YEARS).toFixed(0)));
-            sunHrs.push(parseFloat((sums.sun[m] / n / 3600).toFixed(1))); // avg hrs/day
-          }
-          resolve({ _cd: { tMax, tMin, precip, sunHrs } });
-        } catch(e) { console.error('[PDF] climate parse error', e.message); resolve(null); }
+          resolve({
+            _cd: {
+              tMax:   m.temperature_2m_max   || null,
+              tMin:   m.temperature_2m_min   || null,
+              precip: m.precipitation_sum    || null,
+              sunHrs: sunHrs,
+            }
+          });
+        } catch(e) { resolve(null); }
       });
-    }).on('error', function(e) { console.error('[PDF] climate fetch error', e.message); resolve(null); })
-      .setTimeout(30000, function() { resolve(null); }); // 30yr fetch needs more time
+    }).on('error', function() { resolve(null); })
+      .setTimeout(15000, function() { resolve(null); });
   });
 }
 
-// ── Call Claude Haiku for inspo garden only (one call per month) ──────────────
-// Normalise a garden name for dedup comparison
-// "RHS Wisley", "Wisley Garden", "RHS Garden Wisley" → "wisley"
-function normaliseGardenName(name) {
-  if (!name) return '';
-  // Strip all common institutional words, then keep only alphanumeric
-  // This means "RHS Garden Wisley", "Wisley Gardens", "Wisley Garden RHS" all → "wisley"
-  return name.toLowerCase()
-    .replace(/\b(rhs|nts|english heritage|national trust|the|garden|gardens|park|house|castle|abbey|hall|manor|place|estate|botanical|botanic|arboretum|pleasure grounds)\b/g, ' ')
-    .replace(/[^a-z0-9]/g, '')
-    .trim();
-}
-
-// Single inspo fetch — returns Promise<{name,location,highlight,wikipedia?}|null>
-// Curated garden seed lists by region — lat/lng bounding boxes [minLat,maxLat,minLng,maxLng]
-var GARDEN_REGIONS = [
-  { box:[50.8,51.9,-0.9,1.5], gardens:[
-    'Royal Botanic Gardens, Kew','RHS Garden Wisley','Sissinghurst Castle Garden',
-    'Great Dixter','Wakehurst','Hampton Court Palace Garden','Chelsea Physic Garden',
-    'Emmetts Garden','Nymans','Sheffield Park and Garden','Penshurst Place',
-    'Hever Castle Gardens','Chartwell','Knole Park','Scotney Castle',
-    "Bateman's",'Borde Hill Garden','Leonardslee Lakes and Gardens',
-    'Parham House and Gardens','West Dean Gardens','Denmans Garden',
-    'Loseley Park','Painshill Park','Claremont Landscape Garden',
-    'Polesden Lacey','The Savill Garden','Mottisfont','Exbury Gardens',
-    'Jenkyn Place','Hannah Peschar Sculpture Garden','Pashley Manor Gardens',
-  ]},
-  { box:[49.9,51.5,-6.5,-1.8], gardens:[
-    'Trebah Garden','Glendurgan Garden','Heligan Gardens','Trelissick Garden',
-    'Tresco Abbey Garden','RHS Garden Rosemoor','Bicton Park Botanical Gardens',
-    'Greenway','Coleton Fishacre','Killerton','Knightshayes','Tyntesfield',
-    'Montacute House','Forde Abbey','Mapperton Gardens','Abbotsbury Subtropical Gardens',
-    'Hestercombe Gardens','Prior Park Landscape Garden','Iford Manor','Stourhead',
-    'Kingston Lacy','Athelhampton House',
-  ]},
-  { box:[51.5,53.5,-1.0,2.0], gardens:[
-    'RHS Garden Hyde Hall','Beth Chatto Gardens','Anglesey Abbey',
-    'Blickling Estate','Sandringham Gardens','Bressingham Gardens',
-    'Helmingham Hall Gardens','Somerleyton Hall Gardens','Mannington Hall',
-    'Benington Lordship','Doddington Hall Gardens','Burghley House Gardens',
-  ]},
-  { box:[51.3,53.5,-5.5,-1.0], gardens:[
-    'Hidcote','Kiftsgate Court Gardens','Bodnant Garden','Powis Castle Garden',
-    'Barnsley House','Bourton House Garden','Birmingham Botanical Gardens',
-    'Upton House','Packwood House','Baddesley Clinton','Coton Manor Garden',
-    'Cottesbrooke Hall Gardens','Erddig','Aberglasney Gardens',
-    'National Botanic Garden of Wales',
-  ]},
-  { box:[53.0,55.8,-3.5,0.0], gardens:[
-    'RHS Garden Harlow Carr','Studley Royal Water Garden','Newby Hall',
-    'Castle Howard','Scampston Hall Walled Garden','York Gate Garden',
-    'Alnwick Garden','Cragside','Wallington','Belsay Hall Gardens',
-    'Levens Hall','Sizergh Castle','Holker Hall','Dalemain',
-    'Tatton Park','Dunham Massey','Biddulph Grange Garden',
-    'Wentworth Castle Gardens',
-  ]},
-  { box:[54.5,61.0,-8.0,-0.5], gardens:[
-    'Royal Botanic Garden Edinburgh','Crarae Garden','Arduaine Garden',
-    'Inverewe Garden','Crathes Castle Garden','Pitmedden Garden',
-    'Branklyn Garden','Drummond Castle Gardens','Logan Botanic Garden',
-    'Threave Garden','Culzean Castle and Country Park','Glenarn Garden',
-  ]},
-  { box:[51.3,55.5,-10.5,-5.5], gardens:[
-    'National Botanic Gardens Dublin','Powerscourt Estate Gardens',
-    'Killarney House Gardens','Glenveagh Castle Gardens',
-    'Mount Usher Gardens','Birr Castle Demesne','Altamont Garden',
-    'Rowallane Garden','Mount Stewart','Benvarden Garden',
-  ]},
-  { box:[49.5,53.6,2.5,7.2], gardens:[
-    'Keukenhof','Hortus Botanicus Amsterdam','Clingendael Park',
-    'Paleis Het Loo Gardens','Arboretum Kalmthout','Hex Castle Gardens',
-  ]},
-  { box:[41.5,51.1,-5.5,9.6], gardens:[
-    "Giverny (Monet's Garden)",'Versailles Gardens','Vaux-le-Vicomte',
-    'Villandry Gardens','Jardins de Marqueyssac','Jardin des Plantes Paris',
-    'Château de Chaumont-sur-Loire Gardens',
-  ]},
-  { box:[46.0,55.5,5.5,17.5], gardens:[
-    'Sanssouci Gardens Potsdam','Herrenhausen Gardens Hanover',
-    'Munich Botanical Garden','Berlin Botanical Garden',
-    'Schwetzingen Palace Gardens','Wilhelma Stuttgart',
-    'Schönbrunn Palace Gardens','Belvedere Gardens Vienna','Insel Mainau',
-  ]},
-  { box:[24.0,50.0,-90.0,-60.0], gardens:[
-    'Longwood Gardens','New York Botanical Garden','Brooklyn Botanic Garden',
-    'Arnold Arboretum Boston','Dumbarton Oaks Washington DC',
-    'Winterthur Garden','Chanticleer Garden','Wave Hill',
-    'Ladew Topiary Gardens',
-  ]},
-  { box:[30.0,50.0,-130.0,-100.0], gardens:[
-    'Butchart Gardens Victoria','Van Dusen Botanical Garden Vancouver',
-    'Portland Japanese Garden','Huntington Library Gardens',
-    'Filoli','San Francisco Botanical Garden','UC Berkeley Botanical Garden',
-  ]},
-  { box:[-47.0,-10.0,110.0,178.0], gardens:[
-    'Royal Botanic Garden Sydney','Royal Botanic Gardens Melbourne',
-    'Adelaide Botanic Garden','Kings Park Perth',
-    'Christchurch Botanic Gardens','Hamilton Gardens New Zealand',
-  ]},
-];
-
-function getRegionalGardens(lat, lng) {
-  if (lat == null || lng == null) return [];
-  for (var i = 0; i < GARDEN_REGIONS.length; i++) {
-    var b = GARDEN_REGIONS[i].box;
-    if (lat >= b[0] && lat <= b[1] && lng >= b[2] && lng <= b[3])
-      return GARDEN_REGIONS[i].gardens;
-  }
-  return [];
-}
-
-function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
+// ── Fetch inspo garden from Claude API ───────────────────────────────────────
+function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, excludeNames) {
   return new Promise(function(resolve) {
     if (!apiKey) { resolve(null); return; }
-    var locationHint = lat && lng
-      ? ' (approx. ' + Math.round(lat) + '°N ' + Math.round(Math.abs(lng)) + '°' + (lng < 0 ? 'W' : 'E') + ')'
+    var excludeClause = excludeNames && excludeNames.length
+      ? ' Do NOT suggest any of these gardens (already used): ' + excludeNames.join(', ') + '.'
       : '';
-    // Only pass last 4 used names to keep prompt short
-    var recentUsed = usedNames.slice(-4);
-    var excludeClause = recentUsed.length
-      ? '\n\nDo NOT suggest any of these: ' + recentUsed.join(', ') + '.'
+    var locationClause = lat && lng
+      ? ' The user is located at approximately ' + lat.toFixed(2) + ', ' + lng.toFixed(2) + ' — prioritise gardens within reasonable travel distance, but include world-class gardens further away if they are particularly relevant.'
       : '';
-    var regionalGardens = getRegionalGardens(lat, lng);
-    // Remove already-used gardens from the candidate list
-    var candidates = regionalGardens.filter(function(g) {
-      return usedNames.indexOf(g) === -1 && normaliseGardenName(g) !== '' &&
-        usedNames.every(function(u) { return normaliseGardenName(u) !== normaliseGardenName(g); });
-    });
-    var gardenHint = candidates.length > 0
-      ? '\n\nChoose from these verified gardens near ' + climate + ' (all are real and within day-trip distance): '
-        + candidates.slice(0, 12).join(', ') + '.'
-        + ' Pick the one that is most interesting specifically in ' + monthName + '.'
-      : '';
-
-    var prompt =
-      'Suggest one real, publicly accessible garden worth visiting in ' + monthName
-      + ' for someone based in ' + climate + locationHint + '.'
-      + ' It must be within a comfortable day trip — preferably under 1.5 hours away.'
-      + gardenHint
-      + excludeClause
-      + '\n\nThe highlight should mention something specific happening in that garden in ' + monthName + '.'
-      + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after the JSON object:'
-      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
+    var prompt = 'Suggest one inspiring garden to visit this month for someone growing '
+      + (plant || 'a mixed garden') + ' in a ' + climate + ' climate, in ' + monthName + '.'
+      + locationClause + excludeClause
+      + ' Reply with a JSON object only (no markdown): '
+      + '{"name":"...","location":"...","highlight":"one sentence about what makes it special to visit in ' + monthName + '","wikipedia":"Wikipedia article title or null"}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 250,
-      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 200,
+      messages: [{ role: 'user', content: prompt }]
     });
-    var opts = {
-      hostname: 'api.anthropic.com', path: '/v1/messages', method: 'POST',
+
+    var req = https.request({
+      hostname: 'api.anthropic.com',
+      path: '/v1/messages',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'Content-Length': Buffer.byteLength(body),
-      },
-    };
-    var req = https.request(opts, function(res) {
+      }
+    }, function(res) {
       var data = '';
-      res.on('data', function(chunk) { data += chunk; });
+      res.on('data', function(c) { data += c; });
       res.on('end', function() {
         console.log('[PDF] inspo API status:', res.statusCode);
         try {
-          var p = JSON.parse(data);
-          if (p.error) { console.error('[PDF] inspo API error:', JSON.stringify(p.error)); resolve(null); return; }
-          var text = (p.content && p.content[0] && p.content[0].text || '').trim();
-          // Strip markdown fences robustly - find the actual JSON object
+          var d = JSON.parse(data);
+          var text = d.content && d.content[0] && d.content[0].text || '';
           var jsonMatch = text.match(/\{[\s\S]*\}/);
           if (!jsonMatch) { console.error('[PDF] inspo no JSON found in:', text.slice(0,100)); resolve(null); return; }
           resolve(JSON.parse(jsonMatch[0]));
@@ -389,21 +279,26 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, usedNames) {
   });
 }
 
+// Normalise garden name for dedup comparison
+function normaliseGardenName(name) {
+  return (name || '').toLowerCase()
+    .replace(/\bthe\b/g, '').replace(/[^a-z0-9]/g, '').trim();
+}
+
 // Fetch 12 inspo gardens sequentially so we can pass used-names for dedup
 async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, lng, apiKey) {
   var inspos = [];
-  var usedNormalised = []; // normalised names already used this calendar
-  var usedDisplay = [];    // display names for the exclude clause
+  var usedNormalised = [];
+  var usedDisplay = [];
 
   for (var i = 0; i < 12; i++) {
     var result = await fetchInspoOne(
       plants[i], monthNames[i], climate, lat, lng, apiKey, usedDisplay
     );
-    // Dedup: retry up to 3 times if we get a repeat
     var attempts = 0;
     while (result && result.name && attempts < 3) {
       var norm = normaliseGardenName(result.name);
-      if (usedNormalised.indexOf(norm) === -1) break; // not a duplicate, keep it
+      if (usedNormalised.indexOf(norm) === -1) break;
       console.log('[PDF] Dedup: ' + result.name + ' already used, retrying...');
       usedDisplay.push(result.name);
       result = await fetchInspoOne(
@@ -412,8 +307,7 @@ async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, ln
       attempts++;
     }
     if (result && result.name) {
-      var norm = normaliseGardenName(result.name);
-      usedNormalised.push(norm);
+      usedNormalised.push(normaliseGardenName(result.name));
       usedDisplay.push(result.name);
     }
     inspos.push(result);
@@ -422,9 +316,8 @@ async function fetchAllInspos(plants, monthNames, monthIndices, climate, lat, ln
   return inspos;
 }
 
-
-// ── Fetch Wikipedia thumbnail for inspo garden (same as web app) ─────────────
-function fetchImageAsBase64(imageUrl, _depth) {
+// ── Fetch image as raw Buffer ─────────────────────────────────────────────────
+function fetchImageAsBuffer(imageUrl, _depth) {
   _depth = _depth || 0;
   return new Promise(function(resolve) {
     if (_depth > 4) { resolve(null); return; }
@@ -441,19 +334,18 @@ function fetchImageAsBase64(imageUrl, _depth) {
     var req = lib.get(opts, function(res) {
       if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         var loc = res.headers.location;
-        // Handle relative redirects
         if (loc.startsWith('/')) loc = parsed.protocol + '//' + parsed.hostname + loc;
         res.resume();
-        return fetchImageAsBase64(loc, _depth + 1).then(resolve);
+        return fetchImageAsBuffer(loc, _depth + 1).then(resolve);
       }
       var chunks = [];
       res.on('data', function(chunk) { chunks.push(chunk); });
       res.on('end', function() {
         var buf = Buffer.concat(chunks);
         if (buf.length < 500) { resolve(null); return; }
-        var ct = res.headers['content-type'] || 'image/jpeg';
+        var ct = res.headers['content-type'] || '';
         if (!ct.includes('image')) { resolve(null); return; }
-        resolve('data:' + ct.split(';')[0].trim() + ';base64,' + buf.toString('base64'));
+        resolve(buf);
       });
     });
     req.on('error', function() { resolve(null); });
@@ -461,7 +353,7 @@ function fetchImageAsBase64(imageUrl, _depth) {
   });
 }
 
-function fetchWikipediaPhoto(title) {
+function fetchWikipediaPhotoBuffer(title) {
   return new Promise(function(resolve) {
     if (!title) { resolve(null); return; }
     var enc = encodeURIComponent(title.replace(/ /g,'_'));
@@ -474,7 +366,7 @@ function fetchWikipediaPhoto(title) {
           var d = JSON.parse(data);
           var thumb = d.thumbnail && d.thumbnail.source;
           if (!thumb) { resolve(null); return; }
-          fetchImageAsBase64(thumb).then(resolve);
+          fetchImageAsBuffer(thumb).then(resolve);
         } catch(e) { console.error('[PDF] wiki parse error:', e.message); resolve(null); }
       });
     });
@@ -501,7 +393,7 @@ function validateOrder(body) {
   return errors;
 }
 
-// ── Build full 24-page HTML ────────────────────────────────────────────────────
+// ── Build full HTML ───────────────────────────────────────────────────────────
 async function buildFullHTML(order, apiKey) {
   var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var fmt           = (order.format || 'a3').toLowerCase();
@@ -515,7 +407,6 @@ async function buildFullHTML(order, apiKey) {
   var city          = order.city || climate;
   var recipientName = order.recipientName || '';
 
-  // Geocode and fetch climate data once upfront
   console.log('[PDF] keyDates received:', JSON.stringify(keyDates));
   console.log('[PDF] holidays received:', JSON.stringify(holidays));
   console.log('[PDF] Geocoding city: ' + city);
@@ -527,15 +418,31 @@ async function buildFullHTML(order, apiKey) {
     console.log('[PDF] Climate data:', climateData ? 'OK' : 'not available');
   }
 
-  // Read artwork from disk (downloaded at build time)
-  console.log('[PDF] Reading artwork from disk...');
-  var artworks = plants.map(function(p) { return readArtworkAsBase64(p); }); // {b64, source} or null
-  console.log('[PDF] Artwork loaded: ' + artworks.filter(Boolean).length + '/12');
-  artworks.forEach(function(a, i) {
-    if (a) console.log('[ART] ' + plants[i] + ' → ' + (a.source.includes('Edwards') ? 'Edwards' : 'Köhler'));
+  // ── Artwork: read once as Buffer, compress to two sizes ───────────────────
+  // Full-res (page A illustration): max 1800px wide, JPEG q82  → ~100–130KB each
+  // Thumbnail (cover grid):         max  500px wide, JPEG q75  → ~15–25KB each
+  console.log('[PDF] Reading & compressing artwork...');
+  var artworkRaw = plants.map(function(p) { return readArtworkBuffer(p); }); // {buf, source} | null
+  console.log('[PDF] Artwork loaded: ' + artworkRaw.filter(Boolean).length + '/12');
+  artworkRaw.forEach(function(a, i) {
+    if (a) console.log('[ART] ' + plants[i] + ' \u2192 ' + (a.source.includes('Edwards') ? 'Edwards' : 'K\u00f6hler'));
   });
 
-  // Fetch 12 inspo gardens sequentially so dedup works across months
+  var artworks = await Promise.all(artworkRaw.map(async function(a) {
+    if (!a) return null;
+    var fullB64  = await compressToJpegDataUri(a.buf, 1800, 82);
+    var thumbB64 = await compressToJpegDataUri(a.buf,  500, 75);
+    return { b64: fullB64, thumbB64: thumbB64, source: a.source };
+  }));
+
+  var beforeKB = artworkRaw.reduce(function(s, a) { return s + (a ? a.buf.length : 0); }, 0) / 1024;
+  var afterKB  = artworks.reduce(function(s, a) {
+    if (!a) return s;
+    return s + (a.b64.length * 0.75 / 1024) + (a.thumbB64.length * 0.75 / 1024);
+  }, 0);
+  console.log('[PDF] Artwork size: ' + Math.round(beforeKB) + 'KB raw → ~' + Math.round(afterKB) + 'KB compressed (both sizes)');
+
+  // ── Inspo gardens ─────────────────────────────────────────────────────────
   console.log('[PDF] Fetching 12 inspo gardens (sequential + dedup)...');
   var inspoMonthNames = [], inspoMonthIdxs = [];
   for (var ii = 0; ii < 12; ii++) {
@@ -547,18 +454,32 @@ async function buildFullHTML(order, apiKey) {
     plants, inspoMonthNames, inspoMonthIdxs,
     climate, geo && geo.lat, geo && geo.lng, apiKey
   );
-  console.log('[PDF] Loading inspo garden photos (disk first, then Wikipedia)...');
+
+  // ── Inspo photos: fetch as Buffer, compress to small thumbnail ───────────
+  // Rendered at 22mm × 22mm on page → ~260px at 300dpi.
+  // Compress to max 400px wide, JPEG q75 → ~20–30KB each.
+  console.log('[PDF] Loading & compressing inspo garden photos...');
   var inspoPhotoPromises = inspos.map(function(inspo) {
     if (!inspo || !inspo.name) return Promise.resolve(null);
-    var diskPhoto = readGardenPhotoFromDisk(inspo.name);
-    if (diskPhoto) return Promise.resolve(diskPhoto);
+    var diskBuf = readGardenPhotoFromDisk(inspo.name); // now returns Buffer | null
+    if (diskBuf) return Promise.resolve(diskBuf);
     var wikiTitle = inspo.wikipedia || inspo.name;
-    return fetchWikipediaPhoto(wikiTitle);
+    return fetchWikipediaPhotoBuffer(wikiTitle);
   });
-  var inspoPhotos = await Promise.all(inspoPhotoPromises);
-  console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found.');
+  var inspoPhotoBuffers = await Promise.all(inspoPhotoPromises);
 
-  // Generate QR codes locally using qrcode package (no external HTTP needed)
+  // Compress all inspo photos
+  var inspoPhotos = await Promise.all(inspoPhotoBuffers.map(async function(buf) {
+    if (!buf) return null;
+    return await compressToJpegDataUri(buf, 400, 75);
+  }));
+
+  var inspoBeforeKB = inspoPhotoBuffers.reduce(function(s, b) { return s + (b ? b.length : 0); }, 0) / 1024;
+  var inspoAfterKB  = inspoPhotos.reduce(function(s, d) { return s + (d ? d.length * 0.75 / 1024 : 0); }, 0);
+  console.log('[PDF] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found. '
+    + Math.round(inspoBeforeKB) + 'KB raw → ~' + Math.round(inspoAfterKB) + 'KB compressed');
+
+  // ── QR codes ──────────────────────────────────────────────────────────────
   async function makeQrB64(url, ecl) {
     try {
       var dataUrl = await QRCode.toDataURL(url, {
@@ -581,14 +502,7 @@ async function buildFullHTML(order, apiKey) {
   }));
   console.log('[PDF] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
-// Per-month holiday ICS QRs are generated inside the month loop below.
-  // Cover page no longer has ICS QR codes.
-  
-  // Build pages: blank cover + 12 months + blank back
-  // A3: 14 pages (1 cover + 12 combined + 1 back)
-  // A4: 26 pages (1 cover + 12 illus + 12 grid + 1 back)
-  // 14 pages: blank cover + 12 months + blank back
-
+  // ── Build pages ───────────────────────────────────────────────────────────
   var coverMonthNames = [];
   for (var ci = 0; ci < 12; ci++) coverMonthNames.push(MONTH_NAMES[(startMonth + ci) % 12]);
   var endYear   = year + Math.floor((startMonth + 11) / 12);
@@ -602,7 +516,8 @@ async function buildFullHTML(order, apiKey) {
       climate:       climate,
       climateData:   climateData,
       startMonthIdx: startMonth,
-      artworks:      artworks.map(function(a) { return a ? a.b64 : ''; }),
+      // Cover thumbnails use the small compressed version
+      artworks:      artworks.map(function(a) { return a ? a.thumbB64 : ''; }),
       plants:        plants,
       monthNames:    coverMonthNames,
       appQrB64:      appQrB64,
@@ -638,7 +553,6 @@ async function buildFullHTML(order, apiKey) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    // Holiday ICS QR for this month (holidays starting this month only)
     var monthIcsStr = tpl.buildMonthICS(mIdx, mYear, keyDates, holidays);
     var monthIcsB64 = monthIcsStr ? await makeQrB64(monthIcsStr, 'M') : '';
     if (monthIcsStr) console.log('[PDF] Month ' + mName + ' holiday ICS QR: ' + monthIcsStr.length + ' chars');
@@ -646,6 +560,7 @@ async function buildFullHTML(order, apiKey) {
     var monthOpts = {
       monthName: mName, monthIdx: mIdx, year: mYear,
       plant: plt,
+      // Page A uses the full-res compressed version
       artworkB64:    artworks[j] ? artworks[j].b64    : '',
       artworkSource: artworks[j] ? artworks[j].source : '',
       inspo: inspos[j] || null,
@@ -662,12 +577,12 @@ async function buildFullHTML(order, apiKey) {
     console.log('[PDF] Month ' + (j+1) + ' (' + mName + ') built OK');
   }
 
-  pages.push(tpl.buildBlankPage()); // page 14: blank back
-  console.log('[PDF] Pages built: ' + pages.length + ' (14 = cover + 12 months + back, ' + fmt.toUpperCase() + ')');
+  pages.push(tpl.buildBlankPage());
+  console.log('[PDF] Pages built: ' + pages.length + ' (cover + 12×[A+B] + blank, ' + fmt.toUpperCase() + ')');
 
   try {
     var doc = tpl.buildDocument(pages);
-    console.log('[PDF] buildDocument OK, length:', doc.length);
+    console.log('[PDF] buildDocument OK, length: ' + Math.round(doc.length / 1024) + 'KB');
     return doc;
   } catch(docErr) {
     console.error('[PDF] buildDocument CRASH:', docErr.stack);
@@ -677,7 +592,6 @@ async function buildFullHTML(order, apiKey) {
 
 // ── Render PDF ────────────────────────────────────────────────────────────────
 async function generatePDF(html) {
-  // A3 portrait with bleed: 305mm × 428mm
   var widthMm = 279.42, heightMm = 401.14;
   var browser = await puppeteer.launch({
     args: chromium.args,
@@ -693,9 +607,8 @@ async function generatePDF(html) {
       height: Math.round(heightMm * 150 / 25.4),
       deviceScaleFactor: 2,
     });
-    // Images are base64 embedded — domcontentloaded is sufficient
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
-    await new Promise(function(r) { setTimeout(r, 2000); }); // font render time
+    await new Promise(function(r) { setTimeout(r, 2000); });
     return await page.pdf({
       width: widthMm + 'mm', height: heightMm + 'mm',
       printBackground: true, margin: { top:0, right:0, bottom:0, left:0 },
@@ -721,53 +634,18 @@ router.post('/generate-pdf', async function(req, res) {
   try {
     var html = await buildFullHTML(req.body, apiKey);
     console.log('[PDF] HTML built (' + Math.round(html.length / 1024) + 'KB). Rendering...');
-    var pdfBuffer = await generatePDF(html);
-
-    // ── PDF/X-4 conversion with Ghostscript ───────────────────────────────
-    var finalBuffer = pdfBuffer;
-    try {
-      var execSync = require('child_process').execSync;
-      var tmpIn    = '/tmp/calendar_raw_' + Date.now() + '.pdf';
-      var tmpOut   = '/tmp/calendar_x4_'  + Date.now() + '.pdf';
-      var iccPath  = path.join(__dirname, 'GRACoL2006_Coated1v2.icc');
-      fs.writeFileSync(tmpIn, pdfBuffer);
-      var gsAvail  = require('child_process').spawnSync('which', ['gs']).status === 0;
-      var iccAvail = fs.existsSync(iccPath);
-      if (gsAvail && iccAvail) {
-        var gsCmd = [
-          'gs', '-dBATCH', '-dNOPAUSE', '-dNOSAFER', '-dQUIET',
-          '-sDEVICE=pdfwrite',
-          '-dPDFX',
-          '-dCompatibilityLevel=1.6',
-          '-sColorConversionStrategy=UseDeviceIndependentColor',
-          '-dEncodeColorImages=true', '-dEncodeGrayImages=true',
-          '-dAutoRotatePages=/None',
-          '-sOutputFile=' + tmpOut,
-          tmpIn,
-        ].join(' ');
-        execSync(gsCmd, { timeout: 60000 });
-        finalBuffer = fs.readFileSync(tmpOut);
-        console.log('[PDF] PDF/X-4 conversion OK (' + Math.round(finalBuffer.length/1024) + 'KB)');
-      } else {
-        console.warn('[PDF] Skipping PDF/X-4: gs=' + gsAvail + ' icc=' + iccAvail);
-      }
-      try { fs.unlinkSync(tmpIn); } catch(e){}
-      try { fs.unlinkSync(tmpOut); } catch(e){}
-    } catch(gsErr) {
-      console.error('[PDF] PDF/X-4 failed, using standard PDF:', gsErr.message);
-      finalBuffer = pdfBuffer;
-    }
-
-    console.log('[PDF] Done in ' + ((Date.now() - t0) / 1000).toFixed(1) + 's — ' + Math.round(finalBuffer.length / 1024) + 'KB');
+    var pdfBuf = await generatePDF(html);
+    var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+    console.log('[PDF] Done in ' + elapsed + 's, size: ' + Math.round(pdfBuf.length / 1024) + 'KB');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="garden-calendar.pdf"',
-      'Content-Length': finalBuffer.length,
+      'Content-Length': pdfBuf.length,
     });
-    res.end(finalBuffer);
+    res.send(pdfBuf);
   } catch(err) {
-    console.error('[PDF] Error:', err.message);
-    console.error('[PDF] STACK:', err.stack); res.status(500).json({ error: 'PDF generation failed', message: err.message, stack: err.stack });
+    console.error('[PDF] Error:', err.stack || err.message);
+    res.status(500).json({ error: 'PDF generation failed', detail: err.message });
   }
 });
 
