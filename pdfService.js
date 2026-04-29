@@ -33,22 +33,25 @@ async function compressToJpegDataUri(buf, widthPx, quality) {
     return 'data:image/jpeg;base64,' + buf.toString('base64');
   }
   try {
-    // Detect format from magic bytes to avoid sharp format-sniffing failures
-    // PNG: starts with 0x89 0x50 0x4E 0x47
-    // JPEG: starts with 0xFF 0xD8
-    var isPng = buf.length > 4
-      && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
-    var sharpInput = isPng
-      ? sharp(buf, { failOn: 'none' }).png()   // explicitly tell sharp it's PNG first
-      : sharp(buf, { failOn: 'none' });
-    var pipeline = sharpInput.rotate();        // auto-correct EXIF orientation
+    // Detect format from magic bytes — handle JPEG, PNG, TIFF, WebP, GIF
+    var fmt = 'jpeg';
+    if (buf.length > 4) {
+      if (buf[0] === 0x89 && buf[1] === 0x50) fmt = 'png';
+      else if (buf[0] === 0xFF && buf[1] === 0xD8) fmt = 'jpeg';
+      else if ((buf[0] === 0x49 && buf[1] === 0x49) || (buf[0] === 0x4D && buf[1] === 0x4D)) fmt = 'tiff';
+      else if (buf[0] === 0x52 && buf[1] === 0x49 && buf[4] === 0x57) fmt = 'webp';
+      else if (buf[0] === 0x47 && buf[1] === 0x49) fmt = 'gif';
+    }
+    var pipeline = sharp(buf, { failOn: 'none' });
+    if (fmt !== 'jpeg') pipeline = pipeline.toFormat('jpeg'); // force convert non-JPEG
+    pipeline = pipeline.rotate(); // auto-correct EXIF orientation
     if (widthPx) pipeline = pipeline.resize(widthPx, null, { withoutEnlargement: true });
     var compressed = await pipeline.jpeg({ quality: quality, mozjpeg: true }).toBuffer();
-    console.log('[IMG] Compressed ' + (isPng ? 'PNG' : 'JPEG') + ': '
+    console.log('[IMG] Compressed ' + fmt.toUpperCase() + ': '
       + Math.round(buf.length/1024) + 'KB → ' + Math.round(compressed.length/1024) + 'KB');
     return 'data:image/jpeg;base64,' + compressed.toString('base64');
   } catch(e) {
-    console.warn('[IMG] sharp compress failed:', e.message, '— using original');
+    console.warn('[IMG] sharp compress failed (' + e.message + ') — using original');
     return 'data:image/jpeg;base64,' + buf.toString('base64');
   }
 }
@@ -194,27 +197,37 @@ function geocodeCity(city) {
 }
 
 // ── Fetch climate data from Open-Meteo ───────────────────────────────────────
-function fetchClimateData(lat, lng) {
+// Uses the monthly endpoint (tiny response) with 2 retries.
+// Returns null only after all retries fail — caller must treat null as hard error.
+function fetchClimateDataOnce(lat, lng) {
   return new Promise(function(resolve) {
+    // monthly endpoint returns 12 averaged values directly — much smaller than daily
     var url = 'https://climate-api.open-meteo.com/v1/climate'
-      + '?latitude=' + lat + '&longitude=' + lng
+      + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
       + '&start_date=1991-01-01&end_date=2020-12-31'
       + '&models=EC_Earth3P_HR'
       + '&monthly=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration';
-    https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
+    var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
       res.on('data', function(c) { data += c; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          if (!d.monthly) { resolve(null); return; }
+          if (d.error) {
+            console.error('[PDF] climate API error:', d.reason || JSON.stringify(d));
+            resolve(null); return;
+          }
+          if (!d.monthly) {
+            console.error('[PDF] climate API: no monthly field. Keys:', Object.keys(d).join(','));
+            resolve(null); return;
+          }
           var m = d.monthly;
-          // Convert sunshine_duration (seconds/month) to hours/day
+          // sunshine_duration comes as seconds/month — convert to avg hours/day
           var sunHrs = null;
           if (m.sunshine_duration) {
+            var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
             sunHrs = m.sunshine_duration.map(function(s, i) {
-              var daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31][i % 12];
-              return s / 3600 / daysInMonth;
+              return parseFloat((s / 3600 / daysPerMonth[i % 12]).toFixed(1));
             });
           }
           resolve({
@@ -225,11 +238,36 @@ function fetchClimateData(lat, lng) {
               sunHrs: sunHrs,
             }
           });
-        } catch(e) { resolve(null); }
+        } catch(e) {
+          console.error('[PDF] climate parse error:', e.message, 'raw:', data.slice(0, 200));
+          resolve(null);
+        }
       });
-    }).on('error', function() { resolve(null); })
-      .setTimeout(15000, function() { resolve(null); });
+    });
+    req.on('error', function(e) {
+      console.error('[PDF] climate fetch error:', e.message);
+      resolve(null);
+    });
+    req.setTimeout(20000, function() {
+      console.error('[PDF] climate fetch timeout');
+      req.destroy();
+      resolve(null);
+    });
   });
+}
+
+async function fetchClimateData(lat, lng) {
+  var RETRIES = 3, DELAY_MS = 2000;
+  for (var attempt = 1; attempt <= RETRIES; attempt++) {
+    console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
+    var result = await fetchClimateDataOnce(lat, lng);
+    if (result) return result;
+    if (attempt < RETRIES) {
+      await new Promise(function(r) { setTimeout(r, DELAY_MS * attempt); });
+    }
+  }
+  console.error('[PDF] Climate data FAILED after ' + RETRIES + ' attempts — PDF will be missing weather data');
+  return null;
 }
 
 // ── Fetch inspo garden from Claude API ───────────────────────────────────────
@@ -242,15 +280,19 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, apiKey, excludeNames
     var locationClause = lat && lng
       ? ' The user is located at approximately ' + lat.toFixed(2) + ', ' + lng.toFixed(2) + ' — prioritise gardens within reasonable travel distance, but include world-class gardens further away if they are particularly relevant.'
       : '';
-    var prompt = 'Suggest one inspiring garden to visit this month for someone growing '
-      + (plant || 'a mixed garden') + ' in a ' + climate + ' climate, in ' + monthName + '.'
-      + locationClause + excludeClause
-      + ' Reply with a JSON object only (no markdown): '
-      + '{"name":"...","location":"...","highlight":"one sentence about what makes it special to visit in ' + monthName + '","wikipedia":"Wikipedia article title or null"}';
+    var prompt = 'Suggest one real, publicly accessible garden worth visiting in ' + monthName
+      + ' for someone based in ' + climate + locationClause
+      + ' It must be a well-known, real garden within a comfortable day trip (under 2 hours).'
+      + ' Do NOT invent garden names. Only suggest gardens you are certain exist.'
+      + excludeClause
+      + '\n\nThe highlight should describe what is specifically beautiful or notable about this garden in ' + monthName + ' — seasonal features, what is in bloom, special events.'
+      + ' Do NOT force a connection to any specific plant. Just describe why this garden is worth visiting this month.'
+      + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after:'
+      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title if one exists, else null"}';
 
     var body = JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 200,
+      max_tokens: 250,
       messages: [{ role: 'user', content: prompt }]
     });
 
@@ -427,6 +469,9 @@ async function buildFullHTML(order, apiKey) {
     console.log('[PDF] Fetching climate data for', geo.lat, geo.lng);
     climateData = await fetchClimateData(geo.lat, geo.lng);
     console.log('[PDF] Climate data:', climateData ? 'OK' : 'not available');
+  if (!climateData) {
+    throw new Error('Climate data unavailable for ' + city + ' after retries. Cannot produce calendar without weather data.');
+  }
   }
 
   // ── Artwork: read once as Buffer, compress to two sizes ───────────────────
