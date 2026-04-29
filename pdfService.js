@@ -131,7 +131,7 @@ try {
 var router = express.Router();
 
 var FORMATS = {
-  a3: { widthMm: 279.42, heightMm: 401.14, label: 'A3 Portrait Standard Wall Calendar' },
+  a3: { widthMm: 305, heightMm: 428, label: 'A3 Portrait Standard Wall Calendar' },
   a4: { widthMm: 305, heightMm: 218, label: 'A4 Landscape Wire-O Calendar' },
 };
 
@@ -819,7 +819,7 @@ async function buildFullHTML(order, apiKey) {
 
 // ── Render PDF ────────────────────────────────────────────────────────────────
 async function generatePDF(html) {
-  var widthMm = 279.42, heightMm = 401.14;
+  var widthMm = 305, heightMm = 428;
 
   // Extra memory-saving flags for constrained environments (Render free/starter tier).
   // --disable-dev-shm-usage is the most important: prevents Chromium using /dev/shm
