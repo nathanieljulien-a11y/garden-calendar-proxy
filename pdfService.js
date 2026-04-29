@@ -22,6 +22,7 @@ try {
   sharp = null;
 }
 
+
 // ── Image compression helpers ─────────────────────────────────────────────────
 // All return a base64 data-URI string (or the original if sharp is unavailable).
 
