@@ -59,6 +59,32 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Font directory — set by pdfService at startup once fonts are downloaded
+var _fontDir = null;
+function setFontDir(dir) { _fontDir = dir; }
+
+// Build @font-face CSS — uses local disk files if available, falls back to Google CDN
+function buildFontCSS() {
+  if (!_fontDir) {
+    // Fallback: Google Fonts CDN (requires network during render)
+    return "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Pinyon+Script&display=swap');";
+  }
+  // Local disk fonts — no network fetch during Puppeteer render
+  function fontSrc(file) {
+    var dir = _fontDir.split('\\').join('/');
+    return "url('file://" + dir + '/' + file + "') format('woff2')";
+  }
+  return [
+    "@font-face{font-family:'Playfair Display';font-style:normal;font-weight:400;src:" + fontSrc('playfair-400.woff2') + ";}",
+    "@font-face{font-family:'Playfair Display';font-style:normal;font-weight:600;src:" + fontSrc('playfair-600.woff2') + ";}",
+    "@font-face{font-family:'Playfair Display';font-style:italic;font-weight:400;src:" + fontSrc('playfair-400i.woff2') + ";}",
+    "@font-face{font-family:'Crimson Pro';font-style:normal;font-weight:400;src:" + fontSrc('crimsonpro-400.woff2') + ";}",
+    "@font-face{font-family:'Crimson Pro';font-style:normal;font-weight:500;src:" + fontSrc('crimsonpro-500.woff2') + ";}",
+    "@font-face{font-family:'Crimson Pro';font-style:italic;font-weight:400;src:" + fontSrc('crimsonpro-400i.woff2') + ";}",
+    "@font-face{font-family:'Pinyon Script';font-style:normal;font-weight:400;src:" + fontSrc('pinyonscript-400.woff2') + ";}",
+  ].join('\n');
+}
+
 // ── Page A: illustration left + commentary/tasks/inspo right ─────────────────
 function buildPageA(opts) {
   var monthName     = opts.monthName;
@@ -349,7 +375,7 @@ function buildBlankPage() {
 // Total:  393.14mm ✓
 
 var SHARED_CSS = [
-  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Crimson+Pro:ital,wght@0,400;0,500;1,400&family=Pinyon+Script&display=swap');",
+  buildFontCSS(),
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
@@ -540,6 +566,7 @@ module.exports = {
   buildCoverPage:     buildCoverPage,
   buildDocument:      buildDocument,
   setPlantCommentary: setPlantCommentary,
+  setFontDir:         setFontDir,
   getCommentary:      getCommentary,
   buildICS:           buildICS,
   buildMonthICS:      buildMonthICS,
