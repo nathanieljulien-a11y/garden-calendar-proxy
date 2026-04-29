@@ -30,26 +30,26 @@ try {
 // quality: JPEG quality 1-100.
 async function compressToJpegDataUri(buf, widthPx, quality) {
   if (!sharp || !buf || buf.length === 0) {
-    // Fallback: return as-is, best-guess mime type
     return 'data:image/jpeg;base64,' + buf.toString('base64');
   }
   try {
-    // Pass { failOn: 'none' } to tolerate unusual PNG headers / metadata quirks
-    var pipeline = sharp(buf, { failOn: 'none' }).rotate();
+    // Detect format from magic bytes to avoid sharp format-sniffing failures
+    // PNG: starts with 0x89 0x50 0x4E 0x47
+    // JPEG: starts with 0xFF 0xD8
+    var isPng = buf.length > 4
+      && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47;
+    var sharpInput = isPng
+      ? sharp(buf, { failOn: 'none' }).png()   // explicitly tell sharp it's PNG first
+      : sharp(buf, { failOn: 'none' });
+    var pipeline = sharpInput.rotate();        // auto-correct EXIF orientation
     if (widthPx) pipeline = pipeline.resize(widthPx, null, { withoutEnlargement: true });
     var compressed = await pipeline.jpeg({ quality: quality, mozjpeg: true }).toBuffer();
+    console.log('[IMG] Compressed ' + (isPng ? 'PNG' : 'JPEG') + ': '
+      + Math.round(buf.length/1024) + 'KB → ' + Math.round(compressed.length/1024) + 'KB');
     return 'data:image/jpeg;base64,' + compressed.toString('base64');
   } catch(e) {
-    // Second attempt: let sharp auto-detect format without hints
-    try {
-      var pipeline2 = sharp(buf, { failOn: 'none', animated: false });
-      if (widthPx) pipeline2 = pipeline2.resize(widthPx, null, { withoutEnlargement: true });
-      var compressed2 = await pipeline2.jpeg({ quality: quality }).toBuffer();
-      return 'data:image/jpeg;base64,' + compressed2.toString('base64');
-    } catch(e2) {
-      console.warn('[IMG] sharp compress failed:', e2.message, '— using original');
-      return 'data:image/jpeg;base64,' + buf.toString('base64');
-    }
+    console.warn('[IMG] sharp compress failed:', e.message, '— using original');
+    return 'data:image/jpeg;base64,' + buf.toString('base64');
   }
 }
 
@@ -604,8 +604,33 @@ async function buildFullHTML(order, apiKey) {
 // ── Render PDF ────────────────────────────────────────────────────────────────
 async function generatePDF(html) {
   var widthMm = 279.42, heightMm = 401.14;
+
+  // Extra memory-saving flags for constrained environments (Render free/starter tier).
+  // --disable-dev-shm-usage is the most important: prevents Chromium using /dev/shm
+  // (which is only 64MB in most containers) and instead uses /tmp.
+  var extraArgs = [
+    '--disable-dev-shm-usage',       // use /tmp instead of /dev/shm
+    '--disable-gpu',                  // no GPU needed for PDF
+    '--no-sandbox',                   // required in container environments
+    '--disable-setuid-sandbox',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-sync',
+    '--disable-translate',
+    '--hide-scrollbars',
+    '--metrics-recording-only',
+    '--mute-audio',
+    '--no-first-run',
+    '--safebrowsing-disable-auto-update',
+    '--js-flags=--max-old-space-size=256', // cap V8 heap at 256MB
+  ];
+  var mergedArgs = chromium.args.concat(
+    extraArgs.filter(function(a) { return chromium.args.indexOf(a) === -1; })
+  );
+
   var browser = await puppeteer.launch({
-    args: chromium.args,
+    args: mergedArgs,
     defaultViewport: chromium.defaultViewport,
     executablePath: await chromium.executablePath(),
     headless: chromium.headless,
@@ -613,10 +638,13 @@ async function generatePDF(html) {
   });
   try {
     var page = await browser.newPage();
+    // Lower deviceScaleFactor to 1.5 (was 2) to halve GPU/raster memory usage.
+    // At A3 (279mm wide) 150dpi this gives ~1650px wide — adequate for print preview;
+    // Chromium's PDF engine renders vector elements at full quality regardless.
     await page.setViewport({
       width:  Math.round(widthMm * 150 / 25.4),
       height: Math.round(heightMm * 150 / 25.4),
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1.5,
     });
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await new Promise(function(r) { setTimeout(r, 2000); });
