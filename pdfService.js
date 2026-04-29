@@ -214,13 +214,12 @@ function geocodeCity(city) {
 // Returns null only after all retries fail — caller must treat null as hard error.
 function fetchClimateDataOnce(lat, lng) {
   return new Promise(function(resolve) {
-    // Use the WMO standard 30-year climate normal period 1991-2020.
+    // 10-year recent period 2015-2024 — more representative of current climate
+    // than the WMO 1991-2020 normal, and ~3,650 rows vs ~10,950 (one third the API cost).
     // EC_Earth3P_HR covers 1950-2050 so this range is fully available.
-    // ~10,950 daily rows, ~500KB — reliable and fast on Render.
-    // We average the daily values by calendar month ourselves.
     var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
-      + '&start_date=1991-01-01&end_date=2020-12-31'
+      + '&start_date=2015-01-01&end_date=2024-12-31'
       + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
       + '&models=EC_Earth3P_HR';
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
@@ -286,12 +285,33 @@ function fetchClimateDataOnce(lat, lng) {
   });
 }
 
+// In-memory climate cache — keyed by rounded lat/lng, cleared at midnight
+var _climateCache = {};
+var _climateCacheDate = '';
+
+function _climateCacheKey(lat, lng) {
+  return lat.toFixed(2) + ',' + lng.toFixed(2);
+}
+
 async function fetchClimateData(lat, lng) {
+  // Clear cache if day has changed
+  var today = new Date().toISOString().slice(0, 10);
+  if (_climateCacheDate !== today) { _climateCache = {}; _climateCacheDate = today; }
+
+  var key = _climateCacheKey(lat, lng);
+  if (_climateCache[key]) {
+    console.log('[PDF] Climate data: cache hit for ' + key);
+    return _climateCache[key];
+  }
+
   var RETRIES = 3, DELAY_MS = 2000;
   for (var attempt = 1; attempt <= RETRIES; attempt++) {
     console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
     var result = await fetchClimateDataOnce(lat, lng);
-    if (result) return result;
+    if (result) {
+      _climateCache[key] = result;
+      return result;
+    }
     if (attempt < RETRIES) {
       await new Promise(function(r) { setTimeout(r, DELAY_MS * attempt); });
     }
