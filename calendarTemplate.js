@@ -66,6 +66,7 @@ function buildPageA(opts) {
   var year          = opts.year;
   var plant         = opts.plant || '';
   var artworkB64    = opts.artworkB64 || '';
+  var artworkSource = opts.artworkSource || 'Köhler’s Medizinal-Pflanzen, 1887 · Public Domain';
   var inspo         = opts.inspo || null;
   var inspoPhotoB64 = opts.inspoPhotoB64 || '';
   var inspoQrB64    = opts.inspoQrB64 || '';
@@ -181,7 +182,7 @@ function buildPageA(opts) {
         : '<div class="artwork-placeholder"><div class="artwork-placeholder-text">' + esc(plantDisplay) + '</div></div>')
     + '<div class="artwork-footer">'
     + '<span class="artwork-plant-name">' + esc(plantDisplay) + (commentary.latin ? ' <span class="artwork-latin">' + esc(commentary.latin) + '</span>' : '') + '</span>'
-    + '<span class="artwork-credit">K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Digitised by Missouri Botanical Garden</span>'
+    + '<span class="artwork-credit">' + esc(artworkSource) + '</span>'
     + '</div>'
     + '</div>'
 
@@ -385,7 +386,7 @@ var SHARED_CSS = [
   '.header-recipient{font-size:7pt;color:var(--muted);letter-spacing:0.04em;margin-top:0.5mm;}',
 
   // Climate bar
-  '.climate-bar{display:flex;flex-direction:row;align-items:baseline;flex-wrap:wrap;gap:2mm;padding:1mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
+  '.climate-bar{display:flex;flex-direction:row;align-items:baseline;flex-wrap:nowrap;justify-content:space-between;gap:2mm;padding:1mm 2.5mm;background:rgba(139,105,20,0.06);border-left:0.8mm solid var(--gold);flex-shrink:0;}',
   '.climate-region{font-size:6.5pt;font-style:italic;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;} .climate-stats{font-size:7pt;color:var(--ink);}',
   // .climate-stats removed — replaced by .climate-line in the new 2-line layout,
 
@@ -550,7 +551,8 @@ module.exports = {
 // ── Climate chart for cover page row 2 ───────────────────────────────────────
 // Inline SVG: temperature lines (high/low) on left axis, precip bars on right axis.
 // 12 months starting from startMonthIdx. Rendered at 130×52mm in cover page.
-function _buildClimateChart(climateData, startMonthIdx, monthNames) {
+function _buildClimateChart(climateData, startMonthIdx, monthNames, climateLabel) {
+  climateLabel = climateLabel || '';
   // Abbreviated month labels
   var MON_ABBR = ['J','F','M','A','M','J','J','A','S','O','N','D'];
   var W = 500, H = 180;  // SVG units (maps to ~130×52mm at cover scale)
@@ -657,9 +659,9 @@ function _buildClimateChart(climateData, startMonthIdx, monthNames) {
   svg += '</svg>';
 
   return '<div class="cv-chart-block">'
-    + '<span class="cv-section-label">30-year climate averages (1991–2020)</span>'
+    + '<span class="cv-section-label">Typical climate in ' + esc(climateLabel) + '</span>'
     + '<div class="cv-chart-svg">' + svg + '</div>'
-    + '<div class="cv-chart-source">Source: Open-Meteo EC_Earth3P_HR model</div>'
+    + '<div class="cv-chart-source">Source: Open-Meteo ERA5 reanalysis · 30-year averages 1991–2020</div>'
     + '</div>';
 }
 
@@ -672,6 +674,7 @@ function buildCoverPage(opts) {
   var dateRange     = opts.dateRange     || '';   // e.g. "June 2026 – May 2027"
   var climate       = opts.climate       || '';
   var artworks      = opts.artworks      || [];   // array of 12 base64 strings
+  var artworkSources= opts.artworkSources || [];
   var plants        = opts.plants        || [];   // array of 12 plant names
   var monthNames    = opts.monthNames    || [];   // array of 12 month name strings
   // icsKeyQrB64 / icsHolQrB64 removed — cover no longer has ICS QRs
@@ -697,7 +700,7 @@ function buildCoverPage(opts) {
   }
 
   // Row 2: 12-month climate chart (temperature lines + precipitation bars)
-  var climateChartHtml = _buildClimateChart(opts.climateData, opts.startMonthIdx || 0, opts.monthNames || []);
+  var climateChartHtml = _buildClimateChart(opts.climateData, opts.startMonthIdx || 0, opts.monthNames || [], opts.climate || '');
 
   // Row 3: single dates/holidays explanation box (replaces two separate ICS blocks)
   var datesExplainHtml = '<div class="cv-ics-block">'
@@ -721,13 +724,16 @@ function buildCoverPage(opts) {
     + '</div>';
 
   // Provenance block
+  var hasKoehler = artworkSources.some(function(s){ return s && s.indexOf('K\u00f6hler') !== -1; });
+  var hasEdwards = artworkSources.some(function(s){ return s && s.indexOf('Edwards') !== -1; });
+  var provText = '';
+  if (hasKoehler) provText += '<em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898), illustrated by Josef Pohl and Walter M\u00fcller, is a landmark work of botanical art. All plates are public domain, digitised by the Missouri Botanical Garden.';
+  if (hasKoehler && hasEdwards) provText += ' ';
+  if (hasEdwards) provText += '<em>Edwards\u2019 Botanical Register</em> (1815\u20131847) is one of the finest illustrated botanical periodicals of the 19th century. All plates are public domain.';
+  if (!provText) provText = 'The botanical illustrations in this calendar are in the public domain.';
   var provHtml = '<div class="cv-provenance-block">'
     + '<span class="cv-section-label">About the illustrations</span>'
-    + '<div class="cv-provenance-text">'
-    + 'The botanical plates are drawn from <em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898), '
-    + 'illustrated by Josef Pohl and Walter M\u00fcller. All plates are public domain, '
-    + 'digitised by the Missouri Botanical Garden via Wikimedia Commons.'
-    + '</div>'
+    + '<div class="cv-provenance-text">' + provText + '</div>'
     + '</div>'
     + '</div>'; // end cv-msg-prov-wrapper
 
