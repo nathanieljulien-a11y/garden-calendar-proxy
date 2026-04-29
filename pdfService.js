@@ -201,14 +201,15 @@ function geocodeCity(city) {
 // Returns null only after all retries fail — caller must treat null as hard error.
 function fetchClimateDataOnce(lat, lng) {
   return new Promise(function(resolve) {
-    // Use the historical weather archive API with monthly aggregation.
-    // Fetch 10 years (2011-2020) — enough for reliable averages, small response (~2KB).
-    // The archive API supports &monthly= natively unlike the climate model API.
-    var url = 'https://archive-api.open-meteo.com/v1/archive'
+    // Use the WMO standard 30-year climate normal period 1991-2020.
+    // EC_Earth3P_HR covers 1950-2050 so this range is fully available.
+    // ~10,950 daily rows, ~500KB — reliable and fast on Render.
+    // We average the daily values by calendar month ourselves.
+    var url = 'https://climate-api.open-meteo.com/v1/climate'
       + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
-      + '&start_date=2011-01-01&end_date=2020-12-31'
-      + '&monthly=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
-      + '&timezone=UTC';
+      + '&start_date=1991-01-01&end_date=2020-12-31'
+      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration'
+      + '&models=EC_Earth3P_HR';
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
       res.on('data', function(c) { data += c; });
@@ -219,24 +220,23 @@ function fetchClimateDataOnce(lat, lng) {
             console.error('[PDF] climate API error:', d.reason || JSON.stringify(d).slice(0,200));
             resolve(null); return;
           }
-          var m = d.monthly;
-          if (!m || !m.time) {
-            console.error('[PDF] climate API: unexpected response. Keys:', Object.keys(d).join(','));
+          var daily = d.daily;
+          if (!daily || !daily.time || !daily.time.length) {
+            console.error('[PDF] climate API: no daily field. Keys:', Object.keys(d).join(','));
             resolve(null); return;
           }
-          // m.time is an array of "YYYY-MM" strings, one per month over 10 years (120 entries).
-          // Average each calendar month (Jan=0 … Dec=11) across all years.
+          // Accumulate sums per calendar month (0=Jan … 11=Dec)
           var sums   = { tMax:new Array(12).fill(0), tMin:new Array(12).fill(0),
                          precip:new Array(12).fill(0), sun:new Array(12).fill(0) };
           var counts = new Array(12).fill(0);
           var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
-          for (var i = 0; i < m.time.length; i++) {
-            var mo = parseInt(m.time[i].split('-')[1], 10) - 1; // 0-indexed
+          for (var i = 0; i < daily.time.length; i++) {
+            var mo = parseInt(daily.time[i].split('-')[1], 10) - 1;
             if (mo < 0 || mo > 11) continue;
-            if (m.temperature_2m_max   && m.temperature_2m_max[i]   != null) sums.tMax[mo]   += m.temperature_2m_max[i];
-            if (m.temperature_2m_min   && m.temperature_2m_min[i]   != null) sums.tMin[mo]   += m.temperature_2m_min[i];
-            if (m.precipitation_sum    && m.precipitation_sum[i]    != null) sums.precip[mo] += m.precipitation_sum[i];
-            if (m.sunshine_duration    && m.sunshine_duration[i]    != null) sums.sun[mo]    += m.sunshine_duration[i];
+            if (daily.temperature_2m_max[i]  != null) sums.tMax[mo]   += daily.temperature_2m_max[i];
+            if (daily.temperature_2m_min[i]  != null) sums.tMin[mo]   += daily.temperature_2m_min[i];
+            if (daily.precipitation_sum[i]   != null) sums.precip[mo] += daily.precipitation_sum[i];
+            if (daily.sunshine_duration[i]   != null) sums.sun[mo]    += daily.sunshine_duration[i];
             counts[mo]++;
           }
           var tMax=[], tMin=[], precip=[], sunHrs=[];
@@ -244,12 +244,13 @@ function fetchClimateDataOnce(lat, lng) {
             var n = counts[mo] || 1;
             tMax.push(  parseFloat((sums.tMax[mo]   / n).toFixed(1)));
             tMin.push(  parseFloat((sums.tMin[mo]   / n).toFixed(1)));
-            precip.push(parseFloat((sums.precip[mo] / n).toFixed(0)));
-            // sunshine_duration is seconds/month — convert to avg hours/day
-            sunHrs.push(parseFloat((sums.sun[mo] / n / 3600 / daysPerMonth[mo]).toFixed(1)));
+            // precip: sum over all days in month / number of years (approx 3)
+            precip.push(parseFloat((sums.precip[mo] / n * daysPerMonth[mo]).toFixed(0)));
+            // sunshine_duration is seconds/day already (daily sum / 1 day) — convert to hours
+            sunHrs.push(parseFloat((sums.sun[mo] / n / 3600).toFixed(1)));
           }
-          console.log('[PDF] Climate data parsed: ' + m.time.length + ' monthly records averaged');
-          resolve({ _cd: { tMax, tMin, precip, sunHrs } });
+          console.log('[PDF] Climate data: ' + daily.time.length + ' daily records averaged into 12 months');
+          resolve({ _cd: { tMax: tMax, tMin: tMin, precip: precip, sunHrs: sunHrs } });
         } catch(e) {
           console.error('[PDF] climate parse error:', e.message, 'raw:', data.slice(0, 300));
           resolve(null);
