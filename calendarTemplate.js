@@ -435,7 +435,7 @@ var SHARED_CSS = [
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
-  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-after:always;margin:0;padding:0;}',
+  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:0;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
   '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
@@ -459,15 +459,14 @@ var SHARED_CSS = [
   '.cv-dates-explain p{margin-bottom:2mm;}',
   '.cv-dates-explain p:last-child{margin-bottom:0;}',
   '.cv-dates-explain strong{color:var(--gold);font-weight:600;}',
-  /* rows 4+5 share a wrapper that spans 2 grid rows */
-  '.cv-msg-prov-wrapper{grid-row:span 2;display:flex;flex-direction:column;gap:7.03mm;overflow:hidden;}',
-  '.cv-message-block{flex:1;min-height:0;justify-content:stretch;}',
+  // rows 4 and 5 are now separate grid items — each fills its own row exactly
+  '.cv-message-block{display:flex;flex-direction:column;overflow:hidden;}',
   '.cv-message-area{flex:1;min-height:0;border:0.3mm solid var(--border);border-radius:1mm;background:rgba(255,255,255,0.4);display:flex;flex-direction:column;overflow:hidden;}',
   '.cv-message-label{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);padding:2mm 2.5mm 1.5mm;border-bottom:0.3mm solid var(--border);flex-shrink:0;}',
   '.cv-message-text{font-family:"Pinyon Script",cursive;font-size:13pt;color:var(--ink);line-height:1.7;padding:2mm 3mm;}',
   '.cv-message-placeholder{opacity:0.35;}',
-  '.cv-provenance-block{flex-shrink:0;height:46.79mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}',
-  '.cv-provenance-text{font-size:13pt;color:var(--muted);line-height:1.55;} .cv-provenance-text em{font-style:italic;color:var(--ink);}',
+  '.cv-provenance-block{flex:1;min-height:0;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}',
+  '.cv-provenance-text{font-size:11pt;color:var(--muted);line-height:1.5;} .cv-provenance-text em{font-style:italic;color:var(--ink);}',
   '.cv-bottom-row{justify-content:space-between;}',
   '.cv-etsy-row{display:flex;align-items:center;gap:3mm;padding:2mm 2.5mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(255,255,255,0.3);}',
   '.cv-etsy-badge{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);flex-shrink:0;}',
@@ -527,7 +526,7 @@ function buildDocument(pages) {
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
     + '* { box-sizing:border-box; margin:0; padding:0; }\n'
     + '@page { size:279.42mm 401.14mm; margin:0; }\n'
-    + 'html,body { width:279.42mm; margin:0; padding:0; background:white; }\n'
+    + 'html,body { width:279.42mm; margin:0 auto 0 0; padding:0; background:white; }\n'
     + SHARED_CSS + '\n'
     + '</style></head><body>\n'
     + pages.join('\n')
@@ -712,9 +711,8 @@ function buildCoverPage(opts) {
     + '</div>'
     + '</div>';
 
-  // Personal message box
-  // Rows 4+5: message (flex:1) + provenance (fixed 46.79mm) in shared wrapper
-  var msgHtml = '<div class="cv-msg-prov-wrapper"><div class="cv-message-block">'
+  // Row 4: personal message — its own grid item
+  var msgHtml = '<div class="cv-message-block">'
     + '<div class="cv-message-area">'
     + '<div class="cv-message-label">A personal message</div>'
     + (personalMsg
@@ -723,19 +721,20 @@ function buildCoverPage(opts) {
     + '</div>'
     + '</div>';
 
-  // Provenance block
-  var hasKoehler = artworkSources.some(function(s){ return s && s.indexOf('K\u00f6hler') !== -1; });
-  var hasEdwards = artworkSources.some(function(s){ return s && s.indexOf('Edwards') !== -1; });
-  var provText = '';
-  if (hasKoehler) provText += '<em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898), illustrated by Josef Pohl and Walter M\u00fcller, is a landmark work of botanical art. All plates are public domain, digitised by the Missouri Botanical Garden.';
-  if (hasKoehler && hasEdwards) provText += ' ';
-  if (hasEdwards) provText += '<em>Edwards\u2019 Botanical Register</em> (1815\u20131847) is one of the finest illustrated botanical periodicals of the 19th century. All plates are public domain.';
-  if (!provText) provText = 'The botanical illustrations in this calendar are in the public domain.';
+  // Row 5: provenance — its own grid item, fills row top to bottom
+  var hasKoehler = artworkSources.some(function(s){ return s && s.indexOf('K\u00f6hler')  !== -1; });
+  var hasEdwards = artworkSources.some(function(s){ return s && s.indexOf('Edwards')  !== -1; });
+  var hasRedoute = artworkSources.some(function(s){ return s && s.indexOf('Redout')   !== -1; });
+  var provLines = [];
+  if (hasKoehler) provLines.push('<em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898) \u00b7 Public domain \u00b7 Missouri Botanical Garden');
+  if (hasEdwards) provLines.push('<em>Edwards\u2019 Botanical Register</em> (1815\u20131847) \u00b7 Public domain');
+  if (hasRedoute) provLines.push('<em>Trait\u00e9 des Arbres et Arbustes</em>, Pierre Joseph Redout\u00e9 (1801\u20131819) \u00b7 Public domain');
+  if (!provLines.length) provLines.push('All botanical illustrations are in the public domain.');
+  var provText = provLines.join('<br/>');
   var provHtml = '<div class="cv-provenance-block">'
     + '<span class="cv-section-label">About the illustrations</span>'
     + '<div class="cv-provenance-text">' + provText + '</div>'
-    + '</div>'
-    + '</div>'; // end cv-msg-prov-wrapper
+    + '</div>';
 
   // Bottom row: Etsy top, web app QR bottom
   var bottomHtml = '<div class="cv-bottom-row">'
