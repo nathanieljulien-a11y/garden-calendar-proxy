@@ -12,6 +12,17 @@ var http      = require('http');
 var tpl       = require('./calendarTemplate.js');
 var fs        = require('fs');
 var path      = require('path');
+var fontMgr   = require('./downloadFonts.js');
+
+// Download fonts at startup (async, non-blocking — PDF generation checks readiness)
+var _fontsReady = false;
+var _fontDir    = fontMgr.FONT_DIR;
+fontMgr.downloadAllFonts().then(function(ok) {
+  _fontsReady = ok;
+  if (ok) tpl.setFontDir(_fontDir);
+}).catch(function(e) {
+  console.warn('[fonts] Download failed:', e.message, '— will fall back to Google Fonts CDN');
+});
 
 // sharp is optional — if unavailable we skip compression and log a warning
 var sharp;
@@ -835,7 +846,7 @@ async function generatePDF(html) {
       deviceScaleFactor: 1,
     });
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
-    await new Promise(function(r) { setTimeout(r, 2000); });
+    // Font wait removed — fonts now loaded from disk, no network delay
     return await page.pdf({
       width: widthMm + 'mm', height: heightMm + 'mm',
       printBackground: true, margin: { top:0, right:0, bottom:0, left:0 },
