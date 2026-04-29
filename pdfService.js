@@ -106,6 +106,7 @@ function readGardenPhotoFromDisk(gardenName) {
   } catch(e) { return null; }
 }
 
+
 // Load plant commentary once at startup
 try {
   var _commentary = JSON.parse(
