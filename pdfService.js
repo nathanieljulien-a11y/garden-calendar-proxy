@@ -1,4 +1,3 @@
-
 // pdfService.js (CommonJS)
 // POST /generate-pdf — 24-page PDF, 2 pages per month
 // Page A: artwork + plantCommentary.json notes + Claude inspo garden + climate data
@@ -106,7 +105,6 @@ function readGardenPhotoFromDisk(gardenName) {
     return buf;
   } catch(e) { return null; }
 }
-
 
 // Load plant commentary once at startup
 try {
@@ -810,7 +808,7 @@ async function generatePDF(html) {
     '--mute-audio',
     '--no-first-run',
     '--safebrowsing-disable-auto-update',
-    '--js-flags=--max-old-space-size=256', // cap V8 heap at 256MB
+    '--js-flags=--max-old-space-size=384', // cap V8 heap at 384MB
   ];
   var mergedArgs = chromium.args.concat(
     extraArgs.filter(function(a) { return chromium.args.indexOf(a) === -1; })
@@ -828,10 +826,13 @@ async function generatePDF(html) {
     // Lower deviceScaleFactor to 1.5 (was 2) to halve GPU/raster memory usage.
     // At A3 (279mm wide) 150dpi this gives ~1650px wide — adequate for print preview;
     // Chromium's PDF engine renders vector elements at full quality regardless.
+    // deviceScaleFactor:1 and 96dpi viewport — PDF vector output is unaffected,
+    // and our artwork is already compressed to appropriate sizes server-side.
+    // This significantly reduces Chromium's raster memory usage.
     await page.setViewport({
-      width:  Math.round(widthMm * 150 / 25.4),
-      height: Math.round(heightMm * 150 / 25.4),
-      deviceScaleFactor: 1.5,
+      width:  Math.round(widthMm * 96 / 25.4),
+      height: Math.round(heightMm * 96 / 25.4),
+      deviceScaleFactor: 1,
     });
     await page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 120000 });
     await new Promise(function(r) { setTimeout(r, 2000); });
