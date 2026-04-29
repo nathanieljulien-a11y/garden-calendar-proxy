@@ -1,3 +1,4 @@
+
 // pdfService.js (CommonJS)
 // POST /generate-pdf — 24-page PDF, 2 pages per month
 // Page A: artwork + plantCommentary.json notes + Claude inspo garden + climate data
