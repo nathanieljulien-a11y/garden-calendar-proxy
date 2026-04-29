@@ -368,25 +368,24 @@ function buildBlankPage() {
 }
 
 // ── CSS ───────────────────────────────────────────────────────────────────────
-// @page size = full pasteable area: 271.42mm × 393.14mm (no bleeds)
-// Page A: 271.42mm × 191.57mm
-// Gap:    10mm white
-// Page B: 271.42mm × 191.57mm
-// Total:  393.14mm ✓
+// @page size: 305mm × 428mm (A3 297×420mm trim + 4mm bleed each side)
+// Each half-page slot: 305mm × 209mm  → content box 279.42×195.57mm centred within
+// Gap between page-a and page-b: 10mm
+// Cover: 305mm × 428mm full bleed
 
 var SHARED_CSS = [
   buildFontCSS(),
   ':root{--ink:#2C1A0A;--gold:#8B6914;--sage:#5A7A32;--cream:#F0EBE0;--parchment:#FDFAF4;--rust:#8A3A10;--muted:#7A5C2A;--border:rgba(139,105,20,0.22);}',
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
-  // Dimensions: content 271.42 × 393.14mm + 4mm bleed each side = 279.42 × 401.14mm
-  // Each half-page: 279.42mm wide × 195.57mm tall  (401.14 - 10mm gap) / 2
-  // Blank full-sheet: 279.42mm × 401.14mm
-  '.cal-page{width:279.42mm;height:195.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:0;padding:0;}',
-  '.cal-blank{width:279.42mm;height:401.14mm;background:white;page-break-after:always;margin:0;padding:0;}',
+  // Full bleed page: 305mm × 428mm (A3 trim 297×420mm + 4mm bleed)
+  // Content box: 279.42mm × 195.57mm centred in each 305×209mm half-page slot
+  // Blank full-sheet: 305mm × 428mm
+  '.cal-page{width:279.42mm;height:195.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:6.715mm auto;padding:0;}',
+  '.cal-blank{width:305mm;height:428mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
   // 10mm white gap between page-a and page-b
-  '.page-a{margin-bottom:10mm;}',
+  '.page-a{margin-bottom:3.285mm;}',
   // page-break-after on page-b ensures each month pair occupies exactly one full sheet
   '.page-b{page-break-after:always;}',
 
@@ -461,7 +460,7 @@ var SHARED_CSS = [
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
-  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:0;padding:0;}',
+  '.cv-cover{width:305mm;height:428mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:0;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
   '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
@@ -551,8 +550,8 @@ var SHARED_CSS = [
 function buildDocument(pages) {
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
     + '* { box-sizing:border-box; margin:0; padding:0; }\n'
-    + '@page { size:279.42mm 401.14mm; margin:0; }\n'
-    + 'html,body { width:279.42mm; margin:0 auto 0 0; padding:0; background:white; }\n'
+    + '@page { size:305mm 428mm; margin:0; }\n'
+    + 'html,body { width:305mm; margin:0; padding:0; background:white; }\n'
     + SHARED_CSS + '\n'
     + '</style></head><body>\n'
     + pages.join('\n')
