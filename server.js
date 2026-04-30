@@ -39,6 +39,7 @@ app.use(express.json({ limit: '64kb' }));
 app.use('/upload-to-r2', express.raw({ type: 'application/pdf', limit: '30mb' }));
 app.use(pdfRouter);
 app.use(gelatoRouter);
+app.use(require('./orderService.js'));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
