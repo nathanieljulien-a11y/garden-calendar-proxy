@@ -877,6 +877,69 @@ async function generatePDF(html) {
   }
 }
 
+// ── R2 upload helper (self-contained, mirrors gelatoService.js) ───────────────
+var _crypto = require('crypto');
+
+async function uploadPdfToR2(buf) {
+  var accountId = process.env.CLOUDFLARE_ACCOUNT_ID || '';
+  var keyId     = process.env.R2_ACCESS_KEY_ID      || '';
+  var secret    = process.env.R2_SECRET_ACCESS_KEY  || '';
+  var bucket    = process.env.R2_BUCKET_NAME        || 'garden-calendar-pdfs';
+  var publicUrl = (process.env.R2_PUBLIC_URL        || '').replace(/\/$/, '');
+
+  if (!accountId || !keyId || !secret || !publicUrl) return null;
+
+  var now         = new Date();
+  var dateStr     = now.toISOString().slice(0,10).replace(/-/g,'');
+  var amzDate     = now.toISOString().replace(/[:-]/g,'').slice(0,15) + 'Z';
+  var filename    = 'gc-' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.pdf';
+  var region      = 'auto', service = 's3';
+  var host        = accountId + '.r2.cloudflarestorage.com';
+  var path        = '/' + bucket + '/' + filename;
+  var contentType = 'application/pdf';
+  var bodyHash    = _crypto.createHash('sha256').update(buf).digest('hex');
+
+  var canonHeaders  = 'content-type:' + contentType + '\nhost:' + host
+    + '\nx-amz-content-sha256:' + bodyHash + '\nx-amz-date:' + amzDate + '\n';
+  var signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+  var canonRequest  = ['PUT', path, '', canonHeaders, signedHeaders, bodyHash].join('\n');
+  var credScope     = dateStr + '/' + region + '/' + service + '/aws4_request';
+  var strToSign     = 'AWS4-HMAC-SHA256\n' + amzDate + '\n' + credScope + '\n'
+    + _crypto.createHash('sha256').update(canonRequest).digest('hex');
+
+  function _sign(key, msg) { return _crypto.createHmac('sha256', key).update(msg).digest(); }
+  var signingKey = _sign(_sign(_sign(_sign('AWS4' + secret, dateStr), region), service), 'aws4_request');
+  var signature  = _crypto.createHmac('sha256', signingKey).update(strToSign).digest('hex');
+  var authHeader = 'AWS4-HMAC-SHA256 Credential=' + keyId + '/' + credScope
+    + ', SignedHeaders=' + signedHeaders + ', Signature=' + signature;
+
+  return new Promise(function(resolve) {
+    var req = https.request({
+      hostname: host, path: path, method: 'PUT',
+      headers: {
+        'Content-Type': contentType, 'Content-Length': buf.length,
+        'x-amz-content-sha256': bodyHash, 'x-amz-date': amzDate,
+        'Authorization': authHeader,
+      },
+    }, function(res) {
+      var data = '';
+      res.on('data', function(c) { data += c; });
+      res.on('end', function() {
+        if (res.statusCode === 200 || res.statusCode === 201 || res.statusCode === 204) {
+          resolve(publicUrl + '/' + filename);
+        } else {
+          console.error('[R2] Upload failed: HTTP ' + res.statusCode + ' — ' + data);
+          resolve(null);
+        }
+      });
+    });
+    req.on('error', function(e) { console.error('[R2] Upload error:', e.message); resolve(null); });
+    req.setTimeout(60000, function() { req.destroy(); resolve(null); });
+    req.write(buf);
+    req.end();
+  });
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 router.post('/generate-pdf', async function(req, res) {
   var errors = validateOrder(req.body);
@@ -895,6 +958,16 @@ router.post('/generate-pdf', async function(req, res) {
     var pdfBuf = await generatePDF(html);
     var elapsed = ((Date.now() - t0) / 1000).toFixed(1);
     console.log('[PDF] Done in ' + elapsed + 's, size: ' + Math.round(pdfBuf.length / 1024) + 'KB');
+
+    // Try to upload to R2 and return URL — falls back to binary if R2 not configured
+    var pdfUrl = await uploadPdfToR2(pdfBuf);
+    if (pdfUrl) {
+      console.log('[PDF] Uploaded to R2: ' + pdfUrl);
+      return res.json({ success: true, url: pdfUrl, elapsed: elapsed });
+    }
+
+    // Fallback: return binary (for local testing without R2)
+    console.log('[PDF] R2 not configured — returning binary');
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': 'attachment; filename="garden-calendar.pdf"',
