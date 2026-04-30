@@ -635,7 +635,7 @@ function validateOrder(body) {
 }
 
 // ── Build full HTML ───────────────────────────────────────────────────────────
-async function buildFullHTML(order, apiKey) {
+async function buildFullHTML(order, apiKey, opts) {
   var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var fmt           = (order.format || 'a3').toLowerCase();
   var fmtConfig     = FORMATS[fmt] || FORMATS.a3;
@@ -836,7 +836,7 @@ async function buildFullHTML(order, apiKey) {
   console.log('[PDF] Pages built: ' + pages.length + ' (cover + 12×[A+B] + blank, ' + fmt.toUpperCase() + ')');
 
   try {
-    var doc = tpl.buildDocument(pages);
+    var doc = tpl.buildDocument(pages, { proof: !(opts && opts.approved) });
     console.log('[PDF] buildDocument OK, length: ' + Math.round(doc.length / 1024) + 'KB');
     return doc;
   } catch(docErr) {
