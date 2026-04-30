@@ -97,70 +97,7 @@ function getSigningKey(secret, date, region, service) {
 }
 
 async function uploadToR2(pdfBuffer, filename) {
-  if (!ACCOUNT_ID || !R2_KEY_ID || !R2_SECRET) {
-    throw new Error('R2 credentials not configured (CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY)');
-  }
-
-  var now        = new Date();
-  var dateStr    = now.toISOString().slice(0,10).replace(/-/g,'');   // YYYYMMDD
-  var amzDate    = now.toISOString().replace(/[:-]/g,'').slice(0,15) + 'Z'; // yyyymmddTHHMMSSZ
-  var region     = 'auto';
-  var service    = 's3';
-  var host       = ACCOUNT_ID + '.r2.cloudflarestorage.com';
-  var path       = '/' + R2_BUCKET + '/' + filename;
-  var contentType= 'application/pdf';
-  var bodyHash   = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
-
-  // Canonical request
-  var canonHeaders = 'content-type:' + contentType + '\n'
-    + 'host:' + host + '\n'
-    + 'x-amz-content-sha256:' + bodyHash + '\n'
-    + 'x-amz-date:' + amzDate + '\n';
-  var signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-  var canonRequest = ['PUT', path, '', canonHeaders, signedHeaders, bodyHash].join('\n');
-
-  // String to sign
-  var credScope  = dateStr + '/' + region + '/' + service + '/aws4_request';
-  var strToSign  = 'AWS4-HMAC-SHA256\n' + amzDate + '\n' + credScope + '\n'
-    + crypto.createHash('sha256').update(canonRequest).digest('hex');
-
-  // Signature
-  var signingKey = getSigningKey(R2_SECRET, dateStr, region, service);
-  var signature  = crypto.createHmac('sha256', signingKey).update(strToSign).digest('hex');
-
-  var authHeader = 'AWS4-HMAC-SHA256 Credential=' + R2_KEY_ID + '/' + credScope
-    + ', SignedHeaders=' + signedHeaders
-    + ', Signature=' + signature;
-
-  return new Promise(function(resolve, reject) {
-    var req = https.request({
-      hostname: host,
-      path:     path,
-      method:   'PUT',
-      headers:  {
-        'Content-Type':          contentType,
-        'Content-Length':        pdfBuffer.length,
-        'x-amz-content-sha256': bodyHash,
-        'x-amz-date':           amzDate,
-        'Authorization':         authHeader,
-      },
-    }, function(res) {
-      var data = '';
-      res.on('data', function(c) { data += c; });
-      res.on('end', function() {
-        if (res.statusCode === 200 || res.statusCode === 201 || res.statusCode === 204) {
-          var publicUrl = R2_PUBLIC_URL + '/' + filename;
-          resolve(publicUrl);
-        } else {
-          reject(new Error('R2 upload failed: HTTP ' + res.statusCode + ' — ' + data));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.setTimeout(60000, function() { req.destroy(new Error('R2 upload timeout')); });
-    req.write(pdfBuffer);
-    req.end();
-  });
+return r2mod.uploadToR2(pdfBuffer, filename);
 }
 
 // ── Route: POST /submit-to-gelato ─────────────────────────────────────────────
