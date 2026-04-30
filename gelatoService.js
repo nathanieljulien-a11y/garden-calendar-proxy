@@ -13,6 +13,7 @@
 var express = require('express');
 var https   = require('https');
 var crypto  = require('crypto');
+var r2mod   = require('./r2.js');
 
 var router  = express.Router();
 
