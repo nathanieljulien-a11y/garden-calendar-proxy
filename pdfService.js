@@ -751,7 +751,6 @@ async function buildFullHTML(order, apiKey) {
       personalMsg:   order.personalMsg  || '',
       etsyUrl:       order.etsyUrl      || 'www.etsy.com/shop/HobbyCalendar',
     }));
-    pages.push(tpl.buildBlankPage()); // blank back of cover sheet (Gelato double-sided)
     console.log('[PDF] Cover page built OK');
   } catch(coverErr) {
     console.error('[PDF] buildCoverPage CRASH:', coverErr.stack);
@@ -802,13 +801,11 @@ async function buildFullHTML(order, apiKey) {
     };
     pages.push(tpl.buildPageA(monthOpts));
     pages.push(tpl.buildPageB(monthOpts));
-    // Add blank back page after each month except the last (Gelato adds page 26 automatically)
-    if (j < 11) pages.push(tpl.buildBlankPage());
     console.log('[PDF] Month ' + (j+1) + ' (' + mName + ') built OK');
   }
 
-  // Page 25 = month 12. Gelato adds page 26 (final blank) automatically.
-  console.log('[PDF] Pages built: ' + pages.length + ' (cover + blank + 12 months + 11 blanks = 25, ' + fmt.toUpperCase() + ')');
+  pages.push(tpl.buildBlankPage());
+  console.log('[PDF] Pages built: ' + pages.length + ' (cover + 12×[A+B] + blank, ' + fmt.toUpperCase() + ')');
 
   try {
     var doc = tpl.buildDocument(pages);
