@@ -107,9 +107,26 @@ router.post('/orders/:id/approve', async function(req, res) {
 
   store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString() });
 
+  // Regenerate clean PDF without proof watermark, upload to R2, then submit to Gelato
+  var cleanPdfUrl;
+  try {
+    var pdf    = require('./pdfService.js');
+    var r2     = require('./r2.js');
+    var apiKey = process.env.ANTHROPIC_API_KEY || '';
+    var cleanHtml   = await pdf.buildFullHTML(order.formData, apiKey, { approved: true });
+    var cleanPdfBuf = await pdf.generatePDF(cleanHtml);
+    var cleanFilename = order.id + '-final.pdf';
+    cleanPdfUrl = await r2.uploadToR2(cleanPdfBuf, cleanFilename);
+    store.updateOrder(order.id, { finalPdfUrl: cleanPdfUrl });
+    console.log('[orders] Clean PDF generated:', cleanPdfUrl);
+  } catch(e) {
+    console.error('[orders] Clean PDF generation failed:', e.message);
+    return res.status(500).json({ error: 'Could not generate clean PDF for print', detail: e.message });
+  }
+
   // Submit to Gelato as a draft order
   try {
-    var gelatoResult = await _submitToGelato(order);
+    var gelatoResult = await _submitToGelato(order, cleanPdfUrl);
     store.updateOrder(order.id, {
       gelatoOrderId: gelatoResult.id,
       gelatoDashboardUrl: 'https://dashboard.gelato.com/orders/' + gelatoResult.id,
@@ -139,7 +156,7 @@ router.get('/orders', function(req, res) {
 var https = require('https');
 var PRODUCT_UID = 'wall-calendars_pf_a3_pt_250-gsm-coated-silk_cl_4-4_bt_wire-with-hook-top_ver';
 
-function _submitToGelato(order) {
+function _submitToGelato(order, pdfUrl) {
   return new Promise(function(resolve, reject) {
     if (!GELATO_API_KEY) {
       reject(new Error('GELATO_API_KEY not configured'));
@@ -154,7 +171,7 @@ function _submitToGelato(order) {
       items: [{
         itemReferenceId: order.id + '-cal',
         productUid:      PRODUCT_UID,
-        files: [{ type: 'default', url: order.pdfUrl }],
+        files: [{ type: 'default', url: pdfUrl }],
         quantity: 1,
       }],
       shipmentMethodUid: 'standard',
