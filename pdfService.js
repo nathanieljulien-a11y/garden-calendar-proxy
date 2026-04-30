@@ -286,22 +286,49 @@ function fetchClimateDataOnce(lat, lng) {
 }
 
 // In-memory climate cache — keyed by rounded lat/lng, cleared at midnight
-var _climateCache = {};
-var _climateCacheDate = '';
+// Disk-persisted climate cache — keyed by rounded lat/lng, cleared at midnight.
+// Survives Render restarts and deploys. File: climate-cache.json in project root.
+var _climateCachePath = require('path').join(__dirname, 'climate-cache.json');
 
 function _climateCacheKey(lat, lng) {
   return lat.toFixed(2) + ',' + lng.toFixed(2);
 }
 
+function _readClimateCache() {
+  try {
+    if (!require('fs').existsSync(_climateCachePath)) return {};
+    var raw = require('fs').readFileSync(_climateCachePath, 'utf8');
+    return JSON.parse(raw);
+  } catch(e) {
+    console.warn('[PDF] Climate cache read error:', e.message);
+    return {};
+  }
+}
+
+function _writeClimateCache(cache) {
+  try {
+    require('fs').writeFileSync(_climateCachePath, JSON.stringify(cache, null, 2), 'utf8');
+  } catch(e) {
+    console.warn('[PDF] Climate cache write error:', e.message);
+  }
+}
+
 async function fetchClimateData(lat, lng) {
-  // Clear cache if day has changed
   var today = new Date().toISOString().slice(0, 10);
-  if (_climateCacheDate !== today) { _climateCache = {}; _climateCacheDate = today; }
+  var cache = _readClimateCache();
+
+  // Clear all entries if day has changed
+  var dates = Object.values(cache).map(function(v) { return v.date; });
+  if (dates.length && dates.every(function(d) { return d !== today; })) {
+    console.log('[PDF] Climate cache: new day, clearing');
+    cache = {};
+    _writeClimateCache(cache);
+  }
 
   var key = _climateCacheKey(lat, lng);
-  if (_climateCache[key]) {
+  if (cache[key] && cache[key].date === today) {
     console.log('[PDF] Climate data: cache hit for ' + key);
-    return _climateCache[key];
+    return cache[key].data;
   }
 
   var RETRIES = 3, DELAY_MS = 2000;
@@ -309,7 +336,8 @@ async function fetchClimateData(lat, lng) {
     console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
     var result = await fetchClimateDataOnce(lat, lng);
     if (result) {
-      _climateCache[key] = result;
+      cache[key] = { date: today, data: result };
+      _writeClimateCache(cache);
       return result;
     }
     if (attempt < RETRIES) {
