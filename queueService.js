@@ -76,7 +76,7 @@ async function _processJob(orderId) {
     // buildFullHTML and generatePDF are the internal functions from pdfService.js.
     // We require them here — pdfService.js must export them (see patch note below).
     var pdf = _getPdf();
-    var html   = await pdf.buildFullHTML(order.formData, apiKey);
+    var html   = await pdf.buildFullHTML(order.formData, apiKey, { approved: false });
     var pdfBuf = await pdf.generatePDF(html);
 
     // Upload to R2
