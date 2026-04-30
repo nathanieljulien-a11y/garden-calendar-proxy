@@ -545,14 +545,37 @@ var SHARED_CSS = [
   '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
 ].join('\n');
 
+// ── Proof watermark CSS ───────────────────────────────────────────────────────
+// Injected only when opts.proof is true in buildDocument.
+// Single large diagonal mark centred on each page-b. Pure CSS — no HTML changes.
+var PROOF_CSS = [
+  '.page-b{position:relative;}',
+  '.page-b::after{',
+  '  content:"PREVIEW ONLY";',
+  '  position:absolute;',
+  '  top:50%;left:50%;',
+  '  transform:translate(-50%,-50%) rotate(-35deg);',
+  '  font-family:"Playfair Display",serif;',
+  '  font-size:52pt;',
+  '  font-weight:600;',
+  '  color:rgba(44,26,10,0.17);',
+  '  white-space:nowrap;',
+  '  pointer-events:none;',
+  '  z-index:100;',
+  '}',
+].join('\n');
+
 // ── Full HTML document ────────────────────────────────────────────────────────
 // @page: content (271.42 × 393.14mm) + 4mm bleed each side = 279.42 × 401.14mm
-function buildDocument(pages) {
+// opts.proof — if true, injects PREVIEW ONLY watermark on all page-b pages
+function buildDocument(pages, opts) {
+  var proofCss = (opts && opts.proof) ? PROOF_CSS : '';
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
     + '* { box-sizing:border-box; margin:0; padding:0; }\n'
     + '@page { size:305mm 428mm; margin:0; }\n'
     + 'html,body { width:305mm; margin:0; padding:0; background:white; }\n'
     + SHARED_CSS + '\n'
+    + proofCss + '\n'
     + '</style></head><body>\n'
     + pages.join('\n')
     + '\n</body></html>';
