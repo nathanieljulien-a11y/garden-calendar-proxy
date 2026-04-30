@@ -460,7 +460,7 @@ var SHARED_CSS = [
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
-  '.cv-cover{width:305mm;height:428mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:0;padding:0;}',
+  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:6.715mm auto;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
   '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
