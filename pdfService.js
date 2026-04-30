@@ -887,7 +887,10 @@ async function uploadPdfToR2(buf) {
   var bucket    = process.env.R2_BUCKET_NAME        || 'garden-calendar-pdfs';
   var publicUrl = (process.env.R2_PUBLIC_URL        || '').replace(/\/$/, '');
 
-  if (!accountId || !keyId || !secret || !publicUrl) return null;
+  if (!accountId || !keyId || !secret || !publicUrl) {
+    console.warn('[R2] Missing env vars — accountId:' + !!accountId + ' keyId:' + !!keyId + ' secret:' + !!secret + ' publicUrl:' + !!publicUrl);
+    return null;
+  }
 
   var now         = new Date();
   var dateStr     = now.toISOString().slice(0,10).replace(/-/g,'');
