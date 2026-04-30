@@ -984,5 +984,5 @@ router.post('/generate-pdf', async function(req, res) {
 });
 
 module.exports = router;
-module.exports.buildFullHTML  = buildFullHTML;
-module.exports.generatePDF    = generatePDF;
+router.buildFullHTML = buildFullHTML;
+router.generatePDF   = generatePDF;
