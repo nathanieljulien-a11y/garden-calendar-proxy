@@ -207,7 +207,7 @@ jobs:
               "Laberint d'Horta Barcelona": "Labyrinth of Horta",
               'Jardin Botanico de Valencia': 'Valencia Botanical Garden',
               'Pazo de Marinan': 'Pazo de Mariñán',
-              'Jardines de Alfabia Mallorca': 'Jardins d\'Alfabia',
+              'Jardines de Alfabia Mallorca': 'Alfabia',
               # Portugal
               'Jardim Botanico de Lisboa': 'Lisbon Botanical Garden',
               'Palacio de Queluz Gardens': 'National Palace of Queluz',
@@ -260,7 +260,7 @@ jobs:
               'Chateau de Brecy Gardens': 'Creully-sur-Seulles',
               'Jardins de Kerdalo': 'Tréguier',
               'Jardins de la Ballue': 'Bazouges-la-Pérouse',
-              'Roseraie du Val-de-Marne': 'L'Haÿ-les-Roses',
+              'Roseraie du Val-de-Marne': "L'Haÿ-les-Roses",
               "Jardins du Manoir d'Eyrignac": 'Salignac-Eyvigues',
               'Bambouseraie en Cevennes': 'Bambouseraie de Prafrance',
               "Jardins de l'Imaginaire Terrasson": 'Terrasson-Lavilledieu',
@@ -308,7 +308,7 @@ jobs:
               # Australia & NZ: remaining misses
               'Royal Botanic Garden Sydney': 'Royal Botanic Garden, Sydney',
               'Brisbane Botanic Gardens Mount Coot-tha': 'Mount Coot-tha Botanic Gardens',
-              'Ayrlies Garden Auckland': 'Beachlands, Auckland',
+              'Ayrlies Garden Auckland': 'Ayrlies',
               # USA East
               'Arnold Arboretum Boston': 'Arnold Arboretum',
               'Dumbarton Oaks Washington DC': 'Dumbarton Oaks',
