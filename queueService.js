@@ -116,8 +116,8 @@ async function _sendPreviewEmail(order, pdfUrl) {
       return;
     }
   }
-  var approveUrl = (process.env.FRONTEND_URL || 'https://garden-calendar-frontend.vercel.app')
-    + '/approve?token=' + order.token;
+  var approveUrl = (process.env.BACKEND_URL || 'https://garden-calendar-proxy.onrender.com')
+    + '/orders/' + order.id + '/approve?token=' + order.token;
   await _emailService.sendPreviewEmail({
     to:         order.formData.email,
     name:       order.formData.recipientName || order.formData.calendarName || 'your recipient',
