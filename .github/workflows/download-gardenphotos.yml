@@ -255,9 +255,20 @@ jobs:
                   print(f'  FAIL {garden}')
                   miss += 1
 
-          # Save manifest mapping garden name → filename
+          # Normalise garden name for manifest key — strips accents, lowercases,
+          # collapses non-alphanumeric to single space. Must match _normaliseGardenKey
+          # in pdfService.js so disk lookups work for accented names.
+          import unicodedata
+          def normalise_key(name):
+              nfd = unicodedata.normalize('NFD', name.lower())
+              ascii_only = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+              return ' '.join(ascii_only.split())
+
+          manifest_norm = {normalise_key(k): v for k, v in manifest.items()}
+
+          # Save manifest with normalised keys
           with open('garden-photos/manifest.json', 'w') as f:
-              json.dump(manifest, f, indent=2)
+              json.dump(manifest_norm, f, indent=2)
 
           print(f'\nDone: {ok} downloaded, {skip} existed, {miss} missing')
           print(f'Manifest: {len(manifest)} entries')
