@@ -20,24 +20,20 @@ jobs:
           from urllib.parse import quote
           from PIL import Image
 
-          DELAY = 1.5  # Wikipedia REST API is generous, but be polite
+          DELAY = 1.5
           HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y)'}
 
           def safe_filename(name):
               return re.sub(r'[^a-z0-9_]', '', name.lower().replace(' ', '_').replace("'", ''))[:50]
 
           def fetch_wikipedia_photo(garden_name):
-              """Try multiple Wikipedia title variants to find a thumbnail."""
-              # Try the name as-is, then common variants
               candidates = [
                   garden_name,
                   garden_name.replace(' Garden', '').replace(' Gardens', ''),
                   garden_name + ' garden',
               ]
-              # Strip parenthetical
               if '(' in garden_name:
                   candidates.append(garden_name[:garden_name.index('(')].strip())
-
               for title in candidates:
                   enc = quote(title.replace(' ', '_'), safe='')
                   url = f'https://en.wikipedia.org/api/rest_v1/page/summary/{enc}'
@@ -53,14 +49,12 @@ jobs:
               return None
 
           def download_photo(url, dest):
-              """Download image, crop/resize to landscape 4:3, save as JPEG."""
               try:
                   r = requests.get(url, headers=HEADERS, timeout=20)
                   if not r.ok or len(r.content) < 5000: return False
                   ct = r.headers.get('content-type', '')
                   if 'image' not in ct: return False
                   img = Image.open(io.BytesIO(r.content)).convert('RGB')
-                  # Resize to max 400px wide, maintain aspect
                   if img.width > 400:
                       h = int(img.height * 400 / img.width)
                       img = img.resize((400, h), Image.LANCZOS)
@@ -70,63 +64,166 @@ jobs:
                   print(f'    download error: {e}')
                   return False
 
-          # Full garden list matching pdfService.js GARDEN_REGIONS
+          # Full garden list — matches GARDENS array in pdfService.js
           GARDENS = [
+              # UK: South-East England
               'Royal Botanic Gardens, Kew', 'RHS Garden Wisley', 'Sissinghurst Castle Garden',
-              'Great Dixter', 'Wakehurst', 'Hampton Court Palace Garden', 'Chelsea Physic Garden',
-              'Emmetts Garden', 'Nymans', 'Sheffield Park and Garden', 'Penshurst Place',
-              'Hever Castle Gardens', 'Chartwell', 'Knole Park', 'Scotney Castle',
+              'Great Dixter House and Gardens', 'Wakehurst', 'Hampton Court Palace Garden',
+              'Chelsea Physic Garden', 'Emmetts Garden', 'Nymans', 'Sheffield Park and Garden',
+              'Penshurst Place', 'Hever Castle Gardens', 'Chartwell', 'Knole Park', 'Scotney Castle',
               "Bateman's", 'Borde Hill Garden', 'Leonardslee Lakes and Gardens',
               'Parham House and Gardens', 'West Dean Gardens', 'Denmans Garden',
               'Loseley Park', 'Painshill Park', 'Claremont Landscape Garden',
               'Polesden Lacey', 'The Savill Garden', 'Mottisfont', 'Exbury Gardens',
-              'Jenkyn Place', 'Hannah Peschar Sculpture Garden', 'Pashley Manor Gardens',
+              'Pashley Manor Gardens', 'Merriments Gardens',
+              # UK: South-West England
               'Trebah Garden', 'Glendurgan Garden', 'Heligan Gardens', 'Trelissick Garden',
               'Tresco Abbey Garden', 'RHS Garden Rosemoor', 'Bicton Park Botanical Gardens',
-              'Greenway', 'Coleton Fishacre', 'Killerton', 'Knightshayes', 'Tyntesfield',
+              'Greenway', 'Coleton Fishacre', 'Killerton', 'Knightshayes Court', 'Tyntesfield',
               'Montacute House', 'Forde Abbey', 'Mapperton Gardens', 'Abbotsbury Subtropical Gardens',
               'Hestercombe Gardens', 'Prior Park Landscape Garden', 'Iford Manor', 'Stourhead',
-              'Kingston Lacy', 'Athelhampton House',
+              'Kingston Lacy', 'Athelhampton House', 'The Garden House Devon', 'Cotehele',
+              'Antony House', 'Caerhays Castle Garden', 'East Lambrook Manor Gardens',
+              'Barrington Court',
+              # UK: East of England
               'RHS Garden Hyde Hall', 'Beth Chatto Gardens', 'Anglesey Abbey',
               'Blickling Estate', 'Sandringham Gardens', 'Bressingham Gardens',
               'Helmingham Hall Gardens', 'Somerleyton Hall Gardens', 'Mannington Hall',
-              'Benington Lordship', 'Doddington Hall Gardens', 'Burghley House Gardens',
+              'Doddington Hall Gardens', 'Burghley House Gardens', 'Felbrigg Hall',
+              'Oxburgh Hall', 'Houghton Hall Walled Garden', 'Wimpole Estate',
+              'Audley End House and Gardens', 'Peckover House', 'Elton Hall Gardens',
+              'Grimsthorpe Castle Gardens',
+              # UK: Midlands & Wales
               'Hidcote', 'Kiftsgate Court Gardens', 'Bodnant Garden', 'Powis Castle Garden',
               'Barnsley House', 'Bourton House Garden', 'Birmingham Botanical Gardens',
               'Upton House', 'Packwood House', 'Baddesley Clinton', 'Coton Manor Garden',
               'Cottesbrooke Hall Gardens', 'Erddig', 'Aberglasney Gardens',
-              'National Botanic Garden of Wales',
+              'National Botanic Garden of Wales', 'Ragley Hall Gardens', 'Charlecote Park',
+              'Hanbury Hall', 'Wightwick Manor Gardens', 'Chirk Castle Gardens',
+              'Dyffryn House and Gardens',
+              # UK: North of England
               'RHS Garden Harlow Carr', 'Studley Royal Water Garden', 'Newby Hall',
               'Castle Howard', 'Scampston Hall Walled Garden', 'York Gate Garden',
               'Alnwick Garden', 'Cragside', 'Wallington', 'Belsay Hall Gardens',
-              'Levens Hall', 'Sizergh Castle', 'Holker Hall', 'Dalemain',
-              'Tatton Park', 'Dunham Massey', 'Biddulph Grange Garden', 'Wentworth Castle Gardens',
+              'Levens Hall', 'Sizergh Castle', 'Holker Hall Gardens', 'Dalemain',
+              'Tatton Park', 'Dunham Massey', 'Biddulph Grange Garden',
+              'Wentworth Castle Gardens', 'Beningbrough Hall', 'Nunnington Hall',
+              'Parcevall Hall Gardens', 'Harewood House Gardens',
+              # UK: Scotland
               'Royal Botanic Garden Edinburgh', 'Crarae Garden', 'Arduaine Garden',
               'Inverewe Garden', 'Crathes Castle Garden', 'Pitmedden Garden',
               'Branklyn Garden', 'Drummond Castle Gardens', 'Logan Botanic Garden',
               'Threave Garden', 'Culzean Castle and Country Park', 'Glenarn Garden',
+              'Younger Botanic Garden Benmore', 'Castle Kennedy Gardens',
+              'Scone Palace Gardens', 'House of Dun', 'Glamis Castle Gardens',
+              # Ireland
               'National Botanic Gardens Dublin', 'Powerscourt Estate Gardens',
               'Killarney House Gardens', 'Glenveagh Castle Gardens',
               'Mount Usher Gardens', 'Birr Castle Demesne', 'Altamont Garden',
               'Rowallane Garden', 'Mount Stewart', 'Benvarden Garden',
+              'Ilnacullin (Garinish Island)', 'Fota Arboretum and Gardens',
+              'Kilmacurragh Botanic Gardens', 'Heywood Gardens', 'Strokestown Park Gardens',
+              # France: North
+              "Giverny (Monet's Garden)", 'Chateau de Versailles Gardens', 'Vaux-le-Vicomte',
+              'Chateau de Villandry Gardens', 'Chateau de Chaumont-sur-Loire Gardens',
+              'Jardin des Plantes Paris', 'Parc de Bagatelle Paris',
+              'Chateau de Brecy Gardens', 'Jardins du Chateau de Vendeuvre',
+              'Jardins de Valmer', 'Chateau de Fontainebleau Gardens',
+              'Parc Floral de Paris', 'Jardins de Kerdalo', 'Parc du Thabor Rennes',
+              'Jardins de la Ballue', 'Roseraie du Val-de-Marne',
+              "Jardins du Manoir d'Eyrignac", 'Jardins de Marqueyssac',
+              # France: South
+              'Villa Ephrussi de Rothschild', 'Domaine du Rayol', 'Serre de la Madone',
+              'Chateau Val Joanis Gardens', 'Jardins de Salagon',
+              'Bambouseraie en Cevennes', 'Parc Phoenix Nice',
+              "Jardins de l'Imaginaire Terrasson", 'Jardins de Cadiot',
+              'Jardin Botanique de Lyon', "Parc de la Tete d'Or Lyon",
+              'Jardins du Palais Royal Paris',
+              # Belgium, Netherlands, Luxembourg
               'Keukenhof', 'Hortus Botanicus Amsterdam', 'Clingendael Park',
-              'Paleis Het Loo Gardens', 'Arboretum Kalmthout', 'Hex Castle Gardens',
-              "Giverny (Monet's Garden)", 'Versailles Gardens', 'Vaux-le-Vicomte',
-              'Villandry Gardens', 'Jardins de Marqueyssac', 'Jardin des Plantes Paris',
-              'Château de Chaumont-sur-Loire Gardens',
+              'Paleis Het Loo Gardens', 'Arboretum Kalmthout',
+              'Hortus Botanicus Leiden', 'Botanische Tuin Utrecht', 'Arboretum Trompenburg',
+              'Kasteel de Haar Gardens', 'Rosarium Winschoten', 'Annevoie Gardens',
+              'Jardin Botanique de Meise', 'Citadelpark Ghent', 'Chateau de Modave Gardens',
+              'Parc de Laeken Brussels', 'Chateau de Seneffe Gardens',
+              'Parc de Mariemont', 'Jardins du Chateau de Jehay', "Chateau d'Hex Gardens",
+              "Jardins d'Annevoie",
+              # Germany
               'Sanssouci Gardens Potsdam', 'Herrenhausen Gardens Hanover',
               'Munich Botanical Garden', 'Berlin Botanical Garden',
-              'Schwetzingen Palace Gardens', 'Wilhelma Stuttgart',
-              'Schönbrunn Palace Gardens', 'Belvedere Gardens Vienna', 'Insel Mainau',
+              'Schwetzingen Palace Gardens', 'Wilhelma Stuttgart', 'Insel Mainau',
+              'Planten un Blomen Hamburg', 'Palmengarten Frankfurt',
+              'Rhododendronpark Bremen', 'Schlosspark Pillnitz', 'Muskauer Park',
+              'Worlitz Garden Kingdom', 'Branitzer Park Cottbus', 'Schlosspark Schwerin',
+              'Furstliche Garten Weikersheim', 'Schlosspark Linderhof',
+              'Westpark Munich', 'Britzer Garten Berlin', 'Berggarten Hannover',
+              'Rosengarten Zweibrucken',
+              # Austria
+              'Schonbrunn Palace Gardens', 'Belvedere Gardens Vienna',
+              'Volksgarten Vienna', 'Burggarten Vienna', 'Hellbrunn Palace Gardens',
+              'Mirabell Gardens Salzburg', 'Schloss Ambras Gardens Innsbruck',
+              'Botanischer Garten Vienna', 'Schlosspark Laxenburg',
+              'Rosarium Baden bei Wien', 'Schloss Eggenberg Gardens',
+              # Italy
+              "Villa d'Este Gardens Tivoli", 'Villa Borghese Rome',
+              'Boboli Gardens Florence', 'Villa Melzi Gardens Bellagio',
+              'Villa Carlotta Lake Como', 'Villa Taranto Lake Maggiore',
+              'Isola Bella Gardens', 'Villa Cimbrone Ravello', 'Villa Rufolo Ravello',
+              'Giardini Botanici Hanbury', 'Orto Botanico di Padova',
+              'Parco Giardino Sigurta', 'Villa Pisani Gardens Stra',
+              'Giardino della Landriana', 'La Foce Gardens Tuscany',
+              'Villa Gamberaia Florence', "Horti Leonini San Quirico d'Orcia",
+              'Giardino Giusti Verona', 'Castello Ruspoli Gardens',
+              'Giardino Botanico di Brera Milan',
+              # Spain
+              'Real Jardin Botanico Madrid', 'Retiro Park Madrid',
+              'Generalife Gardens Granada', 'Alcazar Gardens Seville',
+              'Jardines de Aranjuez', 'Pazo de Oca Gardens Galicia',
+              'Jardin Botanico de Barcelona', 'Park Guell Barcelona',
+              'Palacio Real de La Granja Gardens', 'Capricho de la Alameda de Osuna',
+              'Jardines de Sabatini Madrid',
+              'Jardines de Santa Clotilde Lloret de Mar', "Laberint d'Horta Barcelona",
+              'Jardin Botanico de Valencia', 'Pazo de Marinan',
+              'Jardines de Alfabia Mallorca',
+              # Portugal
+              'Jardim Botanico de Lisboa', 'Palacio de Queluz Gardens',
+              'Jardins do Palacio de Monserrate Sintra', 'Quinta da Regaleira Sintra',
+              'Jardins do Palacio Nacional de Pena', 'Jardim Botanico do Porto',
+              'Jardim da Fundacao Calouste Gulbenkian', 'Parque de Serralves Porto',
+              'Jardim do Paco Episcopal Castelo Branco', 'Tapada de Mafra',
+              'Jardim Botanico da Ajuda', 'Parque Eduardo VII Lisbon',
+              'Quinta do Palheiro Ferreiro Madeira', 'Monte Palace Tropical Garden Madeira',
+              # Greece
+              'National Garden Athens', 'Zappeion Gardens Athens',
+              'Botanical Garden of Athens',
+              'Stavros Niarchos Foundation Cultural Centre Gardens',
+              'Municipal Garden of Chania Crete', 'Botanical Park and Gardens of Crete',
+              'Rodini Park Rhodes', 'Municipal Garden Corfu Town',
+              'Achilleion Palace Gardens Corfu', 'Botanical Garden of Thessaloniki',
+              'Nymfaio Arboretum',
+              # USA: East Coast
               'Longwood Gardens', 'New York Botanical Garden', 'Brooklyn Botanic Garden',
               'Arnold Arboretum Boston', 'Dumbarton Oaks Washington DC',
-              'Winterthur Garden', 'Chanticleer Garden', 'Wave Hill', 'Ladew Topiary Gardens',
+              'Winterthur Garden', 'Chanticleer Garden', 'Wave Hill',
+              'Ladew Topiary Gardens', 'Biltmore Estate Gardens',
+              'Magnolia Plantation and Gardens', 'Vizcaya Museum and Gardens',
+              # USA: West Coast
               'Butchart Gardens Victoria', 'Van Dusen Botanical Garden Vancouver',
-              'Portland Japanese Garden', 'Huntington Library Gardens',
+              'Portland Japanese Garden',
+              'Huntington Library Art Museum and Botanical Gardens',
               'Filoli', 'San Francisco Botanical Garden', 'UC Berkeley Botanical Garden',
+              'Crystal Springs Rhododendron Garden', 'Bellevue Botanical Garden',
+              # Hawaii
+              'Foster Botanical Garden Honolulu', 'Lyon Arboretum Honolulu',
+              'Waimea Valley Botanical Garden', 'National Tropical Botanical Garden Kauai',
+              'Maui Nui Botanical Gardens',
+              # Australia & New Zealand
               'Royal Botanic Garden Sydney', 'Royal Botanic Gardens Melbourne',
               'Adelaide Botanic Garden', 'Kings Park Perth',
+              'Australian National Botanic Gardens Canberra',
+              'Brisbane Botanic Gardens Mount Coot-tha',
               'Christchurch Botanic Gardens', 'Hamilton Gardens New Zealand',
+              'Wellington Botanic Garden', 'Dunedin Botanic Garden', 'Ayrlies Garden Auckland',
           ]
 
           os.makedirs('garden-photos', exist_ok=True)
