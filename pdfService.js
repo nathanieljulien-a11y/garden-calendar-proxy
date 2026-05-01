@@ -94,25 +94,45 @@ try {
   console.warn('[pdfService] Could not index artwork directory:', e.message);
 }
 
-// Load garden photo manifest once at startup
+// Normalise a garden name for manifest key matching.
+// Strips accents, lowercases, collapses non-alphanumeric to single space, trims.
+// Must match the normalisation used in download-gardenphotos.yml.
+function _normaliseGardenKey(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip accent diacritics
+    .replace(/[^a-z0-9]+/g, ' ')                        // non-alphanumeric -> space
+    .trim();
+}
+
+// Load garden photo manifest once at startup.
+// Build a normalised-key lookup map so accented names (e.g. 'Chateau de Versailles')
+// match manifest keys written with ASCII equivalents.
 var _gardenPhotoManifest = {};
+var _gardenPhotoManifestNorm = {}; // normalised key -> filename
 try {
   var _manifestPath = path.join(__dirname, 'garden-photos', 'manifest.json');
   _gardenPhotoManifest = JSON.parse(fs.readFileSync(_manifestPath, 'utf8'));
+  Object.keys(_gardenPhotoManifest).forEach(function(k) {
+    _gardenPhotoManifestNorm[_normaliseGardenKey(k)] = _gardenPhotoManifest[k];
+  });
   console.log('[pdfService] Garden photo manifest loaded:', Object.keys(_gardenPhotoManifest).length, 'gardens');
 } catch(e) {
-  console.warn('[pdfService] Garden photo manifest not found — will fetch live:', e.message);
+  console.warn('[pdfService] Garden photo manifest not found -- will fetch live:', e.message);
 }
 
 function readGardenPhotoFromDisk(gardenName) {
   if (!gardenName) return null;
-  var fname = _gardenPhotoManifest[gardenName];
+  // Try exact match first, then normalised match
+  var fname = _gardenPhotoManifest[gardenName]
+           || _gardenPhotoManifestNorm[_normaliseGardenKey(gardenName)];
   if (!fname) return null;
   var fpath = path.join(__dirname, 'garden-photos', fname);
   try {
     if (!fs.existsSync(fpath)) return null;
     var buf = fs.readFileSync(fpath);
-    // Return raw buffer — compression applied later in buildFullHTML
+    // Return raw buffer -- compression applied later in buildFullHTML
     return buf;
   } catch(e) { return null; }
 }
@@ -828,180 +848,6 @@ function getRegionalGardens(lat, lng, userRegion) {
   console.log('[PDF] inspo: ' + results.length + ' candidate gardens within range of ' + userRegion);
   return results;
 }
-    'Royal Botanic Gardens, Kew','RHS Garden Wisley','Sissinghurst Castle Garden',
-    'Great Dixter House and Gardens','Wakehurst','Hampton Court Palace Garden',
-    'Chelsea Physic Garden','Emmetts Garden','Nymans','Sheffield Park and Garden',
-    'Penshurst Place','Hever Castle Gardens','Chartwell','Knole Park','Scotney Castle',
-    "Bateman's",'Borde Hill Garden','Leonardslee Lakes and Gardens',
-    'Parham House and Gardens','West Dean Gardens','Denmans Garden',
-    'Loseley Park','Painshill Park','Claremont Landscape Garden',
-    'Polesden Lacey','The Savill Garden','Mottisfont','Exbury Gardens',
-    'Jenkyn Place','Hannah Peschar Sculpture Garden','Pashley Manor Gardens',
-    'Batemans','Coombe Wood Garden','Merriments Gardens',
-  ]},
-  // ── UK: South-West England (Devon, Cornwall, Dorset, Somerset, Wiltshire) ───
-  { box:[49.9,51.5,-6.5,-1.8], gardens:[
-    'Trebah Garden','Glendurgan Garden','Heligan Gardens','Trelissick Garden',
-    'Tresco Abbey Garden','RHS Garden Rosemoor','Bicton Park Botanical Gardens',
-    'Greenway','Coleton Fishacre','Killerton','Knightshayes Court','Tyntesfield',
-    'Montacute House','Forde Abbey','Mapperton Gardens','Abbotsbury Subtropical Gardens',
-    'Hestercombe Gardens','Prior Park Landscape Garden','Iford Manor','Stourhead',
-    'Kingston Lacy','Athelhampton House','Lacock Abbey','Bowood House and Gardens',
-    'Corsham Court','Barrington Court','Tintinhull Garden','East Lambrook Manor Gardens',
-    'The Garden House Devon','Cotehele','Antony House','Caerhays Castle Garden',
-  ]},
-  // ── UK: East of England (Essex, Suffolk, Norfolk, Cambridgeshire, Lincolnshire) ─
-  { box:[51.5,53.5,-1.0,2.0], gardens:[
-    'RHS Garden Hyde Hall','Beth Chatto Gardens','Anglesey Abbey',
-    'Blickling Estate','Sandringham Gardens','Bressingham Gardens',
-    'Helmingham Hall Gardens','Somerleyton Hall Gardens','Mannington Hall',
-    'Benington Lordship','Doddington Hall Gardens','Burghley House Gardens',
-    'Felbrigg Hall','Oxburgh Hall','Houghton Hall Walled Garden',
-    'Wimpole Estate','Audley End House and Gardens','Peckover House',
-    'Elton Hall Gardens','Grimsthorpe Castle Gardens',
-  ]},
-  // ── UK: Midlands & Wales ────────────────────────────────────────────────────
-  { box:[51.3,53.5,-5.5,-1.0], gardens:[
-    'Hidcote','Kiftsgate Court Gardens','Bodnant Garden','Powis Castle Garden',
-    'Barnsley House','Bourton House Garden','Birmingham Botanical Gardens',
-    'Upton House','Packwood House','Baddesley Clinton','Coton Manor Garden',
-    'Cottesbrooke Hall Gardens','Erddig','Aberglasney Gardens',
-    'National Botanic Garden of Wales','Ragley Hall Gardens','Charlecote Park',
-    'Hanbury Hall','Moseley Old Hall','Attingham Park','Wightwick Manor Gardens',
-    'Chirk Castle Gardens','Tredegar House','Dyffryn House and Gardens',
-    'Bodysgallen Hall','Plas Newydd','Bodnant Garden','Chirk Castle',
-  ]},
-  // ── UK: North of England (Yorkshire, Lancashire, Cumbria, Northumberland) ───
-  { box:[53.0,55.8,-3.5,0.0], gardens:[
-    'RHS Garden Harlow Carr','Studley Royal Water Garden','Newby Hall',
-    'Castle Howard','Scampston Hall Walled Garden','York Gate Garden',
-    'Alnwick Garden','Cragside','Wallington','Belsay Hall Gardens',
-    'Levens Hall','Sizergh Castle','Holker Hall Gardens','Dalemain',
-    'Tatton Park','Dunham Massey','Biddulph Grange Garden',
-    'Wentworth Castle Gardens','Beningbrough Hall','Nunnington Hall',
-    'Parcevall Hall Gardens','Broughton Hall','Sledmere House Gardens',
-    'Skipton Castle Gardens','Harewood House Gardens',
-  ]},
-  // ── UK: Scotland ─────────────────────────────────────────────────────────────
-  { box:[54.5,61.0,-8.0,-0.5], gardens:[
-    'Royal Botanic Garden Edinburgh','Crarae Garden','Arduaine Garden',
-    'Inverewe Garden','Crathes Castle Garden','Pitmedden Garden',
-    'Branklyn Garden','Drummond Castle Gardens','Logan Botanic Garden',
-    'Threave Garden','Culzean Castle and Country Park','Glenarn Garden',
-    'Craigieburn Garden','Cally Gardens','Bargany Gardens',
-    'Castle Kennedy Gardens','Galloway House Gardens','Younger Botanic Garden Benmore',
-    'Crarae Garden','Torosay Castle Gardens','Colonsay House Gardens',
-    'House of Dun','Glamis Castle Gardens','Scone Palace Gardens',
-  ]},
-  // ── UK: Ireland ──────────────────────────────────────────────────────────────
-  { box:[51.3,55.5,-10.5,-5.5], gardens:[
-    'National Botanic Gardens Dublin','Powerscourt Estate Gardens',
-    'Killarney House Gardens','Glenveagh Castle Gardens',
-    'Mount Usher Gardens','Birr Castle Demesne','Altamont Garden',
-    'Rowallane Garden','Mount Stewart','Benvarden Garden',
-    'Ilnacullin (Garinish Island)','Creagh Garden','Ballymaloe Cookery School Gardens',
-    'Fota Arboretum and Gardens','Kilmacurragh Botanic Gardens',
-    'Heywood Gardens','Tullynally Castle Gardens','Strokestown Park Gardens',
-  ]},
-  // ── France: North (Normandy, Brittany, Loire Valley, Île-de-France) ─────────
-  { box:[46.5,51.1,-5.5,3.5], gardens:[
-    "Giverny (Monet's Garden)",'Château de Versailles Gardens','Vaux-le-Vicomte',
-    'Château de Villandry Gardens','Jardins de Marqueyssac','Jardin des Plantes Paris',
-    'Château de Chaumont-sur-Loire Gardens','Château de Brécy Gardens',
-    'Jardins du Château de Canon','Jardins du Château de Vendeuvre',
-    'Jardins de Valmer','Parc de Bagatelle Paris','Roseraie du Val-de-Marne',
-    'Jardins du Manoir de Erygnac','Château de Fontainebleau Gardens',
-    'Jardins de Courseulles','Parc Floral de Paris','Jardins de Kerdalo',
-    'Domaine de Kerguéhennec','Parc du Thabor Rennes','Jardins de la Ballue',
-    'Château de Brétesche','Jardins de Callunes','Jardin Georges Delaselle',
-  ]},
-  // ── France: South (Provence, Languedoc, Côte d'Azur, Dordogne, Bordeaux) ───
-  { box:[41.5,46.5,-2.0,9.5], gardens:[
-    'Jardins de la Fontaine Nîmes','Villa Ephrussi de Rothschild',
-    'Jardin Exotique Monaco','Domaine du Rayol','Les Jardins de la Riviera',
-    'Jardins de Pontchartrain','Serre de la Madone','Château Val Joanis Gardens',
-    'Jardins de l\'Abbaye de Valsaintes','Jardins de Salagon',
-    'Prieuré de Salagon','Jardins du Château de Gourdon',
-    'Bambouseraie en Cévennes','Jardins de Roquelin','Parc Phoenix Nice',
-    'Jardins de la Bastide du Roy','Jardins du Château de la Gaude',
-    'Jardins de l\'Imaginaire Terrasson','Jardins de Eyrignac',
-    'Château de Losse Gardens','Jardins de Cadiot','Parc Bordelais',
-  ]},
-  // ── Belgium, Netherlands, Luxembourg ────────────────────────────────────────
-  { box:[49.4,53.6,2.5,7.2], gardens:[
-    'Keukenhof','Hortus Botanicus Amsterdam','Clingendael Park',
-    'Paleis Het Loo Gardens','Arboretum Kalmthout','Hex Castle Gardens',
-    'Hortus Botanicus Leiden','Botanische Tuin Utrecht','Arboretum Trompenburg',
-    'Kasteel de Haar Gardens','Park Clingendael','Beeckestijn Estate',
-    'Rosarium Winschoten','Botanical Garden Delft','Arboretum Oudenbosch',
-    'Château de Freÿr Gardens','Annevoie Gardens','Château d\'Hex Gardens',
-    'Jardin Botanique de Meise','Citadelpark Ghent','Château de Modave Gardens',
-    'Parc de Laeken Brussels','Château de Seneffe Gardens',
-    'Parc de Mariemont','Jardins du Château de Jehay',
-  ]},
-  // ── Germany ──────────────────────────────────────────────────────────────────
-  { box:[47.2,55.1,5.8,15.1], gardens:[
-    'Sanssouci Gardens Potsdam','Herrenhausen Gardens Hanover',
-    'Munich Botanical Garden','Berlin Botanical Garden',
-    'Schwetzingen Palace Gardens','Wilhelma Stuttgart',
-    'Insel Mainau','Berggarten Hannover','Rosengarten Zweibrücken',
-    'Westpark Munich','Planten un Blomen Hamburg','Britzer Garten Berlin',
-    'Palmengarten Frankfurt','Rhododendronpark Bremen','Schlosspark Pillnitz',
-    'Muskauer Park','Worlitz Garden Kingdom','Branitzer Park Cottbus',
-    'Schlosspark Schwerin','Fürstliche Gärten Weikersheim',
-    'Schlosspark Linderhof','Park Schönbusch','Erbacher Schlossgarten',
-  ]},
-  // ── Austria ──────────────────────────────────────────────────────────────────
-  { box:[46.3,49.0,9.5,17.2], gardens:[
-    'Schönbrunn Palace Gardens','Belvedere Gardens Vienna',
-    'Volksgarten Vienna','Burggarten Vienna','Prater Vienna',
-    'Schloss Eggenberg Gardens','Stift Admont Gardens','Hellbrunn Palace Gardens',
-    'Mirabell Gardens Salzburg','Schloss Ambras Gardens Innsbruck',
-    'Arboretum Grillhof','Botanischer Garten Vienna','Schlosspark Laxenburg',
-    'Rosarium Baden bei Wien','Kurgarten Baden bei Wien',
-  ]},
-  // ── Italy ────────────────────────────────────────────────────────────────────
-  { box:[36.5,47.1,6.6,18.6], gardens:[
-    'Villa d\'Este Gardens Tivoli','Villa Borghese Rome','Boboli Gardens Florence',
-    'Villa Melzi Gardens Bellagio','Villa Carlotta Lake Como',
-    'Villa Taranto Lake Maggiore','Isola Bella Gardens','Villa Cimbrone Ravello',
-    'Villa Rufolo Ravello','Giardini Botanici Hanbury',
-    'Orto Botanico di Padova','Giardino di Boboli','Villa Medici Rome',
-    'Parco Giardino Sigurtà','Giardino Botanico di Brera Milan',
-    'Villa Pisani Gardens Stra','Giardino della Landriana',
-    'La Foce Gardens Tuscany','Castello Ruspoli Gardens',
-    'Giardino di Venzano','Villa Gamberaia Florence',
-    'Horti Leonini San Quirico d\'Orcia','Giardino Giusti Verona',
-  ]},
-  // ── Spain ────────────────────────────────────────────────────────────────────
-  { box:[35.9,43.8,-9.3,4.3], gardens:[
-    'Real Jardín Botánico Madrid','Retiro Park Madrid',
-    'Generalife Gardens Granada','Alcázar Gardens Seville',
-    'Jardines de Aranjuez','Pazo de Oca Gardens Galicia',
-    'Jardín Botánico de Barcelona','Park Güell Barcelona',
-    'Jardines de Alfabia Mallorca','Jardín Botánico de Valencia',
-    'Real Jardín Botánico de Madrid','Palacio Real de La Granja Gardens',
-    'Jardines del Monasterio de Yuste','Pazo de Mariñán',
-    'Capricho de la Alameda de Osuna','Jardines de Sabatini Madrid',
-    'Jardín de Cactus Lanzarote','Jardines de Can Artigas',
-    'Jardines de Santa Clotilde Lloret de Mar','Laberint d\'Horta Barcelona',
-  ]},
-  // ── Portugal ─────────────────────────────────────────────────────────────────
-  { box:[36.8,42.2,-9.5,-6.2], gardens:[
-    'Jardim Botânico de Lisboa','Palácio de Queluz Gardens',
-    'Jardins do Palácio de Monserrate Sintra','Quinta da Regaleira Sintra',
-    'Jardins do Palácio Nacional de Pena','Jardim Botânico do Porto',
-    'Jardim da Fundação Calouste Gulbenkian','Parque de Serralves Porto',
-    'Jardim do Paço Episcopal Castelo Branco','Tapada de Mafra',
-    'Jardim Botânico da Ajuda','Parque Eduardo VII Lisbon',
-    'Quinta do Palheiro Ferreiro Madeira','Monte Palace Tropical Garden Madeira',
-  ]},
-  // ── Greece ───────────────────────────────────────────────────────────────────
-  { box:[34.8,42.0,19.3,29.7], gardens:[
-    'National Garden Athens','Zappeion Gardens Athens',
-    'Botanical Garden of Athens','Nymfaio Arboretum',
-    'Stavros Niarchos Foundation Cultural Centre Gardens',
-    'Municipal Garden of Chania Crete','Botanical Park and Gardens of Crete',
 // ── Normalise garden name for dedup ──────────────────────────────────────────
 function normaliseGardenName(name) {
   if (!name) return '';
