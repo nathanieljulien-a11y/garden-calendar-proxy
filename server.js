@@ -296,6 +296,27 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
+// ── Artwork list ──────────────────────────────────────────────────────────────
+// Returns the list of plants that have artwork on disk, for order form dropdowns.
+// Reads ./artwork/, strips edwards_/koehler_/redoute_ prefix and .jpg extension.
+app.get('/api/artwork-list', (req, res) => {
+  const fs   = require('fs');
+  const path = require('path');
+  try {
+    const dir   = path.join(__dirname, 'artwork');
+    const files = fs.readdirSync(dir);
+    const plants = [...new Set(
+      files
+        .filter(f => /^(edwards|koehler|redoute)_/.test(f) && f.endsWith('.jpg'))
+        .map(f => f.replace(/^(edwards|koehler|redoute)_/, '').replace(/\.jpg$/, ''))
+    )].sort();
+    res.json({ plants });
+  } catch(e) {
+    console.error('[artwork-list] Error reading artwork dir:', e.message);
+    res.status(500).json({ error: 'Could not read artwork list' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   const ip = req.ip;
   const today = todayStr();
