@@ -112,6 +112,22 @@ function countByStatus(status) {
   return Object.values(orders).filter(function(o) { return o.status === status; }).length;
 }
 
+// ── Meta: cron state persistence ─────────────────────────────────────────────
+// Stores arbitrary key/value metadata alongside orders (e.g. etsyCron state).
+// Kept in the same orders.json file under a reserved '_meta' key.
+
+function getMeta(key) {
+  var orders = _read();
+  return (orders._meta && orders._meta[key]) || null;
+}
+
+function setMeta(key, value) {
+  var orders = _read();
+  if (!orders._meta) orders._meta = {};
+  orders._meta[key] = value;
+  _write(orders);
+}
+
 module.exports = {
   createOrder:      createOrder,
   getOrder:         getOrder,
@@ -119,4 +135,6 @@ module.exports = {
   updateOrder:      updateOrder,
   listOrders:       listOrders,
   countByStatus:    countByStatus,
+  getMeta:          getMeta,
+  setMeta:          setMeta,
 };
