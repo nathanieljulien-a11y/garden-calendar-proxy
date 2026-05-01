@@ -22,8 +22,8 @@ function validateFormData(body) {
   var errors = [];
   if (!body.email || typeof body.email !== 'string' || !body.email.includes('@'))
     errors.push('email required');
-  if (!body.climate || typeof body.climate !== 'string')
-    errors.push('climate required');
+  if (body.climate && typeof body.climate !== 'string')
+    errors.push('climate must be a string if provided');
   if (!body.city || typeof body.city !== 'string')
     errors.push('city required');
   if (!Array.isArray(body.plants) || body.plants.length !== 12)
