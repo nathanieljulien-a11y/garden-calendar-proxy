@@ -201,7 +201,17 @@ function geocodeCity(city) {
           var d = JSON.parse(data);
           var f = d.features && d.features[0];
           if (!f) { resolve(null); return; }
-          resolve({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] });
+          var props = f.properties || {};
+          // Build a readable display name: "Name, Country" or "Name, State, Country"
+          var parts = [props.name || props.city];
+          if (props.state && props.state !== props.name) parts.push(props.state);
+          if (props.country) parts.push(props.country);
+          var displayName = parts.filter(Boolean).join(', ');
+          resolve({
+            lat: f.geometry.coordinates[1],
+            lng: f.geometry.coordinates[0],
+            displayName: displayName,
+          });
         } catch(e) { resolve(null); }
       });
     }).on('error', function() { resolve(null); })
@@ -652,6 +662,11 @@ async function buildFullHTML(order, apiKey, opts) {
   console.log('[PDF] holidays received:', JSON.stringify(holidays));
   console.log('[PDF] Geocoding city: ' + city);
   var geo = await geocodeCity(city);
+  // Derive climate label from geocode result — overrides whatever the form sent
+  if (geo && geo.displayName) {
+    climate = geo.displayName;
+    console.log('[PDF] Climate label derived from geocode: ' + climate);
+  }
   var climateData = null;
   if (geo) {
     console.log('[PDF] Fetching climate data for', geo.lat, geo.lng);
