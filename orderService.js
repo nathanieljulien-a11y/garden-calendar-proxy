@@ -144,6 +144,51 @@ router.post('/orders/:id/approve', async function(req, res) {
   }
 });
 
+// ── GET /orders/:id/approve?token=xxx — direct link from email ───────────────
+// Lets the customer approve via a plain URL (no approve page needed yet).
+router.get('/orders/:id/approve', async function(req, res) {
+  var order = store.getOrder(req.params.id);
+  if (!order) return res.status(404).send('<p>Order not found.</p>');
+  if (!req.query.token || req.query.token !== order.token)
+    return res.status(403).send('<p>Invalid or expired approval link.</p>');
+  if (order.status !== 'done')
+    return res.status(409).send('<p>Your PDF is not ready yet. Please wait and try again.</p>');
+  if (order.approved)
+    return res.status(200).send('<p>This order has already been approved. Your calendar is on its way!</p>');
+  if (!order.pdfUrl)
+    return res.status(409).send('<p>No PDF on record — please contact us.</p>');
+
+  store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString() });
+
+  var cleanPdfUrl;
+  try {
+    var pdf = require('./pdfService.js');
+    var r2  = require('./r2.js');
+    var cleanHtml   = await pdf.buildFullHTML(order.formData, process.env.ANTHROPIC_API_KEY || '', { approved: true });
+    var cleanPdfBuf = await pdf.generatePDF(cleanHtml);
+    cleanPdfUrl = await r2.uploadToR2(cleanPdfBuf, order.id + '-final.pdf');
+    store.updateOrder(order.id, { finalPdfUrl: cleanPdfUrl });
+    console.log('[orders] Clean PDF generated:', cleanPdfUrl);
+  } catch(e) {
+    console.error('[orders] Clean PDF generation failed:', e.message);
+    return res.status(500).send('<p>Could not generate your print-ready PDF. Please contact us.</p>');
+  }
+
+  try {
+    var gelatoResult = await _submitToGelato(order, cleanPdfUrl);
+    store.updateOrder(order.id, {
+      gelatoOrderId: gelatoResult.id,
+      gelatoDashboardUrl: 'https://dashboard.gelato.com/orders/' + gelatoResult.id,
+    });
+    console.log('[orders] Gelato draft created:', gelatoResult.id, 'for order:', order.id);
+    res.status(200).send('<p>Your calendar has been approved and sent to print. Thank you!</p>');
+  } catch(e) {
+    console.error('[orders] Gelato submission failed for', order.id, ':', e.message);
+    store.updateOrder(order.id, { gelatoError: e.message });
+    res.status(502).send('<p>Approval saved but we hit an issue sending to print — we will be in touch shortly.</p>');
+  }
+});
+
 // ── GET /orders — admin list ──────────────────────────────────────────────────
 router.get('/orders', function(req, res) {
   if (!ADMIN_SECRET || req.headers['x-admin-secret'] !== ADMIN_SECRET) {
