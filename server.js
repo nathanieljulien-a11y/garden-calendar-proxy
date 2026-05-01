@@ -296,27 +296,6 @@ app.get('/api/occurrences', async (req, res) => {
   }
 });
 
-// ── Artwork list ──────────────────────────────────────────────────────────────
-// Returns the list of plants that have artwork on disk, for order form dropdowns.
-// Reads ./artwork/, strips edwards_/koehler_/redoute_ prefix and .jpg extension.
-app.get('/api/artwork-list', (req, res) => {
-  const fs   = require('fs');
-  const path = require('path');
-  try {
-    const dir   = path.join(__dirname, 'artwork');
-    const files = fs.readdirSync(dir);
-    const plants = [...new Set(
-      files
-        .filter(f => /^(edwards|koehler|redoute)_/.test(f) && f.endsWith('.jpg'))
-        .map(f => f.replace(/^(edwards|koehler|redoute)_/, '').replace(/\.jpg$/, ''))
-    )].sort();
-    res.json({ plants });
-  } catch(e) {
-    console.error('[artwork-list] Error reading artwork dir:', e.message);
-    res.status(500).json({ error: 'Could not read artwork list' });
-  }
-});
-
 app.get('/api/health', (req, res) => {
   const ip = req.ip;
   const today = todayStr();
@@ -520,4 +499,12 @@ app.listen(PORT, () => {
   console.log(`Garden Calendar proxy running on port ${PORT}`);
   console.log(`Allowed origin: ${ALLOWED_ORIGIN}`);
   console.log(`Daily gen cap: ${DAILY_GEN_CAP}, IP daily gen: ${IP_DAILY_GEN}, IP hourly: ${IP_HOURLY_CAP}`);
+
+  // Start Etsy order cron — no-ops gracefully if env vars not set
+  try {
+    var etsyCron = require('./etsyCron.js');
+    etsyCron.start();
+  } catch(e) {
+    console.warn('[etsy] Cron failed to load:', e.message);
+  }
 });
