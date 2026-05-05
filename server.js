@@ -508,6 +508,7 @@ app.get('/api/artwork-list', (req, res) => {
         .replace(/^(koehler|edwards|redoute)_/, '')
         .replace(/\.(jpg|png)$/, '')
       )
+      .filter(f => !f.startsWith('xx'))        // exclude WIP/test artwork
       .filter((v, i, a) => a.indexOf(v) === i) // deduplicate
       .sort();
     res.json(plants);
