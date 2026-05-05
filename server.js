@@ -494,6 +494,29 @@ Task: "Summer prune wisteria laterals back to 5 leaves" → "how to summer prune
   }
 });
 
+
+// ── Artwork list ──────────────────────────────────────────────────────────────
+// Returns sorted array of plant names derived from filenames in artwork/ dir.
+// Strips koehler_/edwards_/redoute_ prefixes and .jpg/.png extensions.
+app.get('/api/artwork-list', (req, res) => {
+  try {
+    const artDir = require('path').join(__dirname, 'artwork');
+    const files  = require('fs').readdirSync(artDir);
+    const plants = files
+      .filter(f => /\.(jpg|png)$/i.test(f))
+      .map(f => f.toLowerCase()
+        .replace(/^(koehler|edwards|redoute)_/, '')
+        .replace(/\.(jpg|png)$/, '')
+      )
+      .filter((v, i, a) => a.indexOf(v) === i) // deduplicate
+      .sort();
+    res.json(plants);
+  } catch(e) {
+    console.error('[artwork-list] Error reading artwork dir:', e.message);
+    res.status(500).json({ error: 'Could not read artwork list' });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Garden Calendar proxy running on port ${PORT}`);
