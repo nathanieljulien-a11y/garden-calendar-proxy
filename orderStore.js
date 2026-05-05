@@ -1,7 +1,7 @@
 // orderStore.js (CommonJS)
 // Simple file-based order store. Reads and writes orders.json in the project root.
-// Survives Render deploys (file persists on disk between restarts on paid plans).
-// On free/starter plans the disk resets on deploy — acceptable for MVP volume.
+// Persists to /data/orders.json when RENDER_DISK_PATH=/data is set (Render persistent disk).
+// Falls back to project root for local development.
 //
 // Order shape:
 // {
@@ -19,7 +19,9 @@ var fs   = require('fs');
 var path = require('path');
 var crypto = require('crypto');
 
-var STORE_PATH = path.join(__dirname, 'orders.json');
+var STORE_PATH = process.env.RENDER_DISK_PATH
+  ? require('path').join(process.env.RENDER_DISK_PATH, 'orders.json')
+  : path.join(__dirname, 'orders.json');
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
