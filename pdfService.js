@@ -260,7 +260,9 @@ function fetchClimateDataOnce(lat, lng) {
 // In-memory climate cache — keyed by rounded lat/lng, cleared at midnight
 // Disk-persisted climate cache — keyed by rounded lat/lng, cleared at midnight.
 // Survives Render restarts and deploys. File: climate-cache.json in project root.
-var _climateCachePath = require('path').join(__dirname, 'climate-cache.json');
+var _climateCachePath = process.env.RENDER_DISK_PATH
+  ? require('path').join(process.env.RENDER_DISK_PATH, 'climate-cache.json')
+  : require('path').join(__dirname, 'climate-cache.json');
 
 function _climateCacheKey(lat, lng) {
   return lat.toFixed(2) + ',' + lng.toFixed(2);
