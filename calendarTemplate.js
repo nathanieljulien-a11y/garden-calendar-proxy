@@ -709,7 +709,7 @@ function _buildClimateChart(climateData, startMonthIdx, monthNames, climateLabel
   return '<div class="cv-chart-block">'
     + '<span class="cv-section-label">Typical climate in ' + esc(climateLabel) + '</span>'
     + '<div class="cv-chart-svg">' + svg + '</div>'
-    + '<div class="cv-chart-source">Source: Open-Meteo ERA5 reanalysis · 10-year averages 2015–2024</div>'
+    + '<div class="cv-chart-source">Source: Open-Meteo ERA5 (CC BY 4.0) reanalysis · 10-year averages 2015–2024 </div>'
     + '</div>';
 }
 
