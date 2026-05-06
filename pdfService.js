@@ -264,6 +264,10 @@ var _climateCachePath = process.env.RENDER_DISK_PATH
   ? require('path').join(process.env.RENDER_DISK_PATH, 'climate-cache.json')
   : require('path').join(__dirname, 'climate-cache.json');
 
+// Shared-state cache path — stores pre-built artwork/inspo/QR data per order
+// so the approve run can skip the expensive buildSharedState step entirely.
+var _stateDirPath = process.env.RENDER_DISK_PATH || __dirname;
+
 function _climateCacheKey(lat, lng) {
   return lat.toFixed(2) + ',' + lng.toFixed(2);
 }
@@ -416,6 +420,22 @@ async function buildFullHTML(order, apiKey, opts) {
     order, geo, apiKey, compressToJpegDataUri, makeQrB64
   );
 
+  // ── Persist shared state so approve run can skip buildSharedState ─────────
+  if (order._id || order.id) {
+    var _stateFile = require('path').join(_stateDirPath, (order._id || order.id) + '-state.json');
+    try {
+      require('fs').writeFileSync(_stateFile, JSON.stringify({
+        sharedState: sharedState,
+        geo:         geo,
+        climate:     climate,
+        climateData: climateData,
+      }), 'utf8');
+      console.log('[PDF] Shared state saved:', _stateFile);
+    } catch(e) {
+      console.warn('[PDF] Could not save shared state (non-fatal):', e.message);
+    }
+  }
+
   // ── Build pages ───────────────────────────────────────────────────────────
   var coverMonthNames = [];
   for (var ci = 0; ci < 12; ci++) coverMonthNames.push(MONTH_NAMES[(startMonth + ci) % 12]);
@@ -499,6 +519,131 @@ async function buildFullHTML(order, apiKey, opts) {
     console.error('[PDF] buildDocument CRASH:', docErr.stack);
     throw docErr;
   }
+}
+
+// ── Shared state helpers ─────────────────────────────────────────────────────
+
+// Load saved shared state for an order. Returns null if not found.
+function loadSharedState(orderId) {
+  if (!orderId) return null;
+  var stateFile = require('path').join(_stateDirPath, orderId + '-state.json');
+  try {
+    if (!require('fs').existsSync(stateFile)) return null;
+    var raw = require('fs').readFileSync(stateFile, 'utf8');
+    return JSON.parse(raw);
+  } catch(e) {
+    console.warn('[PDF] Could not load shared state for', orderId, ':', e.message);
+    return null;
+  }
+}
+
+// Delete saved shared state after successful final PDF upload.
+function deleteSharedState(orderId) {
+  if (!orderId) return;
+  var stateFile = require('path').join(_stateDirPath, orderId + '-state.json');
+  try {
+    if (require('fs').existsSync(stateFile)) {
+      require('fs').unlinkSync(stateFile);
+      console.log('[PDF] Shared state deleted:', orderId);
+    }
+  } catch(e) {
+    console.warn('[PDF] Could not delete shared state for', orderId, ':', e.message);
+  }
+}
+
+// ── Build full HTML from saved state (approve run — no API calls) ─────────────
+// Skips geocode, climate fetch, buildSharedState entirely.
+// Falls back to full buildFullHTML if state file not found (safety net).
+async function buildFullHTMLFromState(orderId, order, opts) {
+  var saved = loadSharedState(orderId);
+  if (!saved) {
+    console.warn('[PDF] No saved state for', orderId, '— falling back to full rebuild');
+    return buildFullHTML(order, process.env.ANTHROPIC_API_KEY || '', opts);
+  }
+
+  console.log('[PDF] Using saved shared state for', orderId, '(skipping buildSharedState)');
+  var MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var fmt        = (order.format || 'a3').toLowerCase();
+  var fmtConfig  = FORMATS[fmt] || FORMATS.a3;
+  var startMonth = order.startMonth - 1;
+  var year       = order.year || new Date().getFullYear();
+  var keyDates   = order.keyDates || [];
+  var holidays   = order.holidays || [];
+
+  var geo         = saved.geo;
+  var climate     = saved.climate;
+  var climateData = saved.climateData;
+  var sharedState = saved.sharedState;
+
+  var product = products.getProduct(order.productType);
+
+  var coverMonthNames = [];
+  for (var ci = 0; ci < 12; ci++) coverMonthNames.push(MONTH_NAMES[(startMonth + ci) % 12]);
+  var endYear   = year + Math.floor((startMonth + 11) / 12);
+  var dateRange = MONTH_NAMES[startMonth] + ' ' + year + ' – ' + MONTH_NAMES[(startMonth + 11) % 12] + ' ' + endYear;
+
+  var pages = [];
+
+  // Cover page
+  var coverExtras = product.buildCoverExtras(order, sharedState);
+  pages.push(product.buildCoverPage(Object.assign({
+    calendarName:  order.calendarName || order.recipientName || '',
+    dateRange:     dateRange,
+    climate:       climate,
+    climateData:   climateData,
+    startMonthIdx: startMonth,
+    monthNames:    coverMonthNames,
+    personalMsg:   order.personalMsg || '',
+    etsyUrl:       order.etsyUrl     || 'www.etsy.com/shop/HobbyCalendar',
+  }, coverExtras)));
+
+  // Month pages
+  for (var j = 0; j < 12; j++) {
+    var mIdx  = (startMonth + j) % 12;
+    var mYear = year + Math.floor((startMonth + j) / 12);
+    var mName = MONTH_NAMES[mIdx];
+
+    var monthKeyDates = keyDates.filter(function(d) {
+      if (!d.date) return false;
+      var parts = d.date.split('-');
+      return parseInt(parts[0], 10) === mYear && (parseInt(parts[1], 10) - 1) === mIdx;
+    });
+    var monthHolidays = holidays.filter(function(h) {
+      if (!h.startDate || !h.endDate) return false;
+      var sp = h.startDate.split('-'), ep = h.endDate.split('-');
+      var sy = parseInt(sp[0],10), sm = parseInt(sp[1],10)-1;
+      var ey = parseInt(ep[0],10), em = parseInt(ep[1],10)-1;
+      var startsBeforeMonthEnd = (sy < mYear) || (sy === mYear && sm <= mIdx);
+      var endsAfterMonthStart  = (ey > mYear) || (ey === mYear && em >= mIdx);
+      return startsBeforeMonthEnd && endsAfterMonthStart;
+    });
+
+    var monthIcsStr = tpl.buildMonthICS(mIdx, mYear, keyDates, holidays);
+    var monthIcsB64 = monthIcsStr ? await makeQrB64(monthIcsStr, 'M') : '';
+
+    var productContent = product.buildMonthContent(j, order, sharedState);
+    var monthOpts = Object.assign({
+      monthName:    mName,
+      monthIdx:     mIdx,
+      year:         mYear,
+      climate:      climate,
+      climateData:  climateData,
+      calendarName: order.calendarName || order.recipientName || '',
+      keyDates:     monthKeyDates,
+      holidays:     monthHolidays,
+      monthIcsB64:  monthIcsB64,
+    }, productContent);
+
+    pages.push(product.buildPageA(monthOpts));
+    pages.push(tpl.buildPageB(monthOpts));
+  }
+
+  pages.push(tpl.buildBlankPage());
+  console.log('[PDF] Pages rebuilt from state: ' + pages.length + ' (' + fmt.toUpperCase() + ')');
+
+  var doc = tpl.buildDocument(pages, { proof: !(opts && opts.approved) });
+  console.log('[PDF] buildDocument OK, length: ' + Math.round(doc.length / 1024) + 'KB');
+  return { html: doc, widthMm: fmtConfig.widthMm, heightMm: fmtConfig.heightMm };
 }
 
 // ── Render PDF + R2 upload ────────────────────────────────────────────────────
@@ -678,5 +823,7 @@ router.post('/generate-pdf', async function(req, res) {
 });
 
 module.exports = router;
-router.buildFullHTML = buildFullHTML;
-router.generatePDF   = generatePDF;
+router.buildFullHTML          = buildFullHTML;
+router.buildFullHTMLFromState = buildFullHTMLFromState;
+router.generatePDF            = generatePDF;
+router.deleteSharedState      = deleteSharedState;
