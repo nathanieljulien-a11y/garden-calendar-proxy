@@ -10,7 +10,8 @@ const DAILY_GEN_CAP = parseInt(process.env.DAILY_GEN_CAP  || '30');
 const IP_HOURLY_CAP = parseInt(process.env.IP_HOURLY_CAP  || '10');
 const IP_DAILY_GEN  = parseInt(process.env.IP_DAILY_GEN   || '3');
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL         = 'claude-sonnet-4-20250514';
+const MODEL_STREAM  = 'claude-sonnet-4-20250514';  // 12-month generation — needs Sonnet quality
+const MODEL_CALL    = 'claude-haiku-4-5-20251001'; // today tasks, insights, lenses — Haiku sufficient
 
 if (!API_KEY) { console.error('ANTHROPIC_API_KEY not set'); process.exit(1); }
 
@@ -99,7 +100,7 @@ function minutesUntilReset(ip) {
 // ── Input validation ──────────────────────────────────────────────────────────
 function validateBody(body) {
   if (!body || typeof body !== 'object') return 'Invalid body';
-  if (body.model && body.model !== MODEL) return 'Invalid model';
+  if (body.model && body.model !== MODEL_STREAM && body.model !== MODEL_CALL) return 'Invalid model';
   if (!Array.isArray(body.messages) || body.messages.length === 0) return 'Missing messages';
   // Check combined prompt length — raised to 40k chars to accommodate climate context
   const totalLen = body.messages.reduce((s, m) => {
@@ -111,7 +112,7 @@ function validateBody(body) {
 }
 
 // ── Core proxy ────────────────────────────────────────────────────────────────
-async function proxy(req, res, stream) {
+async function proxy(req, res, stream, model) {
   const err = validateBody(req.body);
   if (err) return res.status(400).json({ error: 'invalid_request', message: err });
 
@@ -127,7 +128,7 @@ async function proxy(req, res, stream) {
         'x-api-key': API_KEY,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: cappedTokens, messages, stream }),
+      body: JSON.stringify({ model, max_tokens: cappedTokens, messages, stream }),
     });
   } catch (e) {
     console.error('Anthropic fetch error:', e.message);
@@ -351,7 +352,7 @@ app.post('/api/call', (req, res) => {
       message: `Too many requests. Try again in ${minutesUntilReset(ip)} minutes.`,
     });
   }
-  proxy(req, res, false);
+  proxy(req, res, false, MODEL_CALL);
 });
 
 // Streaming: calendar generation — stricter limits
@@ -381,7 +382,7 @@ app.post('/api/stream', (req, res) => {
   incrementIpDailyGen(ip);
   console.log(`[gen] ip=${ip} globalToday=${globalGen.count}/${DAILY_GEN_CAP}`);
 
-  proxy(req, res, true);
+  proxy(req, res, true, MODEL_STREAM);
 });
 
 // ─── Add to server.js ────────────────────────────────────────────────────────
