@@ -841,7 +841,10 @@ async function buildSharedState(order, geo, apiKey, compressToJpegDataUri, makeQ
   console.log('[garden] Inspo photos: ' + inspoPhotos.filter(Boolean).length + '/12 found');
 
   // ── QR codes ───────────────────────────────────────────────────────────
-  var appUrl   = 'https://garden-calendar-frontend.vercel.app';
+  // Embed ref=print and the print token in the QR URL so wall calendar
+  // customers are identified and their credits restored if cache is cleared.
+  var appUrl = 'https://garden-calendar-frontend.vercel.app?ref=print'
+    + (order.printToken ? '&token=' + order.printToken : '');
   var appQrB64 = await makeQrB64(appUrl);
   console.log('[garden] App QR: ' + (appQrB64 ? 'ok' : 'failed'));
 
