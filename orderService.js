@@ -7,9 +7,10 @@
 //   POST /orders/:id/approve — customer approves, triggers Gelato draft
 //   GET  /orders          — list all orders (admin, requires ADMIN_SECRET header)
 
-var express = require('express');
-var store   = require('./orderStore.js');
-var queue   = require('./queueService.js');
+var express     = require('express');
+var store       = require('./orderStore.js');
+var tokenStore  = require('./tokenStore.js');
+var queue       = require('./queueService.js');
 
 var router  = express.Router();
 
@@ -107,6 +108,12 @@ router.post('/orders/:id/approve', async function(req, res) {
 
   store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString() });
 
+  // Generate print token for wall calendar QR code (idempotent — skip if already exists)
+  if (!tokenStore.getTokenBySourceRef(order.id)) {
+    var printToken = tokenStore.createPrintToken(order.id);
+    store.updateOrder(order.id, { printToken: printToken.token });
+  }
+
   // Regenerate clean PDF without proof watermark, upload to R2, then submit to Gelato
   var cleanPdfUrl;
   try {
@@ -159,6 +166,12 @@ router.get('/orders/:id/approve', async function(req, res) {
     return res.status(409).send('<p>No PDF on record — please contact us.</p>');
 
   store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString() });
+
+  // Generate print token for wall calendar QR code (idempotent — skip if already exists)
+  if (!tokenStore.getTokenBySourceRef(order.id)) {
+    var printToken = tokenStore.createPrintToken(order.id);
+    store.updateOrder(order.id, { printToken: printToken.token });
+  }
 
   var cleanPdfUrl;
   try {
