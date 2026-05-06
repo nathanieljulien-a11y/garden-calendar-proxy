@@ -112,12 +112,12 @@ router.post('/orders/:id/approve', async function(req, res) {
   try {
     var pdf    = require('./pdfService.js');
     var r2     = require('./r2.js');
-    var apiKey = process.env.ANTHROPIC_API_KEY || '';
-    var cleanHtml   = await pdf.buildFullHTML(order.formData, apiKey, { approved: true });
-    var cleanPdfBuf = await pdf.generatePDF(cleanHtml);
+    var cleanBuilt  = await pdf.buildFullHTMLFromState(order.id, order.formData, { approved: true });
+    var cleanPdfBuf = await pdf.generatePDF(cleanBuilt);
     var cleanFilename = order.id + '-final.pdf';
     cleanPdfUrl = await r2.uploadToR2(cleanPdfBuf, cleanFilename);
     store.updateOrder(order.id, { finalPdfUrl: cleanPdfUrl });
+    pdf.deleteSharedState(order.id);
     console.log('[orders] Clean PDF generated:', cleanPdfUrl);
   } catch(e) {
     console.error('[orders] Clean PDF generation failed:', e.message);
@@ -164,10 +164,11 @@ router.get('/orders/:id/approve', async function(req, res) {
   try {
     var pdf = require('./pdfService.js');
     var r2  = require('./r2.js');
-    var cleanHtml   = await pdf.buildFullHTML(order.formData, process.env.ANTHROPIC_API_KEY || '', { approved: true });
-    var cleanPdfBuf = await pdf.generatePDF(cleanHtml);
+    var cleanBuilt  = await pdf.buildFullHTMLFromState(order.id, order.formData, { approved: true });
+    var cleanPdfBuf = await pdf.generatePDF(cleanBuilt);
     cleanPdfUrl = await r2.uploadToR2(cleanPdfBuf, order.id + '-final.pdf');
     store.updateOrder(order.id, { finalPdfUrl: cleanPdfUrl });
+    pdf.deleteSharedState(order.id);
     console.log('[orders] Clean PDF generated:', cleanPdfUrl);
   } catch(e) {
     console.error('[orders] Clean PDF generation failed:', e.message);
