@@ -42,6 +42,7 @@ app.use(pdfRouter);
 app.use(gelatoRouter);
 app.use(require('./orderService.js'));
 app.use(require('./eventService.js'));
+app.use(require('./creditService.js'));
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
