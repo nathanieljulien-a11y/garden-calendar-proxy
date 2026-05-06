@@ -13,6 +13,7 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL_STREAM  = 'claude-sonnet-4-20250514';  // 12-month generation — needs Sonnet quality
 const MODEL_CALL    = 'claude-haiku-4-5-20251001'; // today tasks, insights, lenses — Haiku sufficient
 
+
 if (!API_KEY) { console.error('ANTHROPIC_API_KEY not set'); process.exit(1); }
 
 // ── Security middleware ───────────────────────────────────────────────────────
