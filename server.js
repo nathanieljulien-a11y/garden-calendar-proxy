@@ -2,6 +2,7 @@ const express = require('express');
 const helmet  = require('helmet');
 const pdfRouter = require('./pdfService.js');   // ← add this line
 const gelatoRouter = require('./gelatoService.js');
+const tokenStore = require('./tokenStore.js');
 const app    = express();
 const PORT   = process.env.PORT || 3001;
 const API_KEY       = process.env.ANTHROPIC_API_KEY;
@@ -97,6 +98,19 @@ function minutesUntilReset(ip) {
   const rec = ipHourly[ip];
   if (!rec) return 0;
   return Math.ceil((rec.resetAt - Date.now()) / 60_000);
+}
+
+// ── Token validation for rate limit bypass ────────────────────────────────────
+// Token holders (print / subscriber) bypass the per-IP daily gen cap.
+// The hourly cap and global daily cap still apply to everyone.
+function checkTokenValid(req) {
+  try {
+    const token = req.headers['x-gc-token'];
+    if (!token) return false;
+    const check = tokenStore.checkCredit(token, 'gen');
+    // Token is valid (not expired, not exhausted) — bypass IP daily gen limit
+    return check.ok === true;
+  } catch { return false; }
 }
 
 // ── Input validation ──────────────────────────────────────────────────────────
@@ -373,7 +387,10 @@ app.post('/api/stream', (req, res) => {
       message: 'The demo has reached its daily limit. Please try again tomorrow.',
     });
   }
-  if (!checkIpDailyGen(ip)) {
+  // Token holders (print / subscriber) bypass the per-IP daily gen cap —
+  // their credits are tracked server-side and enforced via /api/credits/use.
+  const hasValidToken = checkTokenValid(req);
+  if (!hasValidToken && !checkIpDailyGen(ip)) {
     return res.status(429).json({
       error: 'rate_limit',
       message: `You've used your ${IP_DAILY_GEN} free generations for today. Come back tomorrow!`,
@@ -381,8 +398,8 @@ app.post('/api/stream', (req, res) => {
   }
 
   incrementGlobalGen();
-  incrementIpDailyGen(ip);
-  console.log(`[gen] ip=${ip} globalToday=${globalGen.count}/${DAILY_GEN_CAP}`);
+  if (!hasValidToken) incrementIpDailyGen(ip);
+  console.log(`[gen] ip=${ip} globalToday=${globalGen.count}/${DAILY_GEN_CAP} tokenHolder=${hasValidToken}`);
 
   proxy(req, res, true, MODEL_STREAM);
 });
