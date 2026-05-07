@@ -9,6 +9,7 @@
 //   GET  /api/events          — return raw log lines (admin)
 //   GET  /api/events/summary  — aggregated counts by event type + ref (admin)
 
+
 const express = require('express');
 const fs      = require('fs');
 const path    = require('path');
