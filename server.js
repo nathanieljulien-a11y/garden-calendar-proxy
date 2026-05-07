@@ -36,7 +36,11 @@ app.use((req, res, next) => {
 });
 
 // Body limit raised to 64kb — calendar prompts with full climate context can reach ~8-10kb
-app.use(express.json({ limit: '64kb' }));
+// Stripe webhook route must receive raw body for signature verification — exclude it here
+app.use((req, res, next) => {
+  if (req.path === '/api/stripe/webhook') return next();
+  express.json({ limit: '64kb' })(req, res, next);
+});
 //Raw body parser for /upload-to-r2 (PDF binary upload)
 app.use('/upload-to-r2', express.raw({ type: 'application/pdf', limit: '30mb' }));
 app.use(pdfRouter);
