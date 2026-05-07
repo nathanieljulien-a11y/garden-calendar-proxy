@@ -173,6 +173,8 @@ async function sendTokenEmail(to, token) {
       '',
       'Questions? Reply to this email.',
       '',
+      'Privacy policy: ' + FRONTEND_URL + '/privacy',
+      '',
       '— The Garden Calendar',
     ].join('\n'),
   });
