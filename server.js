@@ -549,27 +549,69 @@ app.get('/api/artwork-list', (req, res) => {
   }
 });
 
-// ── Etsy OAuth callback — one-time use, remove after token obtained ───────────
-// 1. Set redirect URI in Etsy developer dashboard to:
-//    https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback
-// 2. Visit the auth URL (see OPERATIONS.md) in your browser
-// 3. Etsy redirects here — token is printed to Render logs + shown in browser
-// 4. Copy ETSY_REFRESH_TOKEN to Render env vars, then remove this endpoint
+// ── Etsy OAuth — one-time use, remove both endpoints after token obtained ─────
+// Flow:
+//   1. Visit /api/etsy-oauth-start in browser → redirects to Etsy authorisation page
+//   2. Etsy redirects back to /api/etsy-oauth-callback with ?code=...
+//   3. Callback exchanges code for tokens, displays refresh token in browser
+//   4. Copy ETSY_REFRESH_TOKEN to Render env vars
+//   5. Remove both endpoints from server.js
+
+// In-memory store for PKCE verifier — lives only for the duration of the flow
+let _etsyOauthVerifier = null;
+const ETSY_OAUTH_REDIRECT = 'https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback';
+
+// Step 1 — generate PKCE pair and redirect to Etsy
+app.get('/api/etsy-oauth-start', (req, res) => {
+  const apiKey = process.env.ETSY_API_KEY;
+  if (!apiKey) return res.status(500).send('ETSY_API_KEY not set on server');
+
+  const crypto = require('crypto');
+  // Generate code verifier: 64 random bytes → base64url
+  const verifier = crypto.randomBytes(64)
+    .toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  // Derive challenge: SHA-256 of verifier → base64url
+  const challenge = crypto.createHash('sha256')
+    .update(verifier)
+    .digest('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  _etsyOauthVerifier = verifier; // hold in memory until callback
+
+  const authUrl = 'https://www.etsy.com/oauth/connect?' + new URLSearchParams({
+    response_type:         'code',
+    redirect_uri:          ETSY_OAUTH_REDIRECT,
+    scope:                 'transactions_r messaging_w',
+    client_id:             apiKey,
+    state:                 'gc',
+    code_challenge_method: 'S256',
+    code_challenge:        challenge,
+  }).toString();
+
+  res.redirect(authUrl);
+});
+
+// Step 2 — receive code from Etsy, exchange for tokens
 app.get('/api/etsy-oauth-callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.status(400).send('Missing code parameter');
+  if (!code) return res.status(400).send(
+    '<p>Missing code parameter. Go back and visit <a href="/api/etsy-oauth-start">/api/etsy-oauth-start</a> to begin the flow.</p>'
+  );
+  if (!_etsyOauthVerifier) return res.status(400).send(
+    '<p>No verifier found — the server may have restarted. Visit <a href="/api/etsy-oauth-start">/api/etsy-oauth-start</a> to restart the flow.</p>'
+  );
 
   const apiKey = process.env.ETSY_API_KEY;
   if (!apiKey) return res.status(500).send('ETSY_API_KEY not set on server');
 
-  const REDIRECT_URI = 'https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback';
-
   try {
     const body = new URLSearchParams({
-      grant_type:   'authorization_code',
-      client_id:    apiKey,
-      redirect_uri: REDIRECT_URI,
-      code:         code,
+      grant_type:    'authorization_code',
+      client_id:     apiKey,
+      redirect_uri:  ETSY_OAUTH_REDIRECT,
+      code:          code,
+      code_verifier: _etsyOauthVerifier,
     }).toString();
 
     const tokenRes = await fetch('https://api.etsy.com/v3/public/oauth/token', {
@@ -582,21 +624,26 @@ app.get('/api/etsy-oauth-callback', async (req, res) => {
     });
 
     const data = await tokenRes.json();
+    _etsyOauthVerifier = null; // clear verifier regardless of outcome
 
     if (!data.refresh_token) {
       console.error('[etsy-oauth] Token exchange failed:', JSON.stringify(data));
       return res.status(502).send('<pre>Token exchange failed:\n' + JSON.stringify(data, null, 2) + '</pre>');
     }
 
-    console.log('[etsy-oauth] ✅ SUCCESS — add this to Render env vars:');
+    console.log('[etsy-oauth] SUCCESS — add this to Render env vars:');
     console.log('[etsy-oauth] ETSY_REFRESH_TOKEN=' + data.refresh_token);
 
     res.send(`
       <h2>✅ Etsy OAuth successful</h2>
       <p>Copy this value into Render as <strong>ETSY_REFRESH_TOKEN</strong>:</p>
       <pre style="background:#f4f4f4;padding:16px;word-break:break-all">${data.refresh_token}</pre>
-      <p>Access token (short-lived, not needed):<br><small>${data.access_token}</small></p>
-      <p><strong>Done — you can remove the /api/etsy-oauth-callback endpoint from server.js.</strong></p>
+      <p><strong>Next steps:</strong></p>
+      <ol>
+        <li>Add <code>ETSY_REFRESH_TOKEN</code> to Render environment variables</li>
+        <li>Add <code>ETSY_SHOP_ID</code> if not already set</li>
+        <li>Remove both <code>/api/etsy-oauth-start</code> and <code>/api/etsy-oauth-callback</code> endpoints from server.js</li>
+      </ol>
     `);
   } catch (e) {
     console.error('[etsy-oauth] Error:', e.message);
