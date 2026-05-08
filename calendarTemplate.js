@@ -52,6 +52,7 @@ function buildPageB(opts) {
   var holidays      = opts.holidays || [];
   var climate       = opts.climate || '';
   var recipientName = opts.recipientName || '';
+  var appQrB64      = opts.appQrB64 || '';
 
   // Key date map — pure string parsing, no Date() timezone issues
   var keyDateMap = {};
@@ -169,6 +170,7 @@ function buildPageB(opts) {
     + '<div class="cal-footer">'
     + '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
     + (climate ? '<span class="cal-footer-climate">' + esc(climate) + '</span>' : '')
+    + (appQrB64 ? '<img class="cal-footer-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
     + '</div>'
     + '</div>'
     + '</div>';
@@ -361,6 +363,7 @@ var SHARED_CSS = [
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
   '.cal-footer-text{font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
   '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
+  '.cal-footer-qr{width:14mm;height:14mm;border:0.3mm solid var(--border);border-radius:0.8mm;padding:0.3mm;background:white;flex-shrink:0;}',
 ].join('\n');
 
 // ── Proof watermark CSS ───────────────────────────────────────────────────────
