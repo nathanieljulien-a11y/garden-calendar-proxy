@@ -16,6 +16,7 @@ var https   = require('https');
 var store   = require('./orderStore.js');
 
 var ETSY_API_KEY       = process.env.ETSY_API_KEY       || '';
+var ETSY_SHARED_SECRET = process.env.ETSY_SHARED_SECRET || '';
 var ETSY_SHOP_ID       = process.env.ETSY_SHOP_ID       || '';
 var ORDER_FORM_URL     = (process.env.ORDER_FORM_URL    || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 var POLL_INTERVAL_MS   = 5 * 60 * 1000; // 5 minutes
@@ -74,7 +75,7 @@ async function _fetchNewOrders(sinceTimestamp) {
     + '/receipts?limit=' + limit + '&sort_on=created&sort_order=desc';
 
   var data = await _httpsGet(url, {
-    'x-api-key':     ETSY_API_KEY,
+    'x-api-key':     ETSY_API_KEY + ':' + ETSY_SHARED_SECRET,
     'Authorization': 'Bearer ' + token,
   });
 
@@ -102,7 +103,7 @@ async function _sendEtsyMessage(receiptId, buyerUserId, message) {
   });
 
   var data = await _httpsPost(url, payload, {
-    'x-api-key':      ETSY_API_KEY,
+    'x-api-key':      ETSY_API_KEY + ':' + ETSY_SHARED_SECRET,
     'Authorization':  'Bearer ' + token,
     'Content-Type':   'application/json',
   });
