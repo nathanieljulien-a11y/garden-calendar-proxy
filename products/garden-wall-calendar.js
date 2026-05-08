@@ -1084,8 +1084,10 @@ function buildCoverPage(opts) {
 
   var bottomHtml = '<div class="cv-bottom-row">'
     + '<div class="cv-etsy-row">'
+    + '<div class="cv-etsy-stack">'
     + '<span class="cv-etsy-badge">Find us on Etsy</span>'
     + '<span class="cv-etsy-url">' + esc(etsyUrl) + '</span>'
+    + '</div>'
     + '</div>'
     + '<div class="cv-webapp-row">'
     + (appQrB64 ? '<img class="cv-webapp-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
