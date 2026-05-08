@@ -582,7 +582,7 @@ app.get('/api/etsy-oauth-start', (req, res) => {
   const authUrl = 'https://www.etsy.com/oauth/connect?' + new URLSearchParams({
     response_type:         'code',
     redirect_uri:          ETSY_OAUTH_REDIRECT,
-    scope:                 'transactions_r conversations_r conversations_w',
+    scope:                 'transactions_r',
     client_id:             apiKey,
     state:                 'gc',
     code_challenge_method: 'S256',
