@@ -128,18 +128,41 @@ function buildPageB(opts) {
     gridHtml += '<div class="' + cls + '">' + inner + '</div>';
   }
 
-  // Trailing cells — for 6-row months with trailing empty cells, replace with notes box.
-  // For 5-row months, render no trailing cells (grid sized exactly to 5 rows).
-  var total    = firstDow + daysInMonth;
-  var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
-  var rowsNeeded = Math.ceil(total / 7);
-  var totalCells = rowsNeeded * 7;
-  var trailingCount = totalCells - total;
+  // Grid is always 6 data rows (+ 1 header row = 7 total).
+  // Rows with at least one current-month day render normally with prev/next fill cells.
+  // Row 6 entirely empty → full-width notes box (grid-column 1/-1).
+  // Rows 5 AND 6 both entirely empty → single tall notes box spanning both rows (grid-row 5/7).
+  var total = firstDow + daysInMonth;
+  // How many cells are filled by leading empties + current month days
+  // Row 5 starts at cell index 28 (0-based), row 6 at cell index 35
+  var row5Start = 28; // cells 28–34
+  var row6Start = 35; // cells 35–41
+  var row5HasDays = total > row5Start; // at least one current-month day in row 5
+  var row6HasDays = total > row6Start; // at least one current-month day in row 6
 
-  if (rowsNeeded === 6 && trailingCount > 0) {
-    // Replace all trailing cells with a single full-width notes box
-    // First render any trailing next-month day numbers up to the notes box
-    // Actually per spec: replace the entire trailing portion — no next-month days, just the notes box
+  if (!row5HasDays) {
+    // Rows 5 and 6 both empty — one tall unified notes box
+    gridHtml += '<div class="cal-notes-box cal-notes-tall">'
+      + '<span class="cal-notes-label">Notes</span>'
+      + '<div class="cal-notes-rules">'
+      + '<div class="cal-notes-rule"></div>'
+      + '<div class="cal-notes-rule"></div>'
+      + '<div class="cal-notes-rule"></div>'
+      + '<div class="cal-notes-rule"></div>'
+      + '<div class="cal-notes-rule"></div>'
+      + '<div class="cal-notes-rule"></div>'
+      + '</div>'
+      + '</div>';
+  } else if (!row6HasDays) {
+    // Row 6 empty — render trailing next-month day numbers on partial row 6 if any,
+    // then notes box for remaining cells. Actually per spec: if row 6 is entirely
+    // empty (no current-month days), replace entire row 6 with notes box.
+    // Row 5 has days so trailing cells on row 5 (if any) need next-month day numbers.
+    var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+    for (var t = 0; t < trailing; t++) {
+      gridHtml += '<div class="cal-cell cal-empty"><div class="day-top-row"><span class="day-num day-num-other">' + (t + 1) + '</span></div></div>';
+    }
+    // Full row 6 = notes box
     gridHtml += '<div class="cal-notes-box">'
       + '<span class="cal-notes-label">Notes</span>'
       + '<div class="cal-notes-rules">'
@@ -149,14 +172,13 @@ function buildPageB(opts) {
       + '<div class="cal-notes-rule"></div>'
       + '</div>'
       + '</div>';
-  } else if (rowsNeeded < 6) {
-    // 5-row month: no trailing cells needed — grid sized to 5 rows below
+  } else {
+    // All 6 rows have current-month days — trailing cells get next-month day numbers
+    var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
+    for (var t = 0; t < trailing; t++) {
+      gridHtml += '<div class="cal-cell cal-empty"><div class="day-top-row"><span class="day-num day-num-other">' + (t + 1) + '</span></div></div>';
+    }
   }
-
-  // Dynamic grid-template-rows: 5-row months get taller cells, 6-row months get notes row
-  var gridRows = rowsNeeded <= 5
-    ? '8mm repeat(5,1fr)'
-    : '8mm repeat(6,1fr)';
 
   return '<div class="cal-page page-b">'
     + '<div class="page-b-layout">'
@@ -166,7 +188,7 @@ function buildPageB(opts) {
     // No plant name in calendar header
     + (recipientName ? '<div class="cal-header-recipient">' + esc(recipientName) + '\u2019s Garden Calendar</div>' : '')
     + '</div>'
-    + '<div class="cal-grid-full" style="grid-template-rows:' + gridRows + '">' + gridHtml + '</div>'
+    + '<div class="cal-grid-full">' + gridHtml + '</div>'
     + '<div class="cal-footer">'
     + '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
     + (climate ? '<span class="cal-footer-climate">' + esc(climate) + '</span>' : '')
@@ -198,7 +220,8 @@ var SHARED_CSS = [
   // height: (428 - 16 - 8 - 10) / 2 = 197mm
   // 16mm top safe zone (Gelato wire-o spec), 8mm bottom margin, 10mm inter-page gap
   // Stacked total: 16 + 197 + 3.285 + 6.715 + 197 + 6.715 = 426.715mm <= 428mm
-  '.cal-page{width:279.42mm;height:197mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:6.715mm auto;padding:0;}',
+  // margin shorthand avoided so .page-a margin-top override works correctly
+  '.cal-page{width:279.42mm;height:197mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin-top:6.715mm;margin-bottom:6.715mm;margin-left:auto;margin-right:auto;padding:0;}',
   '.cal-blank{width:305mm;height:428mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
   // page-a: 16mm top margin — Gelato wire-o binding safe zone from bleed edge
@@ -244,8 +267,8 @@ var SHARED_CSS = [
 
   // Garden tasks box
   '.tasks-box{flex-shrink:0;margin-top:2mm;}',
-  '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:2mm;font-style:italic;}',
-  '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);margin-bottom:2.5mm;}',
+  '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:4mm;font-style:italic;}',
+  '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);margin-bottom:4mm;}',
   '.tasks-lines{display:flex;flex-direction:column;gap:3.5mm;}',
   '.task-line{display:flex;align-items:center;gap:2mm;min-height:7mm;}',
   '.checkbox{font-size:8.5pt;color:var(--gold);flex-shrink:0;line-height:1;}',
@@ -311,9 +334,10 @@ var SHARED_CSS = [
   '.cv-provenance-block{flex:1;min-height:0;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(139,105,20,0.03);padding:2mm 2.5mm;display:flex;flex-direction:column;justify-content:center;overflow:hidden;}',
   '.cv-provenance-text{font-size:11pt;color:var(--muted);line-height:1.5;} .cv-provenance-text em{font-style:italic;color:var(--ink);}',
   '.cv-bottom-row{justify-content:space-between;}',
-  '.cv-etsy-row{display:flex;align-items:center;gap:3mm;padding:2mm 2.5mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(255,255,255,0.3);}',
+  '.cv-etsy-row{display:flex;align-items:center;padding:2mm 2.5mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:rgba(255,255,255,0.3);}',
+  '.cv-etsy-stack{display:flex;flex-direction:column;gap:1mm;min-width:0;overflow:hidden;}',
   '.cv-etsy-badge{font-family:"Playfair Display",serif;font-size:12pt;text-transform:uppercase;letter-spacing:0.1em;color:var(--rust);flex-shrink:0;}',
-  '.cv-etsy-url{font-family:"Crimson Pro",serif;font-size:15pt;color:var(--muted);font-style:italic;}',
+  '.cv-etsy-url{font-family:"Crimson Pro",serif;font-size:13pt;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
   '.cv-webapp-row{display:flex;align-items:center;gap:3.5mm;padding:3mm;background:var(--ink);border-radius:1mm;}',
   '.cv-webapp-qr{width:24mm;height:24mm;flex-shrink:0;border-radius:0.6mm;background:white;}',
   '.cv-webapp-title{font-family:"Playfair Display",serif;font-size:16pt;font-weight:600;color:var(--parchment);margin-bottom:1mm;}',
@@ -334,6 +358,7 @@ var SHARED_CSS = [
 
   // Notes box — spans full width in last row of 6-row months
   '.cal-notes-box{grid-column:1 / -1;border-right:0.3mm solid var(--border);border-bottom:0.3mm solid var(--border);background:var(--parchment);padding:2mm 3mm;display:flex;flex-direction:column;gap:0;}',
+  '.cal-notes-tall{grid-row:5 / 7;}',
   '.cal-notes-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:1.5mm;flex-shrink:0;}',
   '.cal-notes-rules{flex:1;display:flex;flex-direction:column;justify-content:space-around;}',
   '.cal-notes-rule{border-bottom:0.2mm solid var(--border);width:100%;}',
