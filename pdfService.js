@@ -463,7 +463,7 @@ async function buildFullHTML(order, apiKey, opts) {
       climateData:   climateData,
       startMonthIdx: startMonth,
       monthNames:    coverMonthNames,
-      personalMsg:   order.personalMsg || '',
+      personalMsg:   order.personalMsg || order.personalMessage || '',
       etsyUrl:       order.etsyUrl || ETSY_SHOP_URL,
     }, coverExtras)));
     console.log('[PDF] Cover page built OK');
@@ -598,7 +598,7 @@ async function buildFullHTMLFromState(orderId, order, opts) {
     climateData:   climateData,
     startMonthIdx: startMonth,
     monthNames:    coverMonthNames,
-    personalMsg:   order.personalMsg || '',
+    personalMsg:   order.personalMsg || order.personalMessage || '',
     etsyUrl:       order.etsyUrl || ETSY_SHOP_URL,
   }, coverExtras)));
 
