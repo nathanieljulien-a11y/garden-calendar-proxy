@@ -80,6 +80,12 @@ function getCommentary(plant) {
 }
 
 // ── Artwork ───────────────────────────────────────────────────────────────────
+// Display name overrides for plant keys that don't match their common name
+var PLANT_DISPLAY = {
+  lilyofthevalley: 'Lily of the Valley',
+  limetree:        'Lime Tree',
+};
+
 var ARTWORK_SOURCES = {
   'koehler': 'K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden',
   'edwards': 'Edwards\u2019 Botanical Register, 1815\u20131847 \u00b7 Public Domain',
@@ -901,11 +907,6 @@ function buildPageA(opts) {
   var climateData   = opts.climateData || null;
   var calendarName  = opts.calendarName || opts.recipientName || '';
 
-  // Display name overrides for keys that don't match their common name
-  var PLANT_DISPLAY = {
-    lilyofthevalley: 'Lily of the Valley',
-    limetree:        'Lime Tree',
-  };
   var plantDisplay = plant
     ? (PLANT_DISPLAY[plant] || (plant.charAt(0).toUpperCase() + plant.slice(1)))
     : monthName;
