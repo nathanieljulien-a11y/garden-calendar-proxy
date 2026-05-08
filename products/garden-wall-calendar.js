@@ -1061,8 +1061,7 @@ function buildCoverPage(opts) {
     + '<span class="cv-section-label">Your special dates &amp; holidays</span>'
     + '<div class="cv-dates-explain">'
     + '<p><strong>Birthdays &amp; anniversaries</strong> are marked on each monthly calendar page.</p>'
-    + '<p><strong>Holiday periods</strong> are shaded on each monthly calendar page. '
-    + 'Scan the QR code on the relevant month to load your holiday into your phone\'s calendar.</p>'
+    + '<p><strong>Holiday periods</strong> are shaded on each monthly calendar page.</p>'
     + '</div>'
     + '</div>';
 
