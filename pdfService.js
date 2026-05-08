@@ -17,6 +17,9 @@ var tpl       = require('./calendarTemplate.js');
 var fontMgr   = require('./downloadFonts.js');
 var products  = require('./products/index.js');
 
+// Etsy shop URL — set ETSY_SHOP_URL env var on Render before going live
+var ETSY_SHOP_URL = process.env.ETSY_SHOP_URL || 'www.etsy.com/shop/HobbyCalendar';
+
 // Download fonts at startup (async, non-blocking)
 var _fontsReady = false;
 var _fontDir    = fontMgr.FONT_DIR;
@@ -455,7 +458,7 @@ async function buildFullHTML(order, apiKey, opts) {
       startMonthIdx: startMonth,
       monthNames:    coverMonthNames,
       personalMsg:   order.personalMsg || '',
-      etsyUrl:       order.etsyUrl     || 'www.etsy.com/shop/HobbyCalendar',
+      etsyUrl:       order.etsyUrl || ETSY_SHOP_URL,
     }, coverExtras)));
     console.log('[PDF] Cover page built OK');
   } catch(coverErr) {
@@ -590,7 +593,7 @@ async function buildFullHTMLFromState(orderId, order, opts) {
     startMonthIdx: startMonth,
     monthNames:    coverMonthNames,
     personalMsg:   order.personalMsg || '',
-    etsyUrl:       order.etsyUrl     || 'www.etsy.com/shop/HobbyCalendar',
+    etsyUrl:       order.etsyUrl || ETSY_SHOP_URL,
   }, coverExtras)));
 
   // Month pages
