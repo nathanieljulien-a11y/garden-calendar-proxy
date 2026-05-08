@@ -177,11 +177,15 @@ var SHARED_CSS = [
   // Full bleed page: 305mm × 428mm (A3 trim 297×420mm + 4mm bleed)
   // Content box: 279.42mm × 195.57mm centred in each 305×209mm half-page slot
   // Blank full-sheet: 305mm × 428mm
-  '.cal-page{width:279.42mm;height:195.57mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:6.715mm auto;padding:0;}',
+  // height: (428 - 16 - 8 - 10) / 2 = 197mm
+  // 16mm top safe zone (Gelato wire-o spec), 8mm bottom margin, 10mm inter-page gap
+  // Stacked total: 16 + 197 + 3.285 + 6.715 + 197 + 6.715 = 426.715mm <= 428mm
+  '.cal-page{width:279.42mm;height:197mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin:6.715mm auto;padding:0;}',
   '.cal-blank{width:305mm;height:428mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
-  // 10mm white gap between page-a and page-b
-  '.page-a{margin-bottom:3.285mm;}',
+  // page-a: 16mm top margin — Gelato wire-o binding safe zone from bleed edge
+  // 10mm white gap between page-a and page-b (margin-bottom + page-b top margin)
+  '.page-a{margin-top:16mm;margin-bottom:3.285mm;}',
   // page-break-after on page-b ensures each month pair occupies exactly one full sheet
   '.page-b{page-break-after:always;}',
 
