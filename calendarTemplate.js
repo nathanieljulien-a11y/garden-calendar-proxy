@@ -141,36 +141,20 @@ function buildPageB(opts) {
   var row6HasDays = total > row6Start; // at least one current-month day in row 6
 
   if (!row5HasDays) {
-    // Rows 5 and 6 both empty — one tall unified notes box
-    gridHtml += '<div class="cal-notes-box cal-notes-tall">'
+    // Rows 5 and 6 both empty — one tall unified notes box spanning data rows 5+6
+    // Grid row 1 = header, so data row 5 = grid row 6, data row 6 = grid row 7
+    gridHtml += '<div class="cal-notes-box" style="grid-column:1 / -1;grid-row:6 / 8;">'
       + '<span class="cal-notes-label">Notes</span>'
-      + '<div class="cal-notes-rules">'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '</div>'
       + '</div>';
   } else if (!row6HasDays) {
-    // Row 6 empty — render trailing next-month day numbers on partial row 6 if any,
-    // then notes box for remaining cells. Actually per spec: if row 6 is entirely
-    // empty (no current-month days), replace entire row 6 with notes box.
-    // Row 5 has days so trailing cells on row 5 (if any) need next-month day numbers.
+    // Row 5 has days, row 6 entirely empty.
+    // Render trailing next-month fill cells on row 5, then notes box at data row 6 = grid row 7.
     var trailing = total % 7 === 0 ? 0 : 7 - (total % 7);
     for (var t = 0; t < trailing; t++) {
       gridHtml += '<div class="cal-cell cal-empty"><div class="day-top-row"><span class="day-num day-num-other">' + (t + 1) + '</span></div></div>';
     }
-    // Full row 6 = notes box
-    gridHtml += '<div class="cal-notes-box">'
+    gridHtml += '<div class="cal-notes-box" style="grid-column:1 / -1;grid-row:7 / 8;">'
       + '<span class="cal-notes-label">Notes</span>'
-      + '<div class="cal-notes-rules">'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '<div class="cal-notes-rule"></div>'
-      + '</div>'
       + '</div>';
   } else {
     // All 6 rows have current-month days — trailing cells get next-month day numbers
@@ -217,18 +201,18 @@ var SHARED_CSS = [
   // Full bleed page: 305mm × 428mm (A3 trim 297×420mm + 4mm bleed)
   // Content box: 279.42mm × 195.57mm centred in each 305×209mm half-page slot
   // Blank full-sheet: 305mm × 428mm
-  // height: (428 - 16 - 8 - 10) / 2 = 197mm
-  // 16mm top safe zone (Gelato wire-o spec), 8mm bottom margin, 10mm inter-page gap
-  // Stacked total: 16 + 197 + 3.285 + 6.715 + 197 + 6.715 = 426.715mm <= 428mm
+  // Gelato spec: safe area 16mm from top bleed edge (wire-o binding), 12mm from bottom bleed edge
+  // Month pages: available height = 428 - 16 - 12 = 400mm; inter-page gap 10mm; each half = (400-10)/2 = 195mm
   // margin shorthand avoided so .page-a margin-top override works correctly
-  '.cal-page{width:279.42mm;height:197mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin-top:6.715mm;margin-bottom:6.715mm;margin-left:auto;margin-right:auto;padding:0;}',
+  '.cal-page{width:279.42mm;height:195mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin-top:6.715mm;margin-bottom:6.715mm;margin-left:auto;margin-right:auto;padding:0;}',
   '.cal-blank{width:305mm;height:428mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
-  // page-a: 16mm top margin — Gelato wire-o binding safe zone from bleed edge
-  // 10mm white gap between page-a and page-b (margin-bottom + page-b top margin)
-  '.page-a{margin-top:16mm;margin-bottom:3.285mm;}',
-  // page-break-after on page-b ensures each month pair occupies exactly one full sheet
-  '.page-b{page-break-after:always;}',
+  // page-a: 16mm top (binding safe zone). Bottom 3.285mm + page-b top 6.715mm = 10mm inter-page gap.
+  // page-b: bottom margin 6.715mm → bleed edge distance = 6.715mm... adjusted below.
+  // Total stack: 16 + 195 + 3.285 + 6.715 + 195 + 12 = 428mm ✓
+  '.page-a{margin-top:16mm !important;margin-bottom:3.285mm;}',
+  // page-b bottom margin must be 12mm from bleed edge
+  '.page-b{page-break-after:always;margin-bottom:12mm !important;}',
 
   // ── PAGE A ──────────────────────────────────────────────────────────────
   // 50-50 split: left = 139.71mm, right = 139.71mm
@@ -267,8 +251,8 @@ var SHARED_CSS = [
 
   // Garden tasks box
   '.tasks-box{flex-shrink:0;margin-top:2mm;}',
-  '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:4mm;font-style:italic;}',
-  '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);margin-bottom:4mm;}',
+  '.tasks-intro{font-size:9.5pt;line-height:1.6;color:var(--ink);margin-bottom:2mm;font-style:italic;}',
+  '.tasks-question{font-size:9.5pt;font-weight:600;color:var(--ink);padding-top:2mm;margin-bottom:3mm;}',
   '.tasks-lines{display:flex;flex-direction:column;gap:3.5mm;}',
   '.task-line{display:flex;align-items:center;gap:2mm;min-height:7mm;}',
   '.checkbox{font-size:8.5pt;color:var(--gold);flex-shrink:0;line-height:1;}',
@@ -301,7 +285,8 @@ var SHARED_CSS = [
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
-  '.cv-cover{width:279.42mm;height:401.14mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin:6.715mm auto;padding:0;}',
+  // Cover: 428 - 16 (top) - 12 (bottom) = 400mm height
+  '.cv-cover{width:279.42mm;height:400mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin-top:16mm;margin-bottom:12mm;margin-left:auto;margin-right:auto;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
   '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
@@ -356,12 +341,9 @@ var SHARED_CSS = [
   // grid-template-rows set dynamically via inline style: 5 rows for tight months, 6 for longer ones
   '.cal-grid-full{flex:1;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:8mm repeat(6,1fr);min-height:0;border-left:0.3mm solid var(--border);border-top:0.3mm solid var(--border);}',
 
-  // Notes box — spans full width in last row of 6-row months
-  '.cal-notes-box{grid-column:1 / -1;border-right:0.3mm solid var(--border);border-bottom:0.3mm solid var(--border);background:var(--parchment);padding:2mm 3mm;display:flex;flex-direction:column;gap:0;}',
-  '.cal-notes-tall{grid-row:5 / 7;}',
-  '.cal-notes-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);margin-bottom:1.5mm;flex-shrink:0;}',
-  '.cal-notes-rules{flex:1;display:flex;flex-direction:column;justify-content:space-around;}',
-  '.cal-notes-rule{border-bottom:0.2mm solid var(--border);width:100%;}',
+  // Notes box — grid-column and grid-row set via inline style per instance
+  '.cal-notes-box{border-right:0.3mm solid var(--border);border-bottom:0.3mm solid var(--border);background:var(--parchment);padding:2mm 3mm;display:flex;flex-direction:column;}',
+  '.cal-notes-label{font-family:"Playfair Display",serif;font-size:6pt;text-transform:uppercase;letter-spacing:0.14em;color:var(--gold);flex-shrink:0;}',
 
   // Day name cells
   '.cal-dow{font-size:7pt;text-align:center;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:0.08em;display:flex;align-items:center;justify-content:center;border-right:0.3mm solid var(--border);border-bottom:0.3mm solid var(--border);background:rgba(139,105,20,0.04);}',
