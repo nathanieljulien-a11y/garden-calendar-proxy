@@ -18,7 +18,7 @@ const TOPIC_LABELS = {
   other:        'Other',
 };
 
-router.post('/contact', express.json(), async (req, res) => {
+router.post('/api/contact', express.json(), async (req, res) => {
   const { name, email, topic, token, message } = req.body || {};
 
   if (!email || typeof email !== 'string' || !email.includes('@')) {
