@@ -974,8 +974,8 @@ function buildPageA(opts) {
       + '</div>';
     if (inspoQrB64) {
       inspoHtml += '<div class="inspo-qr-col">'
-        + '<img src="' + inspoQrB64 + '" width="52" height="52" alt="Search QR"/>'
-        + '<div class="inspo-qr-lbl">Search \u2197</div>'
+        + '<img src="' + inspoQrB64 + '" width="52" height="52" alt="Visit QR"/>'
+        + '<div class="inspo-qr-lbl">Visit \u2197</div>'
         + '</div>';
     }
     inspoHtml += '</div></div>';
