@@ -35,8 +35,21 @@ async function _getAccessToken() {
   }
 
   var refreshToken = process.env.ETSY_REFRESH_TOKEN || '';
+
+  // Prefer token persisted to disk (rotated at runtime) over env var
+  try {
+    var diskPath  = process.env.RENDER_DISK_PATH || '/data';
+    var diskToken = require('fs').readFileSync(
+      require('path').join(diskPath, 'etsy-refresh-token.txt'),
+      'utf8'
+    ).trim();
+    if (diskToken) refreshToken = diskToken;
+  } catch(e) {
+    // File doesn't exist yet — use env var
+  }
+
   if (!refreshToken) {
-    throw new Error('ETSY_REFRESH_TOKEN not set — run etsy-oauth-helper.js to generate one');
+    throw new Error('ETSY_REFRESH_TOKEN not set — run OAuth flow to generate one');
   }
 
   var body = [
@@ -56,10 +69,20 @@ async function _getAccessToken() {
   _accessToken       = data.access_token;
   _accessTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000;
 
-  // Etsy rotates refresh tokens — persist the new one if provided
+  // Etsy rotates refresh tokens — persist the new one to disk immediately
+  // so the next refresh cycle reads it back without manual intervention
   if (data.refresh_token && data.refresh_token !== refreshToken) {
-    console.log('[etsy] Refresh token rotated — update ETSY_REFRESH_TOKEN env var with:', data.refresh_token);
-    // We log it but cannot write env vars at runtime — operator must update Render
+    try {
+      var diskPath = process.env.RENDER_DISK_PATH || '/data';
+      require('fs').writeFileSync(
+        require('path').join(diskPath, 'etsy-refresh-token.txt'),
+        data.refresh_token,
+        'utf8'
+      );
+      console.log('[etsy] Refresh token rotated and saved to disk');
+    } catch(e) {
+      console.error('[etsy] Failed to save rotated refresh token:', e.message);
+    }
   }
 
   console.log('[etsy] Access token refreshed, expires in', Math.round((data.expires_in || 3600) / 60), 'min');
