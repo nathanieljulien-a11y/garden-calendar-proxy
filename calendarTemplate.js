@@ -52,6 +52,7 @@ function buildPageB(opts) {
   var holidays      = opts.holidays || [];
   var climate       = opts.climate || '';
   var recipientName = opts.recipientName || '';
+  var calendarName  = opts.calendarName || '';
   var appQrB64      = opts.appQrB64 || '';
 
   // Key date map — pure string parsing, no Date() timezone issues
@@ -174,8 +175,13 @@ function buildPageB(opts) {
     + '</div>'
     + '<div class="cal-grid-full">' + gridHtml + '</div>'
     + '<div class="cal-footer">'
-    + '<span class="cal-footer-text">The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app</span>'
-    + (climate ? '<span class="cal-footer-climate">' + esc(climate) + '</span>' : '')
+    + '<span class="cal-footer-left">'
+    + (calendarName ? esc(calendarName) + (climate ? ' \u00b7 ' : '') : '')
+    + (climate ? esc(climate) : '')
+    + '</span>'
+    + '<span class="cal-footer-right">'
+    + 'The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app'
+    + '</span>'
     + (appQrB64 ? '<img class="cal-footer-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
     + '</div>'
     + '</div>'
@@ -366,9 +372,9 @@ var SHARED_CSS = [
   '.event-label{font-size:6pt;color:var(--rust);line-height:1.2;}',
 
   // Footer
-  '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
-  '.cal-footer-text{font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
-  '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
+  '.cal-footer{display:flex;align-items:center;gap:2mm;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
+  '.cal-footer-left{flex:1;font-size:5.5pt;color:var(--muted);opacity:0.7;font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+  '.cal-footer-right{flex-shrink:0;font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
   '.cal-footer-qr{width:14mm;height:14mm;border:0.3mm solid var(--border);border-radius:0.8mm;padding:0.3mm;background:white;flex-shrink:0;}',
 ].join('\n');
 
