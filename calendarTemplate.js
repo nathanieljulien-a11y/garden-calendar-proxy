@@ -199,20 +199,17 @@ var SHARED_CSS = [
   'body{font-family:"Crimson Pro",Georgia,serif;color:var(--ink);background:white;margin:0;padding:0;}',
 
   // Full bleed page: 305mm × 428mm (A3 trim 297×420mm + 4mm bleed)
-  // Content box: 279.42mm × 195.57mm centred in each 305×209mm half-page slot
-  // Blank full-sheet: 305mm × 428mm
-  // Gelato spec: safe area 16mm from top bleed edge (wire-o binding), 12mm from bottom bleed edge
-  // Month pages: available height = 428 - 16 - 12 = 400mm; inter-page gap 10mm; each half = (400-10)/2 = 195mm
-  // margin shorthand avoided so .page-a margin-top override works correctly
-  '.cal-page{width:279.42mm;height:195mm;position:relative;overflow:hidden;background:var(--parchment);display:block;margin-top:6.715mm;margin-bottom:6.715mm;margin-left:auto;margin-right:auto;padding:0;}',
+  // Gelato safe zones: 16mm from top bleed edge (wire-o binding), 12mm from bottom
+  // Each month = one .cal-sheet: 428mm tall, padding enforces safe zones.
+  // Two half-pages inside, each fills half the available space with 10mm gap between.
+  // Available inner height: 428 - 16 - 12 = 400mm; gap 10mm; each half = 195mm.
+  '.cal-sheet{width:305mm;height:428mm;page-break-after:always;display:flex;flex-direction:column;padding-top:16mm;padding-bottom:12mm;background:white;box-sizing:border-box;}',
+  '.cal-page{width:279.42mm;flex:1;position:relative;overflow:hidden;background:var(--parchment);display:block;margin-left:auto;margin-right:auto;padding:0;}',
   '.cal-blank{width:305mm;height:428mm;background:white;page-break-after:always;margin:0;padding:0;}',
 
-  // page-a: 16mm top (binding safe zone). Bottom 3.285mm + page-b top 6.715mm = 10mm inter-page gap.
-  // page-b: bottom margin 6.715mm → bleed edge distance = 6.715mm... adjusted below.
-  // Total stack: 16 + 195 + 3.285 + 6.715 + 195 + 12 = 428mm ✓
-  '.page-a{margin-top:16mm !important;margin-bottom:3.285mm;}',
-  // page-b bottom margin must be 12mm from bleed edge
-  '.page-b{page-break-after:always;margin-bottom:12mm !important;}',
+  // 10mm white gap between page-a and page-b
+  '.page-a{margin-bottom:10mm;}',
+  '.page-b{}'  ,
 
   // ── PAGE A ──────────────────────────────────────────────────────────────
   // 50-50 split: left = 139.71mm, right = 139.71mm
@@ -285,8 +282,10 @@ var SHARED_CSS = [
   '.cv-chart-svg{flex:1;min-height:0;overflow:hidden;}',
   '.cv-chart-empty{font-size:11pt;color:var(--muted);font-style:italic;padding:3mm;}',
   '.cv-chart-source{font-size:7pt;color:var(--muted);font-style:italic;text-align:right;padding-top:0.5mm;}',
-  // Cover: 428 - 16 (top) - 12 (bottom) = 400mm height
-  '.cv-cover{width:279.42mm;height:400mm;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);page-break-before:always;page-break-after:always;margin-top:16mm;margin-bottom:12mm;margin-left:auto;margin-right:auto;padding:0;}',
+  // Cover sheet wrapper — same safe zones as month sheets
+  '.cv-sheet{width:305mm;height:428mm;page-break-after:always;display:flex;flex-direction:column;padding-top:16mm;padding-bottom:12mm;background:white;box-sizing:border-box;}',
+  // Cover: fills the available space inside the sheet wrapper (400mm)
+  '.cv-cover{width:279.42mm;flex:1;display:flex;flex-direction:row;overflow:hidden;background:var(--parchment);margin-left:auto;margin-right:auto;padding:0;}',
   '.cv-thumb-panel{width:50%;height:100%;flex-shrink:0;background:#F2ECE1;border-right:0.4mm solid var(--border);padding:5mm;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(6,1fr);gap:2mm;overflow:hidden;}',
   '.cv-thumb-item{display:flex;flex-direction:column;gap:0.8mm;min-height:0;overflow:hidden;}',
   '.cv-thumb-img{flex:1;min-height:0;border:0.3mm solid var(--border);overflow:hidden;display:flex;align-items:center;justify-content:center;}',
@@ -398,6 +397,36 @@ var PROOF_CSS = [
 // opts.proof — if true, injects PREVIEW ONLY watermark on all page-b pages
 function buildDocument(pages, opts) {
   var proofCss = (opts && opts.proof) ? PROOF_CSS : '';
+
+  // pages array: [cover, pageA_1, pageB_1, pageA_2, pageB_2, ..., blank]
+  // Wrap cover in cv-sheet, each A+B pair in cal-sheet, blank stays as-is.
+  var html = '';
+  var i = 0;
+
+  // Cover (index 0)
+  if (pages[i]) {
+    html += '<div class="cv-sheet">' + pages[i] + '</div>\n';
+    i++;
+  }
+
+  // Month pairs
+  while (i < pages.length - 1) {
+    var pageA = pages[i];
+    var pageB = pages[i + 1];
+    // Check it's actually a pair (not the blank page)
+    if (pageA && pageB && pageB.indexOf('cal-blank') === -1) {
+      html += '<div class="cal-sheet">' + pageA + pageB + '</div>\n';
+      i += 2;
+    } else {
+      break;
+    }
+  }
+
+  // Blank page (last)
+  if (pages[i]) {
+    html += pages[i] + '\n';
+  }
+
   return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><style>\n'
     + '* { box-sizing:border-box; margin:0; padding:0; }\n'
     + '@page { size:305mm 428mm; margin:0; }\n'
@@ -405,7 +434,7 @@ function buildDocument(pages, opts) {
     + SHARED_CSS + '\n'
     + proofCss + '\n'
     + '</style></head><body>\n'
-    + pages.join('\n')
+    + html
     + '\n</body></html>';
 }
 
