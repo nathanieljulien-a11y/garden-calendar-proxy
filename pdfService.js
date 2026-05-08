@@ -161,14 +161,16 @@ function geocodeCity(city) {
           var f = d.features && d.features[0];
           if (!f) { resolve(null); return; }
           var props = f.properties || {};
-          var parts = [props.name || props.city];
-          if (props.state && props.state !== props.name) parts.push(props.state);
+          // Prefer props.city (the place) over props.name (which may be a POI like "Age UK Wandsworth")
+          var placeName = props.city || props.locality || props.town || props.village || props.name || '';
+          var parts = [placeName];
+          if (props.state && props.state !== placeName) parts.push(props.state);
           if (props.country) parts.push(props.country);
           var displayName = parts.filter(Boolean).join(', ');
           var cc     = (props.countrycode || '').toLowerCase();
           var state  = (props.state  || '').toLowerCase();
           var county = (props.county || '').toLowerCase();
-          var name   = (props.name   || '').toLowerCase();
+          var name   = placeName.toLowerCase();
           var userRegion = _deriveUserRegion(cc, state, county, name);
           console.log('[PDF] Geocode userRegion: ' + userRegion + ' (cc=' + cc + ')');
           resolve({
