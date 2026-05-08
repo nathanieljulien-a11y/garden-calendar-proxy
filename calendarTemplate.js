@@ -52,14 +52,6 @@ function buildPageB(opts) {
   var holidays      = opts.holidays || [];
   var climate       = opts.climate || '';
   var recipientName = opts.recipientName || '';
-  var monthIcsB64   = opts.monthIcsB64 || '';
-  // Calculate grid layout for QR placement
-  var _firstDow2    = getFirstDayMon(year, monthIdx);
-  var _daysInMonth2 = getDaysInMonth(year, monthIdx);
-  var _totalCells   = _firstDow2 + _daysInMonth2;
-  var _rowsNeeded   = Math.ceil(_totalCells / 7);
-  var _trailing     = _totalCells % 7 === 0 ? 0 : 7 - (_totalCells % 7);
-  // QR goes in last cell: either last trailing cell or last blank-row cell
 
   // Key date map — pure string parsing, no Date() timezone issues
   var keyDateMap = {};
@@ -143,21 +135,10 @@ function buildPageB(opts) {
   var trailingCount = totalCells - total; // trailing + blank row cells
 
   for (var t = 0; t < trailingCount; t++) {
-    var isLast = (t === trailingCount - 1);
     var nextDay = t < trailing ? (t + 1) : null; // null = blank-row cell
-    if (isLast && monthIcsB64) {
-      // Last cell: show QR code for holiday(s) starting this month
-      gridHtml += '<div class="cal-cell cal-empty cal-ics-cell">'
-        + '<div class="cal-ics-qr-wrap">'
-        + '<img src="' + monthIcsB64 + '" class="cal-ics-qr" alt="Add to calendar"/>'
-        + '<span class="cal-ics-lbl">Add to calendar</span>'
-        + '</div>'
-        + '</div>';
-    } else {
-      gridHtml += '<div class="cal-cell cal-empty">'
-        + (nextDay ? '<div class="day-top-row"><span class="day-num day-num-other">' + nextDay + '</span></div>' : '')
-        + '</div>';
-    }
+    gridHtml += '<div class="cal-cell cal-empty">'
+      + (nextDay ? '<div class="day-top-row"><span class="day-num day-num-other">' + nextDay + '</span></div>' : '')
+      + '</div>';
   }
 
   return '<div class="cal-page page-b">'
@@ -352,10 +333,6 @@ var SHARED_CSS = [
 
   // Footer
   '.cal-footer{display:flex;justify-content:space-between;align-items:center;padding:1.5mm 4mm;border-top:0.3mm solid var(--border);flex-shrink:0;}',
-  '.cal-ics-cell{display:flex;align-items:center;justify-content:center;padding:1mm;background:rgba(139,105,20,0.03);}',
-  '.cal-ics-qr-wrap{display:flex;flex-direction:column;align-items:center;gap:0.8mm;}',
-  '.cal-ics-qr{width:18mm;height:18mm;border:0.3mm solid var(--border);border-radius:0.8mm;background:white;}',
-  '.cal-ics-lbl{font-size:5pt;color:var(--muted);font-style:italic;text-align:center;line-height:1.3;}',
   '.cal-footer-text{font-size:5.5pt;color:var(--muted);opacity:0.6;letter-spacing:0.04em;}',
   '.cal-footer-climate{font-size:5.5pt;color:var(--muted);font-style:italic;opacity:0.7;}',
 ].join('\n');
@@ -396,83 +373,11 @@ function buildDocument(pages, opts) {
     + '\n</body></html>';
 }
 
-// ── ICS generation ────────────────────────────────────────────────────────────
-// Generates a data:text/calendar URI encoding an ICS calendar file.
-// events: mixed array — each item either:
-//   {label, date}              — single-day key date
-//   {label, startDate, endDate} — multi-day holiday
-// Labels truncated to 30 chars. Returns '' if events is empty.
-function buildICS(events) {
-  if (!events || !events.length) return '';
-  var lines = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//Garden Calendar//EN',
-  ];
-  for (var i = 0; i < events.length; i++) {
-    var ev  = events[i];
-    var lbl = String(ev.label || '').slice(0, 30).replace(/[\r\n,;\\]/g, ' ');
-    var uid = (i + 1) + '@gc';
-    if (ev.date) {
-      // Single-day key date with 1-week + on-day reminders
-      lines.push('BEGIN:VEVENT', 'UID:' + uid,
-        'DTSTART;VALUE=DATE:' + ev.date.replace(/-/g, ''),
-        'SUMMARY:' + lbl,
-        'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
-        'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
-        'END:VEVENT');
-    } else {
-      // Multi-day holiday with 1-week + on-day (start) reminders
-      lines.push('BEGIN:VEVENT', 'UID:' + uid,
-        'DTSTART;VALUE=DATE:' + (ev.startDate || '').replace(/-/g, ''),
-        'DTEND;VALUE=DATE:'   + _isoDatePlusOne(ev.endDate),
-        'SUMMARY:' + lbl,
-        'BEGIN:VALARM', 'TRIGGER:-P7D', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
-        'BEGIN:VALARM', 'TRIGGER:PT0S', 'ACTION:DISPLAY', 'DESCRIPTION:Reminder', 'END:VALARM',
-        'END:VEVENT');
-    }
-  }
-  lines.push('END:VCALENDAR');
-  // data: URI triggers full calendar file import on phone — all events at once
-  return 'data:text/calendar;charset=utf-8,' + encodeURIComponent(lines.join('\n'));
-}
-
-// Build combined ICS for one calendar month.
-// Holidays STARTING in this calendar month only.
-// Key dates are printed on the grid — no QR needed for them.
-// Returns '' when no holiday starts this month (no QR rendered).
-function buildMonthICS(monthIdx, year, keyDates, holidays) {
-  var events = [];
-  (holidays || []).forEach(function(h) {
-    if (!h.startDate) return;
-    var p = h.startDate.split('-');
-    if (parseInt(p[0],10) === year && (parseInt(p[1],10)-1) === monthIdx)
-      events.push(h);
-  });
-  return buildICS(events);
-}
-
-// Add one day to an ISO date string (YYYY-MM-DD) — pure arithmetic, no Date() timezone issues
-function _isoDatePlusOne(isoStr) {
-  if (!isoStr) return '';
-  var p   = isoStr.split('-');
-  var y   = parseInt(p[0], 10);
-  var m   = parseInt(p[1], 10);
-  var d   = parseInt(p[2], 10) + 1;
-  var daysInM = [0,31,28,31,30,31,30,31,31,30,31,30,31];
-  if (y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0)) daysInM[2] = 29;
-  if (d > daysInM[m]) { d = 1; m++; }
-  if (m > 12)         { m = 1; y++; }
-  return y + ('0'+m).slice(-2) + ('0'+d).slice(-2);
-}
-
 module.exports = {
   buildPageB:     buildPageB,
   buildBlankPage: buildBlankPage,
   buildDocument:  buildDocument,
   setFontDir:     setFontDir,
-  buildICS:       buildICS,
-  buildMonthICS:  buildMonthICS,
   SHARED_CSS:     SHARED_CSS,
   MONTH_NAMES:    MONTH_NAMES,
 };
