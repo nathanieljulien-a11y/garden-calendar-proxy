@@ -7,6 +7,11 @@ const app    = express();
 const PORT   = process.env.PORT || 3001;
 const API_KEY       = process.env.ANTHROPIC_API_KEY;
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+// Additional origins always allowed — order form is a separate Vercel app
+const ALLOWED_ORIGINS = [
+  ALLOWED_ORIGIN,
+  'https://garden-calendar-order-form.vercel.app',
+].filter(o => o && o !== '*');
 const DAILY_GEN_CAP = parseInt(process.env.DAILY_GEN_CAP  || '30');
 const IP_HOURLY_CAP = parseInt(process.env.IP_HOURLY_CAP  || '10');
 const IP_DAILY_GEN  = parseInt(process.env.IP_DAILY_GEN   || '3');
@@ -22,7 +27,7 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // Handle CORS — must come before all routes
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowed = ALLOWED_ORIGIN === '*' || origin === ALLOWED_ORIGIN;
+  const allowed = ALLOWED_ORIGIN === '*' || ALLOWED_ORIGINS.indexOf(origin) !== -1;
   if (allowed && origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (ALLOWED_ORIGIN === '*') {
