@@ -551,6 +551,110 @@ app.get('/api/artwork-list', (req, res) => {
 
 
 
+// ── Etsy OAuth — one-time use, remove both endpoints after token obtained ─────
+// Scopes: transactions_r (read orders) + shops_r shops_w (send buyer messages)
+// Flow:
+//   1. Visit /api/etsy-oauth-start → redirects to Etsy authorisation page
+//   2. Etsy redirects back to /api/etsy-oauth-callback with ?code=...
+//   3. Callback exchanges code for tokens, displays refresh token in browser
+//   4. Update ETSY_REFRESH_TOKEN in Render env vars
+//   5. Remove both endpoints from server.js
+
+let _etsyOauthVerifier = null;
+const ETSY_OAUTH_REDIRECT = 'https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback';
+
+app.get('/api/etsy-oauth-start', (req, res) => {
+  const apiKey = process.env.ETSY_API_KEY;
+  if (!apiKey) return res.status(500).send('ETSY_API_KEY not set on server');
+
+  const crypto = require('crypto');
+  const verifier = crypto.randomBytes(64)
+    .toString('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  const challenge = crypto.createHash('sha256')
+    .update(verifier)
+    .digest('base64')
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  _etsyOauthVerifier = verifier;
+
+  const authUrl = 'https://www.etsy.com/oauth/connect?' + new URLSearchParams({
+    response_type:         'code',
+    redirect_uri:          ETSY_OAUTH_REDIRECT,
+    scope:                 'transactions_r shops_r shops_w',
+    client_id:             apiKey,
+    state:                 'gc',
+    code_challenge_method: 'S256',
+    code_challenge:        challenge,
+  }).toString();
+
+  res.redirect(authUrl);
+});
+
+app.get('/api/etsy-oauth-callback', async (req, res) => {
+  const code = req.query.code;
+
+  if (!code) {
+    const qs = JSON.stringify(req.query, null, 2);
+    console.error('[etsy-oauth] Callback received no code. Query params:', qs);
+    return res.status(400).send(
+      '<p>Missing code parameter. Etsy sent:</p><pre>' + qs + '</pre>' +
+      '<p><a href="/api/etsy-oauth-start">Start again</a></p>'
+    );
+  }
+  if (!_etsyOauthVerifier) return res.status(400).send(
+    '<p>No verifier found — server may have restarted. <a href="/api/etsy-oauth-start">Start again</a></p>'
+  );
+
+  const apiKey = process.env.ETSY_API_KEY;
+  if (!apiKey) return res.status(500).send('ETSY_API_KEY not set on server');
+
+  try {
+    const body = new URLSearchParams({
+      grant_type:    'authorization_code',
+      client_id:     apiKey,
+      redirect_uri:  ETSY_OAUTH_REDIRECT,
+      code:          code,
+      code_verifier: _etsyOauthVerifier,
+    }).toString();
+
+    const tokenRes = await fetch('https://api.etsy.com/v3/public/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent':   'GardenCalendar/1.0',
+      },
+      body,
+    });
+
+    const data = await tokenRes.json();
+    _etsyOauthVerifier = null;
+
+    if (!data.refresh_token) {
+      console.error('[etsy-oauth] Token exchange failed:', JSON.stringify(data));
+      return res.status(502).send('<pre>Token exchange failed:\n' + JSON.stringify(data, null, 2) + '</pre>');
+    }
+
+    console.log('[etsy-oauth] SUCCESS — update ETSY_REFRESH_TOKEN in Render:');
+    console.log('[etsy-oauth] ETSY_REFRESH_TOKEN=' + data.refresh_token);
+
+    res.send(`
+      <h2>✅ Etsy OAuth successful</h2>
+      <p>Scopes granted: <strong>transactions_r shops_r shops_w</strong></p>
+      <p>Update <strong>ETSY_REFRESH_TOKEN</strong> in Render env vars with this value:</p>
+      <pre style="background:#f4f4f4;padding:16px;word-break:break-all">${data.refresh_token}</pre>
+      <p><strong>Next steps:</strong></p>
+      <ol>
+        <li>Replace ETSY_REFRESH_TOKEN in Render with the value above</li>
+        <li>Remove both <code>/api/etsy-oauth-start</code> and <code>/api/etsy-oauth-callback</code> from server.js</li>
+      </ol>
+    `);
+  } catch (e) {
+    console.error('[etsy-oauth] Error:', e.message);
+    res.status(500).send('OAuth error: ' + e.message);
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Garden Calendar proxy running on port ${PORT}`);
