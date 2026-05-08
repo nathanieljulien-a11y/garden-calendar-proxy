@@ -42,8 +42,8 @@ check "GET /api/health → ok" "$R" "ok"
 
 # ── Geocoding ─────────────────────────────────────────────────────────────────
 
-R=$(curl -sf "$BACKEND/api/geocode?city=London" || echo "FAIL")
-check "GET /api/geocode?city=London → lat present" "$R" "lat"
+R=$(curl -sf "$BACKEND/api/geocode?q=London" || echo "FAIL")
+check "GET /api/geocode?q=London → lat present" "$R" "lat"
 
 # ── Credits endpoint ─────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ fi
 
 R=$(curl -sf -X POST "$BACKEND/api/contact" \
   -H "Content-Type: application/json" \
-  -d '{"name":"Smoke Test","email":"smoke@test.invalid","topic":"feedback","message":"Automated smoke test — ignore"}' \
+  -d '{"name":"Smoke Test","email":"smoke@example.com","topic":"feedback","message":"Automated smoke test — ignore"}' \
   || echo "FAIL")
 check "POST /api/contact → accepted" "$R" "ok\|accepted\|sent"
 
