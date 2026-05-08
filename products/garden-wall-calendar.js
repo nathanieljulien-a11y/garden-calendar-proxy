@@ -901,7 +901,14 @@ function buildPageA(opts) {
   var climateData   = opts.climateData || null;
   var calendarName  = opts.calendarName || opts.recipientName || '';
 
-  var plantDisplay = plant ? (plant.charAt(0).toUpperCase() + plant.slice(1)) : monthName;
+  // Display name overrides for keys that don't match their common name
+  var PLANT_DISPLAY = {
+    lilyofthevalley: 'Lily of the Valley',
+    limetree:        'Lime Tree',
+  };
+  var plantDisplay = plant
+    ? (PLANT_DISPLAY[plant] || (plant.charAt(0).toUpperCase() + plant.slice(1)))
+    : monthName;
   var commentary   = getCommentary(plant);
   var quote        = QUOTES[monthIdx % QUOTES.length];
   var taskText     = MONTHLY_TASKS[monthIdx] || '';
@@ -1034,7 +1041,9 @@ function buildCoverPage(opts) {
   // Thumbnail grid
   var thumbsHtml = '';
   for (var i = 0; i < 12; i++) {
-    var plantName = plants[i]    ? (plants[i].charAt(0).toUpperCase() + plants[i].slice(1)) : '';
+    var plantName = plants[i]
+      ? (PLANT_DISPLAY[plants[i]] || (plants[i].charAt(0).toUpperCase() + plants[i].slice(1)))
+      : '';
     var monthName = monthNames[i] || '';
     var art       = artworks[i]   || '';
     thumbsHtml += '<div class="cv-thumb-item">'
