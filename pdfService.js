@@ -151,29 +151,26 @@ function _gardenCompatible(userRegion, gardenRegion) {
 function geocodeCity(city) {
   return new Promise(function(resolve) {
     if (!city) { resolve(null); return; }
-    var url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(city) + '&limit=1&lang=en';
+    // Strip trailing country/region suffixes that confuse Photon into returning POIs
+    // e.g. "Wandsworth, UK" → "Wandsworth", "Bath, England" → "Bath"
+    var q = city.replace(/,?\s*(uk|gb|england|scotland|wales|northern ireland|united kingdom|great britain)$/i, '').trim();
+    var url = 'https://photon.komoot.io/api/?q=' + encodeURIComponent(q) + '&limit=5&lang=en';
     https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
       res.on('data', function(c) { data += c; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          var f = d.features && d.features[0];
-          if (!f) { resolve(null); return; }
+          var features = d.features || [];
+          if (!features.length) { resolve(null); return; }
+          // Prefer osm_key=place results over POIs
+          var placeKeys = ['place', 'boundary', 'natural', 'landuse'];
+          var f = features.find(function(feat) {
+            var k = ((feat.properties || {}).osm_key || '').toLowerCase();
+            return placeKeys.indexOf(k) !== -1;
+          }) || features[0];
           var props = f.properties || {};
-          // Use props.name as the primary display name (it's the searched place name).
-          // Guard against POI results (amenity, shop, office etc.) by checking osm_key —
-          // if Photon returns a non-place feature, fall back to props.city/locality instead.
-          var osmKey = (props.osm_key || '').toLowerCase();
-          var isPoi = osmKey === 'amenity' || osmKey === 'shop' || osmKey === 'office'
-            || osmKey === 'tourism' || osmKey === 'leisure' || osmKey === 'building';
-          var placeName = isPoi
-            ? (props.city || props.locality || props.town || props.village || props.name || '')
-            : (props.name || props.city || props.locality || '');
-          var parts = [placeName];
-          if (props.state && props.state !== placeName) parts.push(props.state);
-          if (props.country) parts.push(props.country);
-          var displayName = parts.filter(Boolean).join(', ');
+          var placeName = props.name || props.district || props.city || props.locality || '';
           var cc     = (props.countrycode || '').toLowerCase();
           var state  = (props.state  || '').toLowerCase();
           var county = (props.county || '').toLowerCase();
@@ -183,7 +180,7 @@ function geocodeCity(city) {
           resolve({
             lat: f.geometry.coordinates[1],
             lng: f.geometry.coordinates[0],
-            displayName: displayName,
+            displayName: city.trim(), // use user's original input as display label
             userRegion:  userRegion,
           });
         } catch(e) { resolve(null); }
