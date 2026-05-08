@@ -595,9 +595,16 @@ app.get('/api/etsy-oauth-start', (req, res) => {
 // Step 2 — receive code from Etsy, exchange for tokens
 app.get('/api/etsy-oauth-callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.status(400).send(
-    '<p>Missing code parameter. Go back and visit <a href="/api/etsy-oauth-start">/api/etsy-oauth-start</a> to begin the flow.</p>'
-  );
+
+  // Show everything Etsy sent back — helps diagnose errors
+  if (!code) {
+    const qs = JSON.stringify(req.query, null, 2);
+    console.error('[etsy-oauth] Callback received no code. Query params:', qs);
+    return res.status(400).send(
+      '<p>Missing code parameter. Etsy sent:</p><pre>' + qs + '</pre>' +
+      '<p><a href="/api/etsy-oauth-start">Start again</a></p>'
+    );
+  }
   if (!_etsyOauthVerifier) return res.status(400).send(
     '<p>No verifier found — the server may have restarted. Visit <a href="/api/etsy-oauth-start">/api/etsy-oauth-start</a> to restart the flow.</p>'
   );
