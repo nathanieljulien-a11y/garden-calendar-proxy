@@ -40,6 +40,9 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Health check ──────────────────────────────────────────────────────────────
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
 // Body limit raised to 64kb — calendar prompts with full climate context can reach ~8-10kb
 // Stripe webhook route must receive raw body for signature verification — exclude it here
 app.use((req, res, next) => {
