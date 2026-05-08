@@ -549,6 +549,61 @@ app.get('/api/artwork-list', (req, res) => {
   }
 });
 
+// ── Etsy OAuth callback — one-time use, remove after token obtained ───────────
+// 1. Set redirect URI in Etsy developer dashboard to:
+//    https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback
+// 2. Visit the auth URL (see OPERATIONS.md) in your browser
+// 3. Etsy redirects here — token is printed to Render logs + shown in browser
+// 4. Copy ETSY_REFRESH_TOKEN to Render env vars, then remove this endpoint
+app.get('/api/etsy-oauth-callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send('Missing code parameter');
+
+  const apiKey = process.env.ETSY_API_KEY;
+  if (!apiKey) return res.status(500).send('ETSY_API_KEY not set on server');
+
+  const REDIRECT_URI = 'https://garden-calendar-proxy.onrender.com/api/etsy-oauth-callback';
+
+  try {
+    const body = new URLSearchParams({
+      grant_type:   'authorization_code',
+      client_id:    apiKey,
+      redirect_uri: REDIRECT_URI,
+      code:         code,
+    }).toString();
+
+    const tokenRes = await fetch('https://api.etsy.com/v3/public/oauth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent':   'GardenCalendar/1.0',
+      },
+      body,
+    });
+
+    const data = await tokenRes.json();
+
+    if (!data.refresh_token) {
+      console.error('[etsy-oauth] Token exchange failed:', JSON.stringify(data));
+      return res.status(502).send('<pre>Token exchange failed:\n' + JSON.stringify(data, null, 2) + '</pre>');
+    }
+
+    console.log('[etsy-oauth] ✅ SUCCESS — add this to Render env vars:');
+    console.log('[etsy-oauth] ETSY_REFRESH_TOKEN=' + data.refresh_token);
+
+    res.send(`
+      <h2>✅ Etsy OAuth successful</h2>
+      <p>Copy this value into Render as <strong>ETSY_REFRESH_TOKEN</strong>:</p>
+      <pre style="background:#f4f4f4;padding:16px;word-break:break-all">${data.refresh_token}</pre>
+      <p>Access token (short-lived, not needed):<br><small>${data.access_token}</small></p>
+      <p><strong>Done — you can remove the /api/etsy-oauth-callback endpoint from server.js.</strong></p>
+    `);
+  } catch (e) {
+    console.error('[etsy-oauth] Error:', e.message);
+    res.status(500).send('OAuth error: ' + e.message);
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`Garden Calendar proxy running on port ${PORT}`);
