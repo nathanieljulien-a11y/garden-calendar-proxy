@@ -610,7 +610,7 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
       + excludeClause
       + '\n\nThe highlight should mention something specific happening in that garden in ' + monthName + '.'
       + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after the JSON object:'
-      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null","website":"Official website URL for this garden if known, else null"}';
+      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
 
     var body = JSON.stringify({
       model:      'claude-haiku-4-5-20251001',
@@ -850,15 +850,8 @@ async function buildSharedState(order, geo, apiKey, compressToJpegDataUri, makeQ
 
   var inspoQrB64s = await Promise.all(inspos.map(function(ins) {
     if (!ins || !ins.name) return Promise.resolve('');
-    var directUrl;
-    if (ins.wikipedia) {
-      directUrl = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(ins.wikipedia.replace(/ /g, '_'));
-    } else if (ins.website) {
-      directUrl = ins.website;
-    } else {
-      directUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
-    }
-    return makeQrB64(directUrl);
+    var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
+    return makeQrB64(searchUrl);
   }));
   console.log('[garden] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
@@ -994,12 +987,6 @@ function buildPageA(opts) {
     + '<div class="quote-text">\u201c' + esc(quote.text) + '\u201d</div>'
     + '<div class="quote-attr">\u2014\u00a0' + esc(quote.author) + '</div>'
     + '</div>'
-    + (appQrB64
-        ? '<div class="footer-qr-col">'
-          + '<div class="qr-label">Your digital garden calendar</div>'
-          + '<img src="' + appQrB64 + '" width="52" height="52" alt="App QR"/>'
-          + '</div>'
-        : '')
     + '</div>';
 
   return '<div class="cal-page page-a">'
