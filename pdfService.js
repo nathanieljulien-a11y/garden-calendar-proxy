@@ -486,9 +486,6 @@ async function buildFullHTML(order, apiKey, opts) {
     if (monthKeyDates.length) console.log('[PDF] Month', mName, mYear, '- keyDates:', JSON.stringify(monthKeyDates));
     if (monthHolidays.length) console.log('[PDF] Month', mName, mYear, '- holidays:', JSON.stringify(monthHolidays));
 
-    var monthIcsStr = tpl.buildMonthICS(mIdx, mYear, keyDates, holidays);
-    var monthIcsB64 = monthIcsStr ? await makeQrB64(monthIcsStr, 'M') : '';
-
     // Merge generic month fields with product-specific content
     var productContent = product.buildMonthContent(j, order, sharedState);
     var monthOpts = Object.assign({
@@ -500,7 +497,6 @@ async function buildFullHTML(order, apiKey, opts) {
       calendarName: order.calendarName || order.recipientName || '',
       keyDates:     monthKeyDates,
       holidays:     monthHolidays,
-      monthIcsB64:  monthIcsB64,
     }, productContent);
 
     pages.push(product.buildPageA(monthOpts));
@@ -618,9 +614,6 @@ async function buildFullHTMLFromState(orderId, order, opts) {
       return startsBeforeMonthEnd && endsAfterMonthStart;
     });
 
-    var monthIcsStr = tpl.buildMonthICS(mIdx, mYear, keyDates, holidays);
-    var monthIcsB64 = monthIcsStr ? await makeQrB64(monthIcsStr, 'M') : '';
-
     var productContent = product.buildMonthContent(j, order, sharedState);
     var monthOpts = Object.assign({
       monthName:    mName,
@@ -631,7 +624,6 @@ async function buildFullHTMLFromState(orderId, order, opts) {
       calendarName: order.calendarName || order.recipientName || '',
       keyDates:     monthKeyDates,
       holidays:     monthHolidays,
-      monthIcsB64:  monthIcsB64,
     }, productContent);
 
     pages.push(product.buildPageA(monthOpts));
