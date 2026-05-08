@@ -161,8 +161,15 @@ function geocodeCity(city) {
           var f = d.features && d.features[0];
           if (!f) { resolve(null); return; }
           var props = f.properties || {};
-          // Prefer props.city (the place) over props.name (which may be a POI like "Age UK Wandsworth")
-          var placeName = props.city || props.locality || props.town || props.village || props.name || '';
+          // Use props.name as the primary display name (it's the searched place name).
+          // Guard against POI results (amenity, shop, office etc.) by checking osm_key —
+          // if Photon returns a non-place feature, fall back to props.city/locality instead.
+          var osmKey = (props.osm_key || '').toLowerCase();
+          var isPoi = osmKey === 'amenity' || osmKey === 'shop' || osmKey === 'office'
+            || osmKey === 'tourism' || osmKey === 'leisure' || osmKey === 'building';
+          var placeName = isPoi
+            ? (props.city || props.locality || props.town || props.village || props.name || '')
+            : (props.name || props.city || props.locality || '');
           var parts = [placeName];
           if (props.state && props.state !== placeName) parts.push(props.state);
           if (props.country) parts.push(props.country);
