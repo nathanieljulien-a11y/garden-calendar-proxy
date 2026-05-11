@@ -1036,7 +1036,7 @@ function buildCoverPage(opts) {
   var monthNames     = opts.monthNames     || [];
   var appQrB64       = opts.appQrB64       || '';
   var personalMsg    = opts.personalMsg    || '';
-  var etsyUrl        = opts.etsyUrl        || 'etsy.com/shop/yourshophere';
+  var etsyUrl        = opts.etsyUrl        || 'etsy.com/shop/ClockwatcherAlmanacs';
   var startMonthIdx  = opts.startMonthIdx  || 0;
 
   // Thumbnail grid
@@ -1102,7 +1102,7 @@ function buildCoverPage(opts) {
     + '<div class="cv-webapp-row">'
     + (appQrB64 ? '<img class="cv-webapp-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
     + '<div class="cv-webapp-text">'
-    + '<div class="cv-webapp-title">Your digital garden calendar</div>'
+    + '<div class="cv-webapp-title">Your Garden Calendar by Clockwatcher Almanacs</div>'
     + '<div class="cv-webapp-url">garden-calendar-frontend.vercel.app</div>'
     + '</div>'
     + '</div>'
