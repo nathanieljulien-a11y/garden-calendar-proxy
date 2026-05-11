@@ -21,8 +21,6 @@ var FRONTEND_URL  = (process.env.FRONTEND_URL || 'https://garden-calendar-fronte
 // ── Validation ────────────────────────────────────────────────────────────────
 function validateFormData(body) {
   var errors = [];
-  if (!body.email || typeof body.email !== 'string' || !body.email.includes('@'))
-    errors.push('email required');
   if (body.climate && typeof body.climate !== 'string')
     errors.push('climate must be a string if provided');
   if (!body.city || typeof body.city !== 'string')
@@ -264,7 +262,7 @@ function _submitToGelato(order, pdfUrl) {
     var payload = JSON.stringify({
       orderType:           'draft',
       orderReferenceId:    order.id,
-      customerReferenceId: order.formData.email || order.id,
+      customerReferenceId: order.id,
       currency:            'GBP',
       items: [{
         itemReferenceId: order.id + '-cal',
