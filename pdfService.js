@@ -18,7 +18,7 @@ var fontMgr   = require('./downloadFonts.js');
 var products  = require('./products/index.js');
 
 // Etsy shop URL — set ETSY_SHOP_URL env var on Render before going live
-var ETSY_SHOP_URL = process.env.ETSY_SHOP_URL || 'www.etsy.com/shop/HobbyCalendar';
+var ETSY_SHOP_URL = process.env.ETSY_SHOP_URL || 'www.etsy.com/shop/ClockwatcherAlmanacs';
 
 // Download fonts at startup (async, non-blocking)
 var _fontsReady = false;
