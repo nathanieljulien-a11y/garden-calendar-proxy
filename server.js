@@ -567,4 +567,12 @@ app.listen(PORT, () => {
   } catch(e) {
     console.warn('[etsy] Cron failed to load:', e.message);
   }
+
+  // Start daily disk backup to R2
+  try {
+    var backupService = require('./backupService.js');
+    backupService.start();
+  } catch(e) {
+    console.warn('[backup] Backup service failed to load:', e.message);
+  }
 });
