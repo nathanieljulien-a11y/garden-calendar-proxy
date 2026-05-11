@@ -266,9 +266,9 @@ function fetchClimateDataOnce(lat, lng) {
   });
 }
 
-// In-memory climate cache — keyed by rounded lat/lng, cleared at midnight
-// Disk-persisted climate cache — keyed by rounded lat/lng, cleared at midnight.
-// Survives Render restarts and deploys. File: climate-cache.json in project root.
+// Disk-persisted climate cache — keyed by rounded lat/lng.
+// ERA5 data is 30-year monthly averages — entries never expire.
+// Survives Render restarts and deploys. File: climate-cache.json on persistent disk.
 var _climateCachePath = process.env.RENDER_DISK_PATH
   ? require('path').join(process.env.RENDER_DISK_PATH, 'climate-cache.json')
   : require('path').join(__dirname, 'climate-cache.json');
@@ -301,21 +301,14 @@ function _writeClimateCache(cache) {
 }
 
 async function fetchClimateData(lat, lng) {
-  var today = new Date().toISOString().slice(0, 10);
   var cache = _readClimateCache();
 
-  // Clear all entries if day has changed
-  var dates = Object.values(cache).map(function(v) { return v.date; });
-  if (dates.length && dates.every(function(d) { return d !== today; })) {
-    console.log('[PDF] Climate cache: new day, clearing');
-    cache = {};
-    _writeClimateCache(cache);
-  }
-
+  // ERA5 data is 30-year monthly averages — completely static, no expiry needed.
+  // Cache entries persist indefinitely on the Render persistent disk.
   var key = _climateCacheKey(lat, lng);
-  if (cache[key] && cache[key].date === today) {
+  if (cache[key]) {
     console.log('[PDF] Climate data: cache hit for ' + key);
-    return cache[key].data;
+    return cache[key];
   }
 
   var RETRIES = 3, DELAY_MS = 2000;
@@ -323,7 +316,7 @@ async function fetchClimateData(lat, lng) {
     console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
     var result = await fetchClimateDataOnce(lat, lng);
     if (result) {
-      cache[key] = { date: today, data: result };
+      cache[key] = result;
       _writeClimateCache(cache);
       return result;
     }
