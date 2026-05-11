@@ -9,12 +9,11 @@
 //   queue.enqueue(orderId);         // add a job — call after createOrder()
 //   queue.getStatus()               // { busy, queueLength, currentJobId }
 
-var store = require('./orderStore.js');
-var r2    = require('./r2.js');
+var store     = require('./orderStore.js');
+var r2        = require('./r2.js');
+var messaging = require('./etsyMessaging.js');
 
 // Lazy-require pdfService internals to avoid circular deps at startup.
-// pdfService.js exports buildFullHTML and generatePDF — we call them directly
-// rather than going via the Express route so we get the Buffer back.
 var _pdfService = null;
 function _getPdf() {
   if (!_pdfService) _pdfService = require('./pdfService.js');
@@ -27,11 +26,9 @@ var _queue        = []; // array of order IDs waiting to be processed
 var _currentJobId = null;
 
 // ── Public: enqueue ───────────────────────────────────────────────────────────
-// Adds an order ID to the queue and kicks off processing if idle.
-// Returns { position } — 0 means it will start immediately.
 function enqueue(orderId) {
   _queue.push(orderId);
-  var position = _queue.length; // 1-based: position 1 = next up
+  var position = _queue.length;
   console.log('[queue] Enqueued ' + orderId + ' — queue length: ' + _queue.length);
   _tick();
   return { position: position };
@@ -47,8 +44,6 @@ function getStatus() {
 }
 
 // ── Internal: tick ────────────────────────────────────────────────────────────
-// Called after every enqueue and after every job completes.
-// Starts the next job if idle and the queue is non-empty.
 function _tick() {
   if (_busy || _queue.length === 0) return;
   var orderId = _queue.shift();
@@ -73,22 +68,19 @@ async function _processJob(orderId) {
   try {
     var apiKey = process.env.ANTHROPIC_API_KEY || '';
 
-    // buildFullHTML and generatePDF are the internal functions from pdfService.js.
-    // We require them here — pdfService.js must export them (see patch note below).
-    var pdf = _getPdf();
+    var pdf    = _getPdf();
     var html   = await pdf.buildFullHTML(Object.assign({ _id: order.id }, order.formData), apiKey, { approved: false });
     var pdfBuf = await pdf.generatePDF(html);
 
-    // Upload to R2
     var filename  = orderId + '.pdf';
     var publicUrl = await r2.uploadToR2(pdfBuf, filename);
 
     store.updateOrder(orderId, { status: 'done', pdfUrl: publicUrl });
     console.log('[queue] Job done:', orderId, '→', publicUrl);
 
-    // Fire email notification (non-blocking — failure doesn't fail the job)
-    _sendPreviewEmail(order, publicUrl).catch(function(e) {
-      console.error('[queue] Preview email failed for', orderId, ':', e.message);
+    // Notify buyer via Etsy Conversations (non-blocking — failure doesn't fail the job)
+    _sendEtsyPreview(order, publicUrl).catch(function(e) {
+      console.error('[queue] Etsy preview message failed for', orderId, ':', e.message);
     });
 
   } catch(e) {
@@ -103,28 +95,53 @@ async function _processJob(orderId) {
 function _finish() {
   _busy         = false;
   _currentJobId = null;
-  _tick(); // start next job if any
+  _tick();
 }
 
-// ── Internal: trigger preview email ──────────────────────────────────────────
-// Lazy-requires emailService to avoid circular deps.
-var _emailService = null;
-async function _sendPreviewEmail(order, pdfUrl) {
-  if (!_emailService) {
-    try { _emailService = require('./emailService.js'); } catch(e) {
-      console.warn('[queue] emailService not available:', e.message);
-      return;
-    }
+// ── Internal: send preview notification via Etsy Conversations ───────────────
+// Looks up the buyer's user ID from the receipt map saved by etsyCron,
+// then messages them with the PDF preview link and approve URL.
+// Silently skips if etsy_receipt_id is missing (e.g. direct test submissions).
+async function _sendEtsyPreview(order, pdfUrl) {
+  var receiptId = order.formData && order.formData.etsy_receipt_id;
+  if (!receiptId) {
+    console.log('[queue] No etsy_receipt_id on order', order.id, '— skipping Etsy preview message');
+    return;
   }
+
+  var receiptMap = store.getMeta('etsyReceiptMap') || {};
+  var buyerUserId = receiptMap[String(receiptId)];
+  if (!buyerUserId) {
+    console.warn('[queue] No buyer_user_id found for receipt', receiptId, '— skipping Etsy preview message');
+    return;
+  }
+
   var approveUrl = (process.env.BACKEND_URL || 'https://garden-calendar-proxy.onrender.com')
     + '/orders/' + order.id + '/approve?token=' + order.token;
-  await _emailService.sendPreviewEmail({
-    to:         order.formData.email,
-    name:       order.formData.recipientName || order.formData.calendarName || 'your recipient',
-    pdfUrl:     pdfUrl,
-    approveUrl: approveUrl,
-    orderId:    order.id,
-  });
+
+  var name = (order.formData.recipientName || order.formData.calendarName || '').trim();
+  var calendarLabel = name ? name + "'s Garden Calendar" : 'your Garden Calendar';
+
+  var message = [
+    'Great news \u2014 your calendar preview is ready!',
+    '',
+    'We\u2019ve generated a PDF proof of ' + calendarLabel + '. Please take a look and, when you\u2019re happy, click the link below to approve it for print:',
+    '',
+    approveUrl,
+    '',
+    'You can also view the PDF directly here:',
+    pdfUrl,
+    '',
+    'Once approved, your calendar goes straight to print and Gelato will send you tracking information.',
+    '',
+    'If anything looks wrong, just reply to this message and we\u2019ll sort it out.',
+    '',
+    'Warm wishes,',
+    'The Garden Calendar team',
+  ].join('\n');
+
+  await messaging.sendEtsyMessage(receiptId, buyerUserId, message);
+  console.log('[queue] Etsy preview message sent for order', order.id, 'receipt', receiptId);
 }
 
 module.exports = {
