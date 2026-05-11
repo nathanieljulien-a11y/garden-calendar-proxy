@@ -171,7 +171,7 @@ function buildPageB(opts) {
     + '<div class="cal-header-month">' + esc(monthName) + '</div>'
     + '<div class="cal-header-year">' + year + '</div>'
     // No plant name in calendar header
-    + (recipientName ? '<div class="cal-header-recipient">' + esc(recipientName) + '\u2019s Garden Calendar</div>' : '')
+    + (recipientName ? '<div class="cal-header-recipient">' + esc(recipientName) + '\u2019s Garden Calendar by Clockwatcher Almanacs</div>' : '')
     + '</div>'
     + '<div class="cal-grid-full">' + gridHtml + '</div>'
     + '<div class="cal-footer">'
@@ -180,7 +180,7 @@ function buildPageB(opts) {
     + (climate ? esc(climate) : '')
     + '</span>'
     + '<span class="cal-footer-right">'
-    + 'The Garden Calendar \u00b7 garden-calendar-frontend.vercel.app'
+    + 'Clockwatcher Almanacs \u00b7 garden-calendar-frontend.vercel.app'
     + '</span>'
     + (appQrB64 ? '<img class="cal-footer-qr" src="' + appQrB64 + '" alt="App QR"/>' : '')
     + '</div>'
