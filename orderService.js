@@ -151,19 +151,51 @@ router.post('/orders/:id/approve', async function(req, res) {
   }
 });
 
+// ── Approve page HTML helper ──────────────────────────────────────────────────
+var APPROVE_CSS = [
+  '* { box-sizing: border-box; margin: 0; padding: 0; }',
+  'body { font-family: Georgia, serif; background: #f7f4ef; color: #2c2c2c; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 2rem; }',
+  '.card { background: #fff; border: 1px solid #ddd6c8; border-radius: 6px; max-width: 520px; width: 100%; padding: 2.5rem 2.5rem 2rem; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.07); }',
+  '.brand { font-family: Georgia, serif; font-size: 0.8rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9a7c5a; margin-bottom: 1.8rem; }',
+  '.icon { font-size: 2.5rem; margin-bottom: 1rem; }',
+  'h1 { font-size: 1.4rem; font-weight: normal; color: #2c2c2c; margin-bottom: 0.75rem; line-height: 1.4; }',
+  'p { font-size: 0.95rem; color: #666; line-height: 1.6; margin-bottom: 0.75rem; }',
+  '.note { font-size: 0.85rem; color: #9a7c5a; margin-top: 0.5rem; }',
+  '.etsy-link { display: inline-block; margin-top: 1.25rem; font-size: 0.85rem; color: #9a7c5a; text-decoration: none; border-bottom: 1px solid #ddd6c8; padding-bottom: 1px; }',
+  '.etsy-link:hover { color: #2c2c2c; }',
+].join('\n');
+
+var ETSY_SHOP_DISPLAY = process.env.ETSY_SHOP_URL || 'etsy.com/shop/ClockwatcherAlmanacs';
+
+function _approvePage(icon, title, body, noteHtml) {
+  return '<!DOCTYPE html><html lang="en"><head>'
+    + '<meta charset="UTF-8"/>'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1"/>'
+    + '<title>Clockwatcher Almanacs</title>'
+    + '<style>' + APPROVE_CSS + '</style>'
+    + '</head><body><div class="card">'
+    + '<div class="brand">Clockwatcher Almanacs</div>'
+    + '<div class="icon">' + icon + '</div>'
+    + '<h1>' + title + '</h1>'
+    + '<p>' + body + '</p>'
+    + (noteHtml ? '<p class="note">' + noteHtml + '</p>' : '')
+    + '<a class="etsy-link" href="https://' + ETSY_SHOP_DISPLAY + '" target="_blank">' + ETSY_SHOP_DISPLAY + '</a>'
+    + '</div></body></html>';
+}
+
 // ── GET /orders/:id/approve?token=xxx — direct link from email ───────────────
-// Lets the customer approve via a plain URL (no approve page needed yet).
 router.get('/orders/:id/approve', async function(req, res) {
   var order = store.getOrder(req.params.id);
-  if (!order) return res.status(404).send('<p>Order not found.</p>');
+  if (!order)
+    return res.status(404).send(_approvePage('\u{1F33F}', 'Order not found', "We couldn't find this order. If you think this is an error, please get in touch via Etsy."));
   if (!req.query.token || req.query.token !== order.token)
-    return res.status(403).send('<p>Invalid or expired approval link.</p>');
+    return res.status(403).send(_approvePage('\u{1F512}', 'Link not valid', 'This approval link is invalid or has expired. Please use the link from your original preview email.'));
   if (order.status !== 'done')
-    return res.status(409).send('<p>Your PDF is not ready yet. Please wait and try again.</p>');
+    return res.status(409).send(_approvePage('\u23F3', "Your preview isn't ready yet", "We're still generating your calendar — this usually takes about 3 minutes. Please try the link again shortly."));
   if (order.approved)
-    return res.status(200).send('<p>This order has already been approved. Your calendar is on its way!</p>');
+    return res.status(200).send(_approvePage('\u2705', 'Already approved', "This calendar has already been approved and sent to print. You'll receive a shipping notification from Gelato when it's on its way."));
   if (!order.pdfUrl)
-    return res.status(409).send('<p>No PDF on record — please contact us.</p>');
+    return res.status(409).send(_approvePage('\u26A0\uFE0F', 'Something went wrong', "We couldn't find the PDF for this order. Please contact us via Etsy and we'll sort it out."));
 
   store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString() });
 
@@ -185,7 +217,7 @@ router.get('/orders/:id/approve', async function(req, res) {
     console.log('[orders] Clean PDF generated:', cleanPdfUrl);
   } catch(e) {
     console.error('[orders] Clean PDF generation failed:', e.message);
-    return res.status(500).send('<p>Could not generate your print-ready PDF. Please contact us.</p>');
+    return res.status(500).send(_approvePage('\u26A0\uFE0F', 'Something went wrong', "We couldn't generate your print-ready file. Please contact us via Etsy and we'll resolve this promptly."));
   }
 
   try {
@@ -195,11 +227,18 @@ router.get('/orders/:id/approve', async function(req, res) {
       gelatoDashboardUrl: 'https://dashboard.gelato.com/orders/' + gelatoResult.id,
     });
     console.log('[orders] Gelato draft created:', gelatoResult.id, 'for order:', order.id);
-    res.status(200).send('<p>Your calendar has been approved and sent to print. Thank you!</p>');
+    var recipientName = (order.formData && (order.formData.recipientName || order.formData.calendarName)) || '';
+    var calendarLabel = recipientName ? recipientName + "'s Garden Calendar" : 'your Garden Calendar';
+    return res.status(200).send(_approvePage(
+      '\u{1F331}',
+      'Your calendar is approved',
+      'Thank you \u2014 ' + calendarLabel + ' has been sent to print. Gelato will email you with tracking information once it\u2019s on its way.',
+      "Don't forget to scan the QR code inside your calendar to access your digital garden planner."
+    ));
   } catch(e) {
     console.error('[orders] Gelato submission failed for', order.id, ':', e.message);
     store.updateOrder(order.id, { gelatoError: e.message });
-    res.status(502).send('<p>Approval saved but we hit an issue sending to print — we will be in touch shortly.</p>');
+    return res.status(502).send(_approvePage('\u26A0\uFE0F', 'Approved \u2014 but a hiccup sending to print', "Your approval has been saved, but we hit an issue submitting to Gelato. We'll sort this out and be in touch via Etsy shortly."));
   }
 });
 
