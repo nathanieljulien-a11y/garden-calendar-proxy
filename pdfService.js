@@ -18,7 +18,7 @@ var fontMgr   = require('./downloadFonts.js');
 var products  = require('./products/index.js');
 
 // Etsy shop URL — set ETSY_SHOP_URL env var on Render before going live
-var ETSY_SHOP_URL = process.env.ETSY_SHOP_URL || 'www.etsy.com/shop/ClockwatcherAlmanacs';
+var ETSY_SHOP_URL = process.env.ETSY_SHOP_URL || 'www.etsy.com/shop/HobbyCalendar';
 
 // Download fonts at startup (async, non-blocking)
 var _fontsReady = false;
@@ -202,7 +202,8 @@ function fetchClimateDataOnce(lat, lng) {
       + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
       + '&start_date=2015-01-01&end_date=2024-12-31'
       + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
-      + '&models=EC_Earth3P_HR';
+      + '&models=EC_Earth3P_HR'
+      + (process.env.OPEN_METEO_API_KEY ? '&apikey=' + process.env.OPEN_METEO_API_KEY : '');
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
       res.on('data', function(c) { data += c; });
@@ -266,9 +267,9 @@ function fetchClimateDataOnce(lat, lng) {
   });
 }
 
-// Disk-persisted climate cache — keyed by rounded lat/lng.
-// ERA5 data is 30-year monthly averages — entries never expire.
-// Survives Render restarts and deploys. File: climate-cache.json on persistent disk.
+// In-memory climate cache — keyed by rounded lat/lng, cleared at midnight
+// Disk-persisted climate cache — keyed by rounded lat/lng, cleared at midnight.
+// Survives Render restarts and deploys. File: climate-cache.json in project root.
 var _climateCachePath = process.env.RENDER_DISK_PATH
   ? require('path').join(process.env.RENDER_DISK_PATH, 'climate-cache.json')
   : require('path').join(__dirname, 'climate-cache.json');
@@ -301,14 +302,21 @@ function _writeClimateCache(cache) {
 }
 
 async function fetchClimateData(lat, lng) {
+  var today = new Date().toISOString().slice(0, 10);
   var cache = _readClimateCache();
 
-  // ERA5 data is 30-year monthly averages — completely static, no expiry needed.
-  // Cache entries persist indefinitely on the Render persistent disk.
+  // Clear all entries if day has changed
+  var dates = Object.values(cache).map(function(v) { return v.date; });
+  if (dates.length && dates.every(function(d) { return d !== today; })) {
+    console.log('[PDF] Climate cache: new day, clearing');
+    cache = {};
+    _writeClimateCache(cache);
+  }
+
   var key = _climateCacheKey(lat, lng);
-  if (cache[key]) {
+  if (cache[key] && cache[key].date === today) {
     console.log('[PDF] Climate data: cache hit for ' + key);
-    return cache[key];
+    return cache[key].data;
   }
 
   var RETRIES = 3, DELAY_MS = 2000;
@@ -316,7 +324,7 @@ async function fetchClimateData(lat, lng) {
     console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
     var result = await fetchClimateDataOnce(lat, lng);
     if (result) {
-      cache[key] = result;
+      cache[key] = { date: today, data: result };
       _writeClimateCache(cache);
       return result;
     }
