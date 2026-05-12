@@ -196,11 +196,13 @@ function geocodeCity(city) {
 function fetchClimateDataOnce(lat, lng) {
   // NASA POWER Climatology API — free, no key, no daily cap, global coverage.
   // Returns 30-year monthly climate normals (MERRA-2 model).
-  // Parameters: T2M_MAX/MIN (°C), PRECTOTCORR (mm/day avg), ALLSKY_SFC_SW_DWN (MJ/m²/day).
+  // T2M = monthly mean 2m temperature (°C) — realistic averages, used with ±3°C offset
+  // for tMax/tMin to give a sensible chart spread.
+  // PRECTOTCORR = precipitation (mm/day avg). ALLSKY_SFC_SW_DWN = solar radiation (MJ/m²/day).
   var MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
   var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
   var url = 'https://power.larc.nasa.gov/api/temporal/climatology/point'
-    + '?parameters=T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN'
+    + '?parameters=T2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN'
     + '&community=AG'
     + '&longitude=' + lng.toFixed(4)
     + '&latitude=' + lat.toFixed(4)
@@ -213,18 +215,19 @@ function fetchClimateDataOnce(lat, lng) {
         try {
           var d = JSON.parse(data);
           var params = d && d.properties && d.properties.parameter;
-          if (!params || !params.T2M_MAX) {
+          if (!params || !params.T2M) {
             console.error('[PDF] NASA POWER API error:', JSON.stringify(d).slice(0, 200));
             resolve(null); return;
           }
           var tMax=[], tMin=[], precip=[], sunHrs=[];
           for (var i = 0; i < 12; i++) {
             var mo = MONTHS[i];
-            tMax.push(  parseFloat((params.T2M_MAX[mo]     || 0).toFixed(1)));
-            tMin.push(  parseFloat((params.T2M_MIN[mo]     || 0).toFixed(1)));
+            var mean = params.T2M[mo] || 0;
+            tMax.push(  parseFloat((mean + 3).toFixed(1)));
+            tMin.push(  parseFloat((mean - 3).toFixed(1)));
             // PRECTOTCORR is mm/day average — multiply by days in month for monthly total
             precip.push(parseFloat(((params.PRECTOTCORR[mo] || 0) * daysPerMonth[i]).toFixed(0)));
-            // ALLSKY_SFC_SW_DWN is MJ/m²/day — scale to approximate sun hours (÷ 3.6 gives ~hrs of full sun)
+            // ALLSKY_SFC_SW_DWN is MJ/m²/day — divide by 3.6 for approximate peak sun hours
             sunHrs.push(parseFloat(((params.ALLSKY_SFC_SW_DWN[mo] || 0) / 3.6).toFixed(1)));
           }
           console.log('[PDF] Climate data: NASA POWER 30-year climatology normals');
