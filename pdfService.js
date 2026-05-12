@@ -190,7 +190,7 @@ function geocodeCity(city) {
   });
 }
 
-// ── Fetch climate data from Open-Meteo ───────────────────────────────────────
+// ── Fetch climate data from NASA POWER ──────────────────────────────────────
 // Uses the monthly endpoint (tiny response) with 2 retries.
 // Returns null only after all retries fail — caller must treat null as hard error.
 function fetchClimateDataOnce(lat, lng) {
