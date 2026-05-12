@@ -3,6 +3,7 @@
 // Used by any product that wants a 12-month climate overview on its cover page.
 // Rendered at 130×52mm in the cover page right panel.
 
+
 function esc(s) {
   return String(s || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
