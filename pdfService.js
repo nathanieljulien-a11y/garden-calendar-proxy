@@ -194,73 +194,53 @@ function geocodeCity(city) {
 // Uses the monthly endpoint (tiny response) with 2 retries.
 // Returns null only after all retries fail — caller must treat null as hard error.
 function fetchClimateDataOnce(lat, lng) {
+  // NASA POWER Climatology API — free, no key, no daily cap, global coverage.
+  // Returns 30-year monthly climate normals (MERRA-2 model).
+  // Parameters: T2M_MAX/MIN (°C), PRECTOTCORR (mm/day avg), ALLSKY_SFC_SW_DWN (MJ/m²/day).
+  var MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
+  var url = 'https://power.larc.nasa.gov/api/temporal/climatology/point'
+    + '?parameters=T2M_MAX,T2M_MIN,PRECTOTCORR,ALLSKY_SFC_SW_DWN'
+    + '&community=AG'
+    + '&longitude=' + lng.toFixed(4)
+    + '&latitude=' + lat.toFixed(4)
+    + '&format=JSON';
   return new Promise(function(resolve) {
-    // 10-year recent period 2015-2024 — more representative of current climate
-    // than the WMO 1991-2020 normal, and ~3,650 rows vs ~10,950 (one third the API cost).
-    // EC_Earth3P_HR covers 1950-2050 so this range is fully available.
-    var url = 'https://climate-api.open-meteo.com/v1/climate'
-      + '?latitude=' + lat.toFixed(4) + '&longitude=' + lng.toFixed(4)
-      + '&start_date=2015-01-01&end_date=2024-12-31'
-      + '&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration,daylight_duration'
-      + '&models=EC_Earth3P_HR'
-      + (process.env.OPEN_METEO_API_KEY ? '&apikey=' + process.env.OPEN_METEO_API_KEY : '');
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
       res.on('data', function(c) { data += c; });
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          if (d.error) {
-            console.error('[PDF] climate API error:', d.reason || JSON.stringify(d).slice(0,200));
+          var params = d && d.properties && d.properties.parameter;
+          if (!params || !params.T2M_MAX) {
+            console.error('[PDF] NASA POWER API error:', JSON.stringify(d).slice(0, 200));
             resolve(null); return;
-          }
-          var daily = d.daily;
-          if (!daily || !daily.time || !daily.time.length) {
-            console.error('[PDF] climate API: no daily field. Keys:', Object.keys(d).join(','));
-            resolve(null); return;
-          }
-          // Accumulate sums per calendar month (0=Jan … 11=Dec)
-          var sums   = { tMax:new Array(12).fill(0), tMin:new Array(12).fill(0),
-                         precip:new Array(12).fill(0), sun:new Array(12).fill(0) };
-          var counts = new Array(12).fill(0);
-          var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
-          for (var i = 0; i < daily.time.length; i++) {
-            var mo = parseInt(daily.time[i].split('-')[1], 10) - 1;
-            if (mo < 0 || mo > 11) continue;
-            if (daily.temperature_2m_max[i]  != null) sums.tMax[mo]   += daily.temperature_2m_max[i];
-            if (daily.temperature_2m_min[i]  != null) sums.tMin[mo]   += daily.temperature_2m_min[i];
-            if (daily.precipitation_sum[i]   != null) sums.precip[mo] += daily.precipitation_sum[i];
-            // EC_Earth3P_HR often returns 0 for sunshine_duration — fall back to daylight_duration
-            var sunVal = (daily.sunshine_duration && daily.sunshine_duration[i] > 0)
-              ? daily.sunshine_duration[i]
-              : (daily.daylight_duration && daily.daylight_duration[i] != null ? daily.daylight_duration[i] : 0);
-            if (sunVal > 0) sums.sun[mo] += sunVal;
-            counts[mo]++;
           }
           var tMax=[], tMin=[], precip=[], sunHrs=[];
-          for (var mo = 0; mo < 12; mo++) {
-            var n = counts[mo] || 1;
-            tMax.push(  parseFloat((sums.tMax[mo]   / n).toFixed(1)));
-            tMin.push(  parseFloat((sums.tMin[mo]   / n).toFixed(1)));
-            // precip: sum over all days in month / number of years (approx 3)
-            precip.push(parseFloat((sums.precip[mo] / n * daysPerMonth[mo]).toFixed(0)));
-            // sunshine_duration is seconds/day already (daily sum / 1 day) — convert to hours
-            sunHrs.push(parseFloat((sums.sun[mo] / n / 3600).toFixed(1)));
+          for (var i = 0; i < 12; i++) {
+            var mo = MONTHS[i];
+            tMax.push(  parseFloat((params.T2M_MAX[mo]     || 0).toFixed(1)));
+            tMin.push(  parseFloat((params.T2M_MIN[mo]     || 0).toFixed(1)));
+            // PRECTOTCORR is mm/day average — multiply by days in month for monthly total
+            precip.push(parseFloat(((params.PRECTOTCORR[mo] || 0) * daysPerMonth[i]).toFixed(0)));
+            // ALLSKY_SFC_SW_DWN is MJ/m²/day — scale to approximate sun hours (÷ 3.6 gives ~hrs of full sun)
+            sunHrs.push(parseFloat(((params.ALLSKY_SFC_SW_DWN[mo] || 0) / 3.6).toFixed(1)));
           }
-          console.log('[PDF] Climate data: ' + daily.time.length + ' daily records averaged into 12 months');
+          console.log('[PDF] Climate data: NASA POWER 30-year climatology normals');
           resolve({ _cd: { tMax: tMax, tMin: tMin, precip: precip, sunHrs: sunHrs } });
         } catch(e) {
-          console.error('[PDF] climate parse error:', e.message, 'raw:', data.slice(0, 300));
+          console.error('[PDF] NASA POWER parse error:', e.message, 'raw:', data.slice(0, 300));
           resolve(null);
         }
       });
     });
     req.on('error', function(e) {
-      console.error('[PDF] climate fetch error:', e.message);
+      console.error('[PDF] NASA POWER fetch error:', e.message);
       resolve(null);
     });
-    req.setTimeout(20000, function() {
-      console.error('[PDF] climate fetch timeout');
+    req.setTimeout(30000, function() {
+      console.error('[PDF] NASA POWER fetch timeout');
       req.destroy();
       resolve(null);
     });
