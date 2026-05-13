@@ -1017,11 +1017,11 @@ function buildPageA(opts) {
     var tMax = cd.tMax  && cd.tMax[monthIdx]  != null ? Math.round(cd.tMax[monthIdx])  + '\u00b0C' : null;
     var tMin = cd.tMin  && cd.tMin[monthIdx]  != null ? Math.round(cd.tMin[monthIdx])  + '\u00b0C' : null;
     var rain  = cd.precip    && cd.precip[monthIdx]    != null ? Math.round(cd.precip[monthIdx])    + 'mm'          : null;
-    var frost = cd.frostDays && cd.frostDays[monthIdx] != null ? cd.frostDays[monthIdx] + ' frost days'             : null;
+    var sun  = cd.sunHrs && cd.sunHrs[monthIdx] != null ? parseFloat(cd.sunHrs[monthIdx]).toFixed(1) + ' hrs daylight' : null;
     var parts = [];
     if (tMax || tMin) parts.push('\u25b2 ' + (tMax || '') + (tMax && tMin ? '  \u25bc ' : '') + (tMin ? tMin : ''));
     if (rain)  parts.push('\u2602 ' + rain);
-    if (frost) parts.push('\u2744 ' + frost);
+    if (sun)   parts.push('\u2600 ' + sun);
     var statsLine = parts.join('  \u00b7  ');
     climateHtml = '<div class="climate-bar">'
       + '<span class="climate-region">' + esc(climate) + '</span>'
