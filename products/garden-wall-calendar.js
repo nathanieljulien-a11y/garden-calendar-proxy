@@ -620,7 +620,7 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
 
     var body = JSON.stringify({
       model:      'claude-haiku-4-5-20251001',
-      max_tokens: 250,
+      max_tokens: 400,
       messages:   [{ role: 'user', content: prompt }],
     });
     var opts = {
@@ -856,8 +856,15 @@ async function buildSharedState(order, geo, apiKey, compressToJpegDataUri, makeQ
 
   var inspoQrB64s = await Promise.all(inspos.map(function(ins) {
     if (!ins || !ins.name) return Promise.resolve('');
-    var searchUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' official website');
-    return makeQrB64(searchUrl);
+    // Prefer Wikipedia URL if the inspo response included a valid article title,
+    // else fall back to a Google Search URL.
+    var visitUrl;
+    if (ins.wikipedia && typeof ins.wikipedia === 'string' && ins.wikipedia !== 'null') {
+      visitUrl = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(ins.wikipedia.replace(/ /g, '_'));
+    } else {
+      visitUrl = 'https://www.google.com/search?q=' + encodeURIComponent(ins.name + ' ' + (ins.location || '') + ' garden');
+    }
+    return makeQrB64(visitUrl);
   }));
   console.log('[garden] Inspo QRs: ' + inspoQrB64s.filter(Boolean).length + '/12 ok');
 
