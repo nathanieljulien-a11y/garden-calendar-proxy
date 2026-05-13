@@ -4,10 +4,13 @@
 // Conversations API with a link to the order form.
 //
 // Environment variables required:
-//   ETSY_API_KEY        — from developer.etsy.com (Keystring)
-//   ETSY_REFRESH_TOKEN  — obtained via etsy-oauth-helper.js (one-time setup)
-//   ETSY_SHOP_ID        — your Etsy shop ID (numeric, found in shop URL)
-//   ORDER_FORM_URL      — base URL of the order form Vercel deployment
+//   ETSY_API_KEY             — from developer.etsy.com (Keystring)
+//   ETSY_REFRESH_TOKEN       — obtained via etsy-oauth-helper.js (one-time setup)
+//   ETSY_SHOP_ID             — your Etsy shop ID (numeric, found in shop URL)
+//   ORDER_FORM_URL           — base URL of the order form Vercel deployment
+//   ETSY_LISTING_PRODUCTS    — comma-separated listingId:productId pairs, e.g.:
+//                              "1234567890:garden-wall-calendar,9876543210:garden-wall-calendar-na"
+//                              Required for every active listing (ADR-009).
 
 var store      = require('./orderStore.js');
 var messaging  = require('./etsyMessaging.js');
@@ -16,6 +19,22 @@ var ETSY_API_KEY       = process.env.ETSY_API_KEY   || '';
 var ETSY_SHOP_ID       = process.env.ETSY_SHOP_ID   || '';
 var ORDER_FORM_URL     = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 var POLL_INTERVAL_MS   = 5 * 60 * 1000; // 5 minutes
+
+// ── Parse ETSY_LISTING_PRODUCTS env var ───────────────────────────────────────
+// Format: "listingId1:productId1,listingId2:productId2"
+// Returns a map of { listingId (string) → productId (string) }
+function _parseListingProductMap() {
+  var raw = process.env.ETSY_LISTING_PRODUCTS || '';
+  var map = {};
+  if (!raw.trim()) return map;
+  raw.split(',').forEach(function(pair) {
+    var parts = pair.trim().split(':');
+    if (parts.length === 2 && parts[0].trim() && parts[1].trim()) {
+      map[parts[0].trim()] = parts[1].trim();
+    }
+  });
+  return map;
+}
 
 // ── Fetch recent Etsy orders ──────────────────────────────────────────────────
 async function _fetchNewOrders(sinceTimestamp) {
@@ -39,8 +58,11 @@ async function _fetchNewOrders(sinceTimestamp) {
 }
 
 // ── Build personalised form-link message ──────────────────────────────────────
-function _buildMessage(order, formUrl) {
-  var link = formUrl + '?etsy_receipt_id=' + order.receipt_id;
+// productId is required — caller must resolve it from the listing map before calling.
+function _buildMessage(order, formUrl, productId) {
+  var link = formUrl
+    + '?etsy_receipt_id=' + order.receipt_id
+    + '&product=' + encodeURIComponent(productId);
   return [
     'Hi there! Thank you so much for your Garden Calendar order \u2014 we\u2019re excited to make something special for you.',
     '',
@@ -65,6 +87,11 @@ async function _poll() {
   if (!process.env.ETSY_REFRESH_TOKEN) {
     console.log('[etsy] ETSY_REFRESH_TOKEN not set — skipping poll (run etsy-oauth-helper.js)');
     return;
+  }
+
+  var listingProductMap = _parseListingProductMap();
+  if (Object.keys(listingProductMap).length === 0) {
+    console.warn('[etsy] ETSY_LISTING_PRODUCTS not set — cannot resolve product for orders. Set this env var before going live (ADR-009).');
   }
 
   try {
@@ -99,8 +126,27 @@ async function _poll() {
         continue;
       }
 
+      // Resolve product from listing_id (ADR-009)
+      // Etsy receipts contain an array of transactions, each with a listing_id.
+      // We use the listing_id of the first transaction as the product signal.
+      var listingId = null;
+      if (order.transactions && order.transactions.length > 0) {
+        listingId = String(order.transactions[0].listing_id);
+      }
+      var productId = listingId ? listingProductMap[listingId] : null;
+
+      if (!productId) {
+        console.error('[etsy] Could not resolve product for receipt', receiptId,
+          '— listing_id:', listingId,
+          '— ETSY_LISTING_PRODUCTS map:', JSON.stringify(listingProductMap),
+          '— message will be sent but form link will be missing ?product=. Fix ETSY_LISTING_PRODUCTS.');
+        // Still send the message so the customer isn't left hanging,
+        // but log loudly — the order form will reject the submission without a product.
+        productId = 'UNKNOWN';
+      }
+
       try {
-        var message = _buildMessage(order, ORDER_FORM_URL);
+        var message = _buildMessage(order, ORDER_FORM_URL, productId);
         await messaging.sendEtsyMessage(order.receipt_id, order.buyer_user_id, message);
 
         if (!meta.messagedReceipts) meta.messagedReceipts = [];
@@ -111,7 +157,7 @@ async function _poll() {
         );
         store.setMeta('etsyCron', meta);
 
-        console.log('[etsy] Processed receipt', receiptId);
+        console.log('[etsy] Processed receipt', receiptId, '— product:', productId);
       } catch(e) {
         console.error('[etsy] Failed to process receipt', receiptId, ':', e.message);
       }
