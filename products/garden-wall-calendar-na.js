@@ -15,6 +15,9 @@
 var base = require('./garden-wall-calendar.js');
 
 module.exports = Object.assign({}, base, {
-  id:         'garden-wall-calendar-na',
-  gelatoSku:  'wall_calendar_product_pf_xl11x16-5-inch_pt_100-lb-cover-coated-silk_cl_4-4_bt_wire-with-hook-top_ct_none_prt_none_ver',
+  id:            'garden-wall-calendar-na',
+  gelatoSku:     'wall_calendar_product_pf_xl11x16-5-inch_pt_100-lb-cover-coated-silk_cl_4-4_bt_wire-with-hook-top_ct_none_prt_none_ver',
+  // formatOverride tells pdfService to use the 'na' FORMATS entry (287.4×427.1mm bleed sheet)
+  // instead of the default 'a3' dimensions.
+  formatOverride: 'na',
 });
