@@ -190,23 +190,27 @@ function geocodeCity(city) {
   });
 }
 
-// ── Fetch climate data from NASA POWER ──────────────────────────────────────
-// Uses the monthly endpoint (tiny response) with 2 retries.
-// Returns null only after all retries fail — caller must treat null as hard error.
-function fetchClimateDataOnce(lat, lng) {
-  // NASA POWER Climatology API — free, no key, no daily cap, global coverage.
-  // Returns 30-year monthly climate normals (MERRA-2 model).
-  // T2M = monthly mean 2m temperature (°C) — realistic averages, used with ±3°C offset
-  // for tMax/tMin to give a sensible chart spread.
-  // PRECTOTCORR = precipitation (mm/day avg). ALLSKY_SFC_SW_DWN = solar radiation (MJ/m²/day).
-  var MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-  var daysPerMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
-  var url = 'https://power.larc.nasa.gov/api/temporal/climatology/point'
-    + '?parameters=T2M,PRECTOTCORR,ALLSKY_SFC_SW_DWN'
-    + '&community=AG'
-    + '&longitude=' + lng.toFixed(4)
-    + '&latitude=' + lat.toFixed(4)
-    + '&format=JSON';
+// ── Fetch climate data from Visual Crossing ─────────────────────────────────
+// Timeline API with stats — returns genuine monthly normals from 100k+ stations.
+// One call per unique location (~$0.037 at 366 records × $0.0001/record).
+// Cache key: 1dp lat/lng + 200m elevation band — permanent, never expires.
+// Returns null only on hard failure — caller retries via fetchClimateData wrapper.
+function fetchClimateDataOnce(lat, lng, elevation) {
+  elevation = elevation || 0;
+  var apiKey = process.env.VISUAL_CROSSING_API_KEY;
+  if (!apiKey) {
+    console.error('[PDF] VISUAL_CROSSING_API_KEY env var not set');
+    return Promise.resolve(null);
+  }
+  // Full year of daily stats — cheapest way to get all 12 months of normals
+  var url = 'https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/'
+    + lat.toFixed(4) + ',' + lng.toFixed(4)
+    + '/2024-01-01/2024-12-31'
+    + '?key=' + apiKey
+    + '&include=days,stats'
+    + '&elements=datetime,tempmax,tempmin,precip,snow,snowdepth,sunriseEpoch,sunsetEpoch'
+    + '&unitGroup=metric';
+
   return new Promise(function(resolve) {
     var req = https.get(url, { headers: { 'User-Agent': 'GardenCalendar/1.0' } }, function(res) {
       var data = '';
@@ -214,36 +218,62 @@ function fetchClimateDataOnce(lat, lng) {
       res.on('end', function() {
         try {
           var d = JSON.parse(data);
-          var params = d && d.properties && d.properties.parameter;
-          if (!params || !params.T2M) {
-            console.error('[PDF] NASA POWER API error:', JSON.stringify(d).slice(0, 200));
+          if (!d.days || !d.days.length) {
+            console.error('[PDF] Visual Crossing API error:', JSON.stringify(d).slice(0, 200));
             resolve(null); return;
           }
-          var tMax=[], tMin=[], precip=[], sunHrs=[];
-          for (var i = 0; i < 12; i++) {
-            var mo = MONTHS[i];
-            var mean = params.T2M[mo] || 0;
-            tMax.push(  parseFloat((mean + 3).toFixed(1)));
-            tMin.push(  parseFloat((mean - 3).toFixed(1)));
-            // PRECTOTCORR is mm/day average — multiply by days in month for monthly total
-            precip.push(parseFloat(((params.PRECTOTCORR[mo] || 0) * daysPerMonth[i]).toFixed(0)));
-            // ALLSKY_SFC_SW_DWN is MJ/m²/day — divide by 3.6 for approximate peak sun hours
-            sunHrs.push(parseFloat(((params.ALLSKY_SFC_SW_DWN[mo] || 0) / 3.6).toFixed(1)));
+          // Aggregate daily normals into monthly buckets
+          // normal.tempmax/tempmin/precip[1] = mean value over statistical period
+          var buckets = {};
+          for (var i = 0; i < 12; i++) buckets[i] = { tMaxSum:0, tMinSum:0, precipSum:0, frostDays:0, sunHrsSum:0, count:0 };
+
+          d.days.forEach(function(day) {
+            var mo = parseInt(day.datetime.split('-')[1], 10) - 1; // 0-indexed
+            var b  = buckets[mo];
+
+            // Use normal[1] (mean) where available, fall back to actual day value
+            b.tMaxSum   += (day.normal && day.normal.tempmax) ? day.normal.tempmax[1] : (day.tempmax || 0);
+            b.tMinSum   += (day.normal && day.normal.tempmin) ? day.normal.tempmin[1] : (day.tempmin || 0);
+            b.precipSum += (day.normal && day.normal.precip)  ? day.normal.precip[1]  : (day.precip  || 0);
+
+            // Frost day: statistical min (normal[0]) ≤ 0°C
+            var statMin = (day.normal && day.normal.tempmin) ? day.normal.tempmin[0] : (day.tempmin || 0);
+            if (statMin <= 0) b.frostDays++;
+
+            // Daylight hours from epoch timestamps
+            if (day.sunriseEpoch && day.sunsetEpoch) {
+              b.sunHrsSum += (day.sunsetEpoch - day.sunriseEpoch) / 3600;
+            }
+
+            b.count++;
+          });
+
+          // Build arrays in existing _cd format (index 0 = January)
+          var tMax=[], tMin=[], precip=[], sunHrs=[], frostDays=[];
+          for (var m = 0; m < 12; m++) {
+            var b = buckets[m];
+            var n = b.count || 1;
+            tMax.push(     parseFloat((b.tMaxSum   / n).toFixed(1)));
+            tMin.push(     parseFloat((b.tMinSum   / n).toFixed(1)));
+            precip.push(   parseFloat(b.precipSum.toFixed(1)));      // monthly total mm
+            sunHrs.push(   parseFloat((b.sunHrsSum / n).toFixed(1))); // avg daylight hrs/day
+            frostDays.push(b.frostDays);                              // days in month where stat min ≤ 0
           }
-          console.log('[PDF] Climate data: NASA POWER 30-year climatology normals');
-          resolve({ _cd: { tMax: tMax, tMin: tMin, precip: precip, sunHrs: sunHrs } });
+
+          console.log('[PDF] Climate data: Visual Crossing statistical normals (queryCost ' + d.queryCost + ')');
+          resolve({ _cd: { tMax: tMax, tMin: tMin, precip: precip, sunHrs: sunHrs, frostDays: frostDays } });
         } catch(e) {
-          console.error('[PDF] NASA POWER parse error:', e.message, 'raw:', data.slice(0, 300));
+          console.error('[PDF] Visual Crossing parse error:', e.message, 'raw:', data.slice(0, 300));
           resolve(null);
         }
       });
     });
     req.on('error', function(e) {
-      console.error('[PDF] NASA POWER fetch error:', e.message);
+      console.error('[PDF] Visual Crossing fetch error:', e.message);
       resolve(null);
     });
     req.setTimeout(30000, function() {
-      console.error('[PDF] NASA POWER fetch timeout');
+      console.error('[PDF] Visual Crossing fetch timeout');
       req.destroy();
       resolve(null);
     });
@@ -261,8 +291,9 @@ var _climateCachePath = process.env.RENDER_DISK_PATH
 // so the approve run can skip the expensive buildSharedState step entirely.
 var _stateDirPath = process.env.RENDER_DISK_PATH || __dirname;
 
-function _climateCacheKey(lat, lng) {
-  return lat.toFixed(2) + ',' + lng.toFixed(2);
+function _climateCacheKey(lat, lng, elevation) {
+  var elevBand = Math.round((elevation || 0) / 200) * 200;
+  return lat.toFixed(1) + '_' + lng.toFixed(1) + '_' + elevBand;
 }
 
 function _readClimateCache() {
@@ -284,30 +315,23 @@ function _writeClimateCache(cache) {
   }
 }
 
-async function fetchClimateData(lat, lng) {
-  var today = new Date().toISOString().slice(0, 10);
+async function fetchClimateData(lat, lng, elevation) {
+  // Permanent cache — Visual Crossing statistical normals never change.
+  // Cache key includes 1dp lat/lng + 200m elevation band (ADR-010).
   var cache = _readClimateCache();
+  var key = _climateCacheKey(lat, lng, elevation);
 
-  // Clear all entries if day has changed
-  var dates = Object.values(cache).map(function(v) { return v.date; });
-  if (dates.length && dates.every(function(d) { return d !== today; })) {
-    console.log('[PDF] Climate cache: new day, clearing');
-    cache = {};
-    _writeClimateCache(cache);
-  }
-
-  var key = _climateCacheKey(lat, lng);
-  if (cache[key] && cache[key].date === today) {
+  if (cache[key]) {
     console.log('[PDF] Climate data: cache hit for ' + key);
-    return cache[key].data;
+    return cache[key];
   }
 
   var RETRIES = 3, DELAY_MS = 2000;
   for (var attempt = 1; attempt <= RETRIES; attempt++) {
     console.log('[PDF] Climate fetch attempt ' + attempt + '/' + RETRIES);
-    var result = await fetchClimateDataOnce(lat, lng);
+    var result = await fetchClimateDataOnce(lat, lng, elevation);
     if (result) {
-      cache[key] = { date: today, data: result };
+      cache[key] = result;
       _writeClimateCache(cache);
       return result;
     }
@@ -399,7 +423,10 @@ async function buildFullHTML(order, apiKey, opts) {
   var climateData = null;
   if (geo) {
     console.log('[PDF] Fetching climate data for', geo.lat, geo.lng);
-    climateData = await fetchClimateData(geo.lat, geo.lng);
+    // Elevation defaults to 0 — Photon geocoder does not return elevation.
+    // For high-altitude locations (>200m) this uses the sea-level cache bucket,
+    // which is acceptable for gardening advice at current scale.
+    climateData = await fetchClimateData(geo.lat, geo.lng, 0);
     console.log('[PDF] Climate data:', climateData ? 'OK' : 'not available');
     if (!climateData) {
       throw new Error('Climate data unavailable for ' + city + ' after retries. Cannot produce calendar without weather data.');
