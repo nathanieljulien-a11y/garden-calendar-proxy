@@ -11,6 +11,7 @@ var express     = require('express');
 var store       = require('./orderStore.js');
 var tokenStore  = require('./tokenStore.js');
 var queue       = require('./queueService.js');
+var products    = require('./products/index.js');
 
 var router  = express.Router();
 
@@ -18,9 +19,16 @@ var ADMIN_SECRET  = process.env.ADMIN_SECRET || '';
 var GELATO_API_KEY = process.env.GELATO_API_KEY || '';
 var FRONTEND_URL  = (process.env.FRONTEND_URL || 'https://garden-calendar-frontend.vercel.app').replace(/\/$/, '');
 
+// Fallback SKU for the UK/Europe A3 product (until garden-wall-calendar.js
+// exports its own gelatoSku field — see NA-1 sprint notes).
+var PRODUCT_UID_FALLBACK = 'wall-calendars_pf_a3_pt_250-gsm-coated-silk_cl_4-4_bt_wire-with-hook-top_ver';
+
 // ── Validation ────────────────────────────────────────────────────────────────
 function validateFormData(body) {
   var errors = [];
+  // product is required on every order (ADR-009) — no default
+  if (!body.product || typeof body.product !== 'string')
+    errors.push('product is required');
   if (body.climate && typeof body.climate !== 'string')
     errors.push('climate must be a string if provided');
   if (!body.city || typeof body.city !== 'string')
@@ -33,6 +41,11 @@ function validateFormData(body) {
     errors.push('maximum 20 key dates');
   if (body.holidays && body.holidays.length > 6)
     errors.push('maximum 6 holiday periods');
+  // Validate product is known (catches typos early, before the job hits the queue)
+  if (body.product) {
+    try { products.getProduct(body.product); }
+    catch(e) { errors.push(e.message); }
+  }
   return errors;
 }
 
@@ -47,7 +60,7 @@ router.post('/orders', function(req, res) {
   var enqueued = queue.enqueue(order.id);
   var status   = queue.getStatus();
 
-  console.log('[orders] New order:', order.id, '— queue position:', enqueued.position);
+  console.log('[orders] New order:', order.id, '— product:', req.body.product, '— queue position:', enqueued.position);
 
   // position 1 means it starts immediately (no job running ahead of it)
   var message = enqueued.position === 1 && !status.busy
@@ -250,7 +263,6 @@ router.get('/orders', function(req, res) {
 
 // ── Internal: Gelato draft order ──────────────────────────────────────────────
 var https = require('https');
-var PRODUCT_UID = 'wall-calendars_pf_a3_pt_250-gsm-coated-silk_cl_4-4_bt_wire-with-hook-top_ver';
 
 function _submitToGelato(order, pdfUrl) {
   return new Promise(function(resolve, reject) {
@@ -258,6 +270,16 @@ function _submitToGelato(order, pdfUrl) {
       reject(new Error('GELATO_API_KEY not configured'));
       return;
     }
+
+    // Resolve Gelato SKU from the product module; fall back to UK/Europe A3 constant
+    var productSku = PRODUCT_UID_FALLBACK;
+    try {
+      var product = products.getProduct(order.formData && order.formData.product);
+      if (product.gelatoSku) productSku = product.gelatoSku;
+    } catch(e) {
+      console.warn('[orders] Could not resolve product SKU for order', order.id, '— using fallback:', e.message);
+    }
+
     var addr = order.formData.shippingAddress || {};
     var payload = JSON.stringify({
       orderType:           'draft',
@@ -266,7 +288,7 @@ function _submitToGelato(order, pdfUrl) {
       currency:            'GBP',
       items: [{
         itemReferenceId: order.id + '-cal',
-        productUid:      PRODUCT_UID,
+        productUid:      productSku,
         files: [{ type: 'default', url: pdfUrl }],
         quantity: 1,
       }],
