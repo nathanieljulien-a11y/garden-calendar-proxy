@@ -331,8 +331,10 @@ async function fetchClimateData(lat, lng) {
 // ── Product formats ───────────────────────────────────────────────────────────
 // widthMm/heightMm are passed to generatePDF — products can specify their own dimensions.
 var FORMATS = {
-  a3: { widthMm: 305, heightMm: 428, label: 'A3 Portrait Standard Wall Calendar' },
-  a4: { widthMm: 305, heightMm: 218, label: 'A4 Landscape Wire-O Calendar' },
+  a3: { widthMm: 305,   heightMm: 428,   label: 'A3 Portrait Standard Wall Calendar' },
+  a4: { widthMm: 305,   heightMm: 218,   label: 'A4 Landscape Wire-O Calendar' },
+  // NA ledger: 11x16.5in trim (279.4x419.1mm) + 4mm bleed each side = 287.4x427.1mm
+  na: { widthMm: 287.4, heightMm: 427.1, label: 'NA Ledger 11x16.5in Wall Calendar' },
 };
 
 var router = express.Router();
@@ -405,7 +407,7 @@ async function buildFullHTML(order, apiKey, opts) {
   }
 
   // ── Load product config ───────────────────────────────────────────────────
-  var product = products.getProduct(order.productType);
+  var product = products.getProduct(order.product || order.productType);
   console.log('[PDF] Product: ' + product.id);
 
   // ── Build product shared state (artwork, inspos, QRs etc.) ───────────────
@@ -501,9 +503,16 @@ async function buildFullHTML(order, apiKey, opts) {
   console.log('[PDF] Pages built: ' + pages.length + ' (cover + 12×[A+B] + blank, ' + fmt.toUpperCase() + ')');
 
   try {
-    var doc = tpl.buildDocument(pages, { proof: !(opts && opts.approved) });
+    // If product specifies a formatOverride (e.g. 'na'), use that format's dimensions.
+    // Falls back to the order.format dimensions (fmtConfig) for all other products.
+    var docFmt = (product.formatOverride && FORMATS[product.formatOverride]) || fmtConfig;
+    var doc = tpl.buildDocument(pages, {
+      proof:     !(opts && opts.approved),
+      widthMm:   docFmt.widthMm,
+      heightMm:  docFmt.heightMm,
+    });
     console.log('[PDF] buildDocument OK, length: ' + Math.round(doc.length / 1024) + 'KB');
-    return { html: doc, widthMm: fmtConfig.widthMm, heightMm: fmtConfig.heightMm };
+    return { html: doc, widthMm: docFmt.widthMm, heightMm: docFmt.heightMm };
   } catch(docErr) {
     console.error('[PDF] buildDocument CRASH:', docErr.stack);
     throw docErr;
@@ -564,7 +573,7 @@ async function buildFullHTMLFromState(orderId, order, opts) {
   var climateData = saved.climateData;
   var sharedState = saved.sharedState;
 
-  var product = products.getProduct(order.productType);
+  var product = products.getProduct(order.product || order.productType);
 
   var coverMonthNames = [];
   for (var ci = 0; ci < 12; ci++) coverMonthNames.push(MONTH_NAMES[(startMonth + ci) % 12]);
@@ -626,9 +635,14 @@ async function buildFullHTMLFromState(orderId, order, opts) {
   pages.push(tpl.buildBlankPage());
   console.log('[PDF] Pages rebuilt from state: ' + pages.length + ' (' + fmt.toUpperCase() + ')');
 
-  var doc = tpl.buildDocument(pages, { proof: !(opts && opts.approved) });
+  var docFmt = (product.formatOverride && FORMATS[product.formatOverride]) || fmtConfig;
+  var doc = tpl.buildDocument(pages, {
+    proof:    !(opts && opts.approved),
+    widthMm:  docFmt.widthMm,
+    heightMm: docFmt.heightMm,
+  });
   console.log('[PDF] buildDocument OK, length: ' + Math.round(doc.length / 1024) + 'KB');
-  return { html: doc, widthMm: fmtConfig.widthMm, heightMm: fmtConfig.heightMm };
+  return { html: doc, widthMm: docFmt.widthMm, heightMm: docFmt.heightMm };
 }
 
 // ── Render PDF + R2 upload ────────────────────────────────────────────────────
