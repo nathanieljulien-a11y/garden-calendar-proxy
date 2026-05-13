@@ -7,18 +7,23 @@
 //   buildPageA(monthOpts) → HTML string
 //   buildCoverExtras(order, sharedState) → extra fields for buildCoverPage
 //   buildCoverPage(opts) → HTML string
+//
+// Product modules may also export:
+//   gelatoSku  — Gelato productUid string. Read by orderService._submitToGelato().
+//                If absent, orderService falls back to its own PRODUCT_UID constant.
+//
+// The `product` field is REQUIRED on every order (ADR-009).
+// getProduct() throws if the value is missing or unrecognised — there is no default.
 
 var PRODUCTS = {
-  'garden-wall-calendar': require('./garden-wall-calendar.js'),
+  'garden-wall-calendar':    require('./garden-wall-calendar.js'),
+  'garden-wall-calendar-na': require('./garden-wall-calendar-na.js'),
 };
 
-// Default product when no productType is specified on an order.
-var DEFAULT_PRODUCT = 'garden-wall-calendar';
-
 function getProduct(productType) {
-  var id = productType || DEFAULT_PRODUCT;
-  var p  = PRODUCTS[id];
-  if (!p) throw new Error('Unknown productType: ' + id);
+  if (!productType) throw new Error('product field is required on every order — no default is set (ADR-009)');
+  var p = PRODUCTS[productType];
+  if (!p) throw new Error('Unknown product: ' + productType + '. Known products: ' + Object.keys(PRODUCTS).join(', '));
   return p;
 }
 
