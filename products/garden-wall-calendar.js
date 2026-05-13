@@ -738,21 +738,109 @@ function fetchWikipediaPhotoBuffer(title) {
   });
 }
 
-// ── Content strings ───────────────────────────────────────────────────────────
-var MONTHLY_TASKS = [
-  'January is a time to plan next season\'s garden. Order seeds and bulbs from catalogues, service tools, and start chitting potatoes indoors.',
-  'February brings the first signs of life. Force rhubarb under pots, prune wisteria to two buds, and start seeds of slow-growing annuals on a windowsill.',
-  'March is the start of the main growing season. Divide perennials, plant summer bulbs, mow the lawn for the first time, and begin sowing veg under cover.',
-  'April is a busy month. Plant out hardy annuals, earth up potatoes, deadhead spring bulbs without removing foliage, and keep an eye on late frosts.',
-  'May is peak planting time. Harden off tender plants before planting out after the last frost date, stake tall perennials, and sow French beans directly.',
-  'June calls for deadheading, feeding, and watering. Thin fruit on trees and bushes, layer strawberries, and keep on top of weeds before they set seed.',
-  'July is harvest season. Pick regularly to encourage more, water deeply rather than little and often, and take cuttings of tender perennials.',
-  'August is the month of abundance. Harvest consistently, prune summer-fruiting raspberries after fruiting, and begin planting autumn-flowering bulbs.',
-  'September is transition time. Plant spring bulbs, divide irises and other perennials, harvest and store root crops, and begin winter pruning of wisteria.',
-  'October is time to put the garden to bed. Plant garlic and spring bulbs, cut back herbaceous perennials, mulch borders generously, and clean the greenhouse.',
-  'November focuses on structure and soil. Plant bare-root trees and roses, dig over vacant beds to expose pests to frost, and rake and compost autumn leaves.',
-  'December is a quiet month. Prune apple and pear trees on dry days, force bulbs indoors, plan next year\'s garden, and protect tender plants from hard frost.',
-];
+// ── Content strings — 7 climate zones ──────────────────────────────────────
+// Index 0 = January. Zone derived from userRegion in pdfService and passed
+// into buildPageA as opts.climateZone. Falls back to temperate if unknown.
+var MONTHLY_TASKS = {
+  temperate: [
+    'January is a time to plan next season\'s garden. Order seeds and bulbs from catalogues, service tools, and start chitting potatoes indoors.',
+    'February brings the first signs of life. Force rhubarb under pots, prune wisteria to two buds, and start seeds of slow-growing annuals on a windowsill.',
+    'March is the start of the main growing season. Divide perennials, plant summer bulbs, mow the lawn for the first time, and begin sowing veg under cover.',
+    'April is a busy month. Plant out hardy annuals, earth up potatoes, deadhead spring bulbs without removing foliage, and keep an eye on late frosts.',
+    'May is peak planting time. Harden off tender plants before planting out after the last frost date, stake tall perennials, and sow French beans directly.',
+    'June calls for deadheading, feeding, and watering. Thin fruit on trees and bushes, layer strawberries, and keep on top of weeds before they set seed.',
+    'July is harvest season. Pick regularly to encourage more, water deeply rather than little and often, and take cuttings of tender perennials.',
+    'August is the month of abundance. Harvest consistently, prune summer-fruiting raspberries after fruiting, and begin planting autumn-flowering bulbs.',
+    'September is transition time. Plant spring bulbs, divide irises and other perennials, harvest and store root crops, and begin winter pruning of wisteria.',
+    'October is time to put the garden to bed. Plant garlic and spring bulbs, cut back herbaceous perennials, mulch borders generously, and clean the greenhouse.',
+    'November focuses on structure and soil. Plant bare-root trees and roses, dig over vacant beds to expose pests to frost, and rake and compost autumn leaves.',
+    'December is a quiet month. Prune apple and pear trees on dry days, force bulbs indoors, plan next year\'s garden, and protect tender plants from hard frost.',
+  ],
+  temperate_eu: [
+    'January is the depths of winter. Browse seed catalogues, service tools, and plan the season ahead. In colder regions, check stored bulbs and root vegetables for signs of rot.',
+    'February brings tentative signs of life, though hard frosts are still likely. Sow slow-growing annuals and onions on a warm windowsill, prune roses on mild days, and watch for the first snowdrops.',
+    'March is the cautious start of the growing season. Sow tomatoes and peppers under glass, divide perennials as growth resumes, and prepare beds with compost — but wait for the soil to warm before sowing directly.',
+    'April brings real warmth but late frosts remain a threat, especially in northern and eastern regions. Plant summer bulbs, sow hardy annuals directly, harden off seedlings, and mow the lawn for the first time.',
+    'May is the most exciting month in the garden. After the last frost, plant out tomatoes, peppers, and tender annuals. Sow beans and courgettes directly, stake tall perennials, and keep up with weeding as growth accelerates.',
+    'June is full summer growth. Deadhead roses for repeat bloom, feed container plants weekly, thin fruit on overloaded branches, and water consistently in dry spells. Midsummer evenings are long — use them.',
+    'July is harvest time. Pick soft fruit and vegetables regularly to encourage more, water deeply in hot weather, and take softwood cuttings of pelargoniums and tender perennials to overwinter.',
+    'August is abundant but signals the turn of the season. Harvest consistently, cut back flowered perennials to encourage a second flush, sow autumn salads, and begin collecting seed from favourite plants.',
+    'September is transition time. Plant spring bulbs, divide perennials, harvest and store root crops, and begin clearing spent summer plants. Sow hardy annuals for early colour next spring.',
+    'October is the month to put the garden to rest. Plant garlic and tulip bulbs, cut back herbaceous perennials, mulch generously before the ground freezes, and collect fallen leaves for composting.',
+    'November focuses on structure and preparation. Plant bare-root trees and roses while the soil is still workable, protect tender plants with fleece or mulch, and complete leaf clearance before hard frost arrives.',
+    'December is a quiet month of planning and patience. Prune fruit trees and ornamentals on dry days, force hyacinths or amaryllis indoors, and browse catalogues for next year\'s seeds and plants.',
+  ],
+  mediterranean: [
+    'January is the quiet heart of winter, though rarely a harsh one. Prune olive and fruit trees on dry days, plant bare-root roses, and sow sweet peas under glass for an early spring display.',
+    'February stirs the Mediterranean garden back to life. Prune roses before new growth extends, divide snowdrops after flowering, and sow tomatoes and peppers under glass for transplanting in spring.',
+    'March is the garden\'s busiest month. Plant summer bulbs, divide perennials, sow annuals directly into warm soil, and begin feeding roses and fruit trees as growth accelerates.',
+    'April is peak spring. Deadhead bulbs as they finish, plant out tender annuals, feed citrus with a balanced fertiliser, and begin establishing summer watering routines before the dry season arrives.',
+    'May brings warming days and the first hint of summer drought. Finish planting summer annuals, install drip irrigation if needed, and apply a thick mulch to conserve moisture through the dry months ahead.',
+    'June marks the start of the dry season. Water deeply but infrequently, harvest in the cool of the morning, deadhead spent flowers, and let Mediterranean herbs — lavender, rosemary, thyme — bake in the heat.',
+    'July is the height of summer dormancy for many plants. Keep irrigation consistent, harvest figs, tomatoes, and peppers generously, and resist the urge to prune established shrubs in the heat.',
+    'August is the peak of the dry season but the end is in sight. Harvest generously, water established trees deeply and rarely, and start sowing autumn vegetables — lettuce, chard, and brassicas — in trays for September transplanting.',
+    'September brings welcome rain and cooler nights. Plant spring bulbs, sow autumn vegetables directly, divide perennials, and take cuttings of tender plants before temperatures drop further.',
+    'October is the start of the Mediterranean garden\'s second chapter. Plant spring bulbs, sow sweet peas and hardy annuals, prune fruit trees, and enjoy the relief of cooler, wetter weather returning.',
+    'November is a productive month. Plant bare-root fruit trees and roses, sow broad beans and hardy winter greens, and prepare beds with compost as the rains return. The garden is waking up, not going to sleep.',
+    'December is mild and often wet. Prune fruit trees and roses, plant bare-root trees while the soil is fully workable, and sow sweet peas and hardy annuals if you haven\'t already. The garden needs little else.',
+  ],
+  continental_na: [
+    'January is seed catalog season. Browse varieties, plan your beds, and start slow-growing onions and leeks under grow lights. Outside, the garden rests — and there is satisfaction in that too.',
+    'February is still deep winter across most of the continent, but the seed trays come out. Start peppers, eggplant, and slow-growing annuals under lights. Check stored bulbs and root vegetables for rot.',
+    'March arrives with mixed signals — snow is still possible but the urge to start is hard to resist. Sow tomatoes, peppers, and brassicas indoors. Wait for the soil to warm and dry before working beds outside.',
+    'April is the month of cautious optimism. Harden off seedlings but keep frost cloth handy — a late freeze is still possible in most zones. Direct-sow peas, spinach, and lettuce as soon as the soil can be worked.',
+    'May is peak planting season. After your last frost date, plant out tomatoes, peppers, squash, and tender annuals. Stake tall perennials, sow beans directly in the ground, and keep up with weeding as growth surges.',
+    'June is full-on summer in the garden. Water deeply and consistently, mulch everything to retain moisture, deadhead regularly, and keep harvesting to encourage more production. The pace is relentless — in the best way.',
+    'July is abundance. Harvest tomatoes, zucchini, and beans daily — they grow fast in the heat. Take softwood cuttings of perennials, deadhead annuals to extend the season, and water at the base to avoid leaf scorch.',
+    'August brings the garden\'s peak harvest. Pick tomatoes, peppers, and corn at their prime. Prune summer-fruiting raspberries, start planning a fall garden, and sow a cover crop in any beds that are finishing up.',
+    'September is the fall garden\'s beginning. Plant garlic and spring bulbs, transplant fall brassicas, divide perennials, and harvest winter squash before the first frost arrives. The pace picks up again after summer\'s heat.',
+    'October is a race against frost. Harvest the last tomatoes and peppers before the cold arrives, plant garlic before the ground freezes, cut back perennials, and mulch beds generously to protect roots through winter.',
+    'November is the garden\'s closing chapter in most of North America. Plant the last spring bulbs before the ground freezes, cover tender perennials with a deep mulch, and clean and oil tools before storing them away.',
+    'December is the garden\'s true rest. Prune fruit trees and ornamentals on dry days, force bulbs indoors for winter color, plan next year\'s beds, and browse seed catalogs as they start arriving.',
+  ],
+  pacific_nw: [
+    'January is wet and quiet. Prune fruit trees and roses on dry days, plan the season ahead, and start slow-growing seeds — onions, leeks, celery — on a warm windowsill indoors.',
+    'February brings the first hints of spring. Prune roses before buds break, sow tomatoes and peppers indoors, and watch for early bulbs pushing through the sodden ground.',
+    'March is the cautious start of the growing season. Sow cool-season crops — peas, spinach, lettuce — directly into prepared beds. Last frost is still possible, but the soil is workable and the days are lengthening fast.',
+    'April is one of the best months in the Northwest garden. Plant summer bulbs, divide perennials, direct-sow hardy annuals, and harden off seedlings started indoors. The rain keeps coming, but growth is accelerating.',
+    'May is prime planting time. Harden off tomatoes, peppers, and tender annuals and get them in the ground after your last frost date. Sow beans and squash directly, stake tall perennials, and keep up with slugs.',
+    'June is often still cool and overcast on the coast, but growth is steady. Deadhead roses for repeat bloom, feed containers regularly, and water if a dry spell arrives — it does happen, and the garden feels it quickly.',
+    'July is the Northwest\'s finest month. Long dry days and warm temperatures ripen tomatoes, fill the berry canes, and reward the patience of spring. Harvest regularly, water deeply in dry spells, and enjoy every day of it.',
+    'August is harvest season at full tilt. Pick soft fruit, tomatoes, and beans daily. Take cuttings of tender perennials, sow autumn salads now for a September harvest, and begin thinking about garlic planting in a few weeks.',
+    'September is transition time. Plant garlic and spring bulbs, divide perennials, sow cover crops in empty beds, and harvest winter squash before the rains return in earnest. The growing season here runs longer than most.',
+    'October brings the rain back. Plant spring bulbs and bare-root trees while the soil is still workable, cut back spent perennials, mulch borders, and move tender plants under cover before the first frost arrives.',
+    'November is the garden\'s quiet season. Plant bare-root roses and fruit trees, sow hardy winter greens under cover, and focus on soil improvement — this is the best time of year to add compost to beds.',
+    'December is wet and restful. Prune fruit trees and ornamentals on dry days, force bulbs indoors, plan next year\'s garden, and browse seed catalogs. The Northwest garden rarely freezes hard — there is always something green.',
+  ],
+  pacific_sw: [
+    'January is a planting month. Set out bare-root fruit trees, roses, and cane fruit while they are dormant, and sow cool-season crops — lettuce, peas, chard — directly outdoors in frost-free areas.',
+    'February brings early color and growing energy. Plant summer-flowering bulbs in frost-free areas, start tomatoes and peppers indoors six to eight weeks before your last frost date, and prune roses before new growth breaks.',
+    'March is prime cool-season growing time. Direct-sow carrots, beets, and greens, harden off seedlings started indoors, and watch for late frosts at higher elevations. Inland valleys are warming fast.',
+    'April is full swing. Plant tomatoes and peppers in Southern California; in the Central Valley, the heat is already building — get warm-season crops in early and mulch immediately to protect soil moisture.',
+    'May is the last comfortable month before summer heat dominates inland. Get everything planted, mulch deeply, and establish drip irrigation. On the coast, cool conditions continue and the planting window stays open longer.',
+    'June is the gateway to summer. Inland gardens need consistent deep watering, morning harvests, and heavy mulching. Coastal gardens stay cool enough for salad crops — one of the great advantages of the California coast.',
+    'July is hot, dry, and demanding. Water deeply and infrequently to encourage deep roots, harvest tomatoes and peppers at their peak, and hold off on fertilizing — pushing growth in extreme heat does more harm than good.',
+    'August is peak harvest month. Tomatoes, peppers, melons, and stone fruit are at their best. Keep up with watering, watch for spider mites in hot dry conditions, and start sowing fall greens in trays for September transplanting.',
+    'September brings the first hint of relief. Start fall planting in earnest — brassicas, lettuce, carrots — as temperatures ease. Plant garlic at month\'s end. In the Central Valley, the best gardening weather of the year is arriving.',
+    'October is one of the finest months for gardening. Plant spring bulbs, sow cool-season crops directly, set out winter annuals, and plant bare-root fruit trees later in the month as dormancy begins.',
+    'November is planting season in mild-winter areas. Set out bare-root roses and fruit trees, sow cool-season greens for winter harvest, and plant spring bulbs. In desert areas, this is the most comfortable time of year to garden.',
+    'December is quiet but not dormant. Prune fruit trees and roses on mild days, plant bare-root stock while the soil is workable, force paperwhites indoors, and plan the year ahead. The California garden rarely truly sleeps.',
+  ],
+  southeast_na: [
+    'January is a gentle winter month. Plant bare-root fruit trees and roses, sow cool-season crops under cover, and start tomato and pepper seeds indoors ahead of the early spring planting season.',
+    'February brings early color — camellias, early daffodils, and the first warmth. Start tomatoes and peppers indoors, plant bare-root roses and fruit trees, and direct-sow cool-season vegetables in prepared beds.',
+    'March is the sweet spot of the Southern growing season. Direct-sow or transplant cool-season crops, plant summer bulbs, and divide perennials before the heat arrives. Get warm-season seedlings hardening off now.',
+    'April is the last comfortable planting month before summer heat builds. Get tomatoes, peppers, and squash in the ground, mulch everything heavily to retain moisture, and enjoy the brief window of perfect gardening weather.',
+    'May is the gateway to summer — act fast. Plant heat-lovers like okra, sweet potatoes, and Southern peas. Shade cloth will help cool-season crops limp through a few more weeks before they finally give up to the heat.',
+    'June is hot, humid, and full-on. Water in the morning to reduce fungal disease, harvest squash and cucumbers frequently before they overrun you, and sow a second round of beans for a fall harvest.',
+    'July is the South\'s toughest month. Maintenance is everything — water early, mulch deeply, and harvest fast. Start planning the fall garden, which will be one of the year\'s most rewarding. The worst of the heat won\'t last.',
+    'August is when the fall garden begins in earnest. Start seeds of broccoli, kale, and collards indoors. It is still ferociously hot but it won\'t last — and the fall garden in the South is worth every bit of the planning.',
+    'September is the South\'s second spring. Transplant fall vegetables — broccoli, cabbage, kale — into amended beds, plant garlic at month\'s end, and divide perennials as temperatures begin their welcome easing.',
+    'October is peak fall gardening. Sow cool-season crops directly — lettuce, spinach, carrots — and set out winter annuals like pansies and snapdragons. The garden is at its most comfortable and most rewarding.',
+    'November is one of the South\'s finest gardening months. Cool-season crops are thriving, camellias are in bloom, and there is still time to plant garlic and spring bulbs. The pace is easy and the rewards generous.',
+    'December is gentle. Prune fruit trees and roses on mild days, plant bare-root trees and shrubs, protect tender plants if a hard freeze is forecast, and enjoy the cool-season greens that are still producing in the garden.',
+  ],
+};
 
 var QUOTES = [
   { text: 'To forget how to dig the earth and tend the soil is to forget ourselves.',                                                                    author: 'Mahatma Gandhi' },
@@ -912,6 +1000,7 @@ function buildPageA(opts) {
   var appQrB64      = opts.appQrB64 || '';
   var climate       = opts.climate || '';
   var climateData   = opts.climateData || null;
+  var climateZone   = opts.climateZone || 'temperate';
   var calendarName  = opts.calendarName || opts.recipientName || '';
 
   var plantDisplay = plant
@@ -919,7 +1008,7 @@ function buildPageA(opts) {
     : monthName;
   var commentary   = getCommentary(plant);
   var quote        = QUOTES[monthIdx % QUOTES.length];
-  var taskText     = MONTHLY_TASKS[monthIdx] || '';
+  var taskText     = (MONTHLY_TASKS[climateZone] || MONTHLY_TASKS.temperate)[monthIdx] || '';
 
   // Climate bar
   var climateHtml = '';
