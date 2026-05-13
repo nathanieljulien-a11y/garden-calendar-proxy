@@ -400,9 +400,31 @@ var PROOF_CSS = [
 
 // ── Full HTML document ────────────────────────────────────────────────────────
 // @page: content (271.42 × 393.14mm) + 4mm bleed each side = 279.42 × 401.14mm
-// opts.proof — if true, injects PREVIEW ONLY watermark on all page-b pages
+// opts.proof   — if true, injects PREVIEW ONLY watermark on all page-b pages
+// opts.widthMm / opts.heightMm — override default A3 sheet size (305×428mm)
+//   for non-A3 products (e.g. NA ledger 287.4×427.1mm).
+//   Content width = widthMm - 8 (4mm bleed each side).
+//   Safe-zone padding (16mm top / 12mm bottom) and 10mm gap are unchanged.
 function buildDocument(pages, opts) {
   var proofCss = (opts && opts.proof) ? PROOF_CSS : '';
+
+  // Dimension overrides — default to A3 bleed sheet
+  var sheetW   = (opts && opts.widthMm)  || 305;
+  var sheetH   = (opts && opts.heightMm) || 428;
+  var contentW = (sheetW - 8).toFixed(2) + 'mm'; // strip 4mm bleed each side
+
+  // Override sheet/page dimensions only when they differ from the A3 default.
+  // CSS appended after SHARED_CSS so specificity wins cleanly.
+  var dimOverrideCss = '';
+  if (sheetW !== 305 || sheetH !== 428) {
+    dimOverrideCss = '@page { size:' + sheetW + 'mm ' + sheetH + 'mm; margin:0; }\n'
+      + 'html,body { width:' + sheetW + 'mm; }\n'
+      + '.cal-sheet { width:' + sheetW + 'mm; height:' + sheetH + 'mm; }\n'
+      + '.cv-sheet  { width:' + sheetW + 'mm; height:' + sheetH + 'mm; }\n'
+      + '.cal-page  { width:' + contentW + '; }\n'
+      + '.cv-cover  { width:' + contentW + '; }\n'
+      + '.cal-blank { width:' + sheetW + 'mm; height:' + sheetH + 'mm; }\n';
+  }
 
   // pages array: [cover, pageA_1, pageB_1, pageA_2, pageB_2, ..., blank]
   // Wrap cover in cv-sheet, each A+B pair in cal-sheet, blank stays as-is.
@@ -439,6 +461,7 @@ function buildDocument(pages, opts) {
     + 'html,body { width:305mm; margin:0; padding:0; background:white; }\n'
     + SHARED_CSS + '\n'
     + proofCss + '\n'
+    + dimOverrideCss
     + '</style></head><body>\n'
     + html
     + '\n</body></html>';
