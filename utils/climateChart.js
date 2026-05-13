@@ -122,7 +122,7 @@ function buildClimateChart(climateData, startMonthIdx, monthNames, climateLabel)
   return '<div class="cv-chart-block">'
     + '<span class="cv-section-label">Typical climate in ' + esc(climateLabel) + '</span>'
     + '<div class="cv-chart-svg">' + svg + '</div>'
-    + '<div class="cv-chart-source">Source: NASA POWER MERRA-2 · 30-year climatology normals</div>'
+    + '<div class="cv-chart-source">Source: Visual Crossing Weather · Statistical normals</div>'
     + '</div>';
 }
 
