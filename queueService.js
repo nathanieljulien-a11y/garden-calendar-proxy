@@ -63,6 +63,14 @@ async function _processJob(orderId) {
     return;
   }
 
+  // product is required on every order (ADR-009) — hard error if missing
+  if (!order.formData || !order.formData.product) {
+    console.error('[queue] Order', orderId, 'is missing required product field — cannot process');
+    store.updateOrder(orderId, { status: 'failed', error: 'Missing required product field (ADR-009)' });
+    _finish();
+    return;
+  }
+
   store.updateOrder(orderId, { status: 'processing' });
 
   try {
