@@ -81,6 +81,8 @@ var NA_GARDENS = [
   { name: 'Nemours Estate Gardens',                lat: 39.8057, lng: -75.5679, region: 'mainland' },
   { name: 'Hortulus Farm Garden and Nursery',      lat: 40.2234, lng: -75.0023, region: 'mainland' },
   { name: 'Bartram\'s Garden',                     lat: 39.9298, lng: -75.1898, region: 'mainland' },
+  { name: 'Phipps Conservatory and Botanical Gardens', lat: 40.4378, lng: -79.9434, region: 'mainland' },
+  { name: 'Kennett Square Gardens',                lat: 39.8423, lng: -75.7112, region: 'mainland' },
 
   // ── Mid-Atlantic: DC, Maryland & Virginia ─────────────────────────────────
   { name: 'US National Arboretum',                 lat: 38.9127, lng: -76.9722, region: 'mainland' },
@@ -120,23 +122,30 @@ var NA_GARDENS = [
   { name: 'Swan House Garden',                     lat: 33.8434, lng: -84.3812, region: 'mainland' },
   { name: 'Lockerly Arboretum',                    lat: 33.0712, lng: -83.2323, region: 'mainland' },
   { name: 'Coastal Georgia Botanical Gardens',     lat: 31.9968, lng: -81.2156, region: 'mainland' },
+  { name: 'Smith-Gilbert Gardens',                 lat: 34.0234, lng: -84.5823, region: 'mainland' },
 
-  // ── Southeast US: Tennessee ───────────────────────────────────────────────
+  // ── Southeast US: Louisiana, Tennessee, Alabama & Mississipi ───────────────────────────────────────────────
   { name: 'Cheekwood Botanical Garden',            lat: 36.0824, lng: -86.8776, region: 'mainland' },
   { name: 'Memphis Botanical Garden',              lat: 35.1087, lng: -89.9123, region: 'mainland' },
   { name: 'Knoxville Botanical Garden',            lat: 35.9688, lng: -83.8794, region: 'mainland' },
   { name: 'Reflection Riding Arboretum',           lat: 35.0234, lng: -85.3876, region: 'mainland' },
-
-  // ── Southeast US: Alabama & Mississippi ───────────────────────────────────
+  { name: 'Dixon Gallery and Gardens',             lat: 35.1298, lng: -89.8434, region: 'mainland' },
+  { name: 'Lichterman Nature Center',              lat: 35.1534, lng: -89.9123, region: 'mainland' },
   { name: 'Birmingham Botanical Gardens',          lat: 33.4929, lng: -86.7637, region: 'mainland' },
   { name: 'Huntsville Botanical Garden',           lat: 34.7898, lng: -86.5334, region: 'mainland' },
   { name: 'Bellingrath Gardens',                   lat: 30.4540, lng: -88.1109, region: 'mainland' },
   { name: 'Eudora Welty Garden',                   lat: 32.3234, lng: -90.1723, region: 'mainland' },
-
-  // ── Southeast US: Louisiana ───────────────────────────────────────────────
+  { name: 'University of Tennessee Gardens Knoxville', lat: 35.9512, lng: -83.9312, region: 'mainland' },
   { name: 'New Orleans Botanical Garden',          lat: 29.9801, lng: -90.0912, region: 'mainland' },
   { name: 'Longue Vue House and Gardens',          lat: 29.9623, lng: -90.1234, region: 'mainland' },
   { name: 'Rosedown Plantation',                   lat: 30.8248, lng: -91.2215, region: 'mainland' },
+  { name: 'Zemurray Gardens',                      lat: 30.7423, lng: -90.2812, region: 'mainland' },
+  { name: 'Jungle Gardens Avery Island',           lat: 29.8923, lng: -91.8934, region: 'mainland' },
+  { name: 'LSU AgCenter Botanic Gardens',          lat: 30.4123, lng: -91.1712, region: 'mainland' },
+  { name: 'Crosby Arboretum',                      lat: 30.6723, lng: -89.5812, region: 'mainland' },
+  { name: 'Mynelle Gardens Jackson MS',            lat: 32.3012, lng: -90.2134, region: 'mainland' },
+  { name: 'Garvan Woodland Gardens',               lat: 34.5023, lng: -93.0534, region: 'mainland' },
+  { name: 'Botanical Garden of the Ozarks',        lat: 36.0623, lng: -94.1823, region: 'mainland' },
 
   // ── Southeast US: Texas ───────────────────────────────────────────────────
   { name: 'San Antonio Botanical Garden',          lat: 29.4571, lng: -98.4584, region: 'mainland' },
@@ -152,6 +161,14 @@ var NA_GARDENS = [
   { name: 'Beaumont Botanical Gardens',            lat: 30.0698, lng: -94.1423, region: 'mainland' },
   { name: 'South Texas Botanical Gardens',         lat: 27.6834, lng: -97.3923, region: 'mainland' },
   { name: 'Zilker Botanical Garden',               lat: 30.2598, lng: -97.7712, region: 'mainland' },
+  { name: 'Chihuahuan Desert Gardens',             lat: 31.7698, lng: -106.5012, region: 'mainland' },
+  { name: 'El Paso Municipal Rose Garden',         lat: 31.7823, lng: -106.4734, region: 'mainland' },
+  { name: 'Keystone Heritage Park Botanical Garden', lat: 31.8734, lng: -106.5423, region: 'mainland' },
+  { name: 'Chihuahuan Desert Nature Center',       lat: 30.6134, lng: -103.8923, region: 'mainland' },
+  { name: 'Japanese Garden San Angelo',            lat: 31.4623, lng: -100.4534, region: 'mainland' },
+  { name: 'Texas Discovery Gardens Dallas',        lat: 32.7823, lng: -96.7612, region: 'mainland' },
+  { name: 'Botanical Research Institute of Texas', lat: 32.7334, lng: -97.3623, region: 'mainland' },
+  { name: 'Chandor Gardens',                       lat: 32.7523, lng: -97.7934, region: 'mainland' },
 
   // ── Southeast US: Florida ─────────────────────────────────────────────────
   { name: 'Bok Tower Gardens',                     lat: 27.9376, lng: -81.5887, region: 'mainland' },
@@ -166,6 +183,12 @@ var NA_GARDENS = [
   { name: 'Sunken Gardens',                        lat: 27.7734, lng: -82.6423, region: 'mainland' },
   { name: 'Alfred B. Maclay State Gardens',        lat: 30.5298, lng: -84.2623, region: 'mainland' },
   { name: 'Edison and Ford Winter Estates',        lat: 26.6323, lng: -81.8734, region: 'mainland' },
+  { name: 'Vizcaya Museum and Gardens',            lat: 25.7448, lng: -80.2112, region: 'mainland' },
+  { name: 'Flamingo Gardens',                      lat: 26.0734, lng: -80.2423, region: 'mainland' },
+  { name: 'Morikami Museum and Japanese Gardens', lat: 26.4623, lng: -80.1234, region: 'mainland' },
+  { name: 'Fruit and Spice Park',                  lat: 25.5023, lng: -80.4712, region: 'mainland' },
+  { name: 'Florida Botanical Gardens Largo',       lat: 27.9098, lng: -82.7823, region: 'mainland' },
+  { name: 'Key West Tropical Forest and Botanical Garden', lat: 24.5534, lng: -81.8012, region: 'mainland' },
 
   // ── Midwest US: Illinois & Wisconsin ─────────────────────────────────────
   { name: 'Chicago Botanic Garden',                lat: 42.1511, lng: -87.7870, region: 'mainland' },
@@ -175,6 +198,9 @@ var NA_GARDENS = [
   { name: 'Olbrich Botanical Gardens',             lat: 43.0698, lng: -89.3208, region: 'mainland' },
   { name: 'Boerner Botanical Gardens',             lat: 42.9473, lng: -88.0132, region: 'mainland' },
   { name: 'Green Bay Botanical Garden',            lat: 44.5133, lng: -88.1198, region: 'mainland' },
+  { name: 'Cantigny Park Gardens',                 lat: 41.8512, lng: -88.1534, region: 'mainland' },
+  { name: 'Anderson Japanese Gardens',             lat: 42.2423, lng: -89.0812, region: 'mainland' },
+  { name: 'Rotary Botanical Gardens',              lat: 42.5923, lng: -88.4234, region: 'mainland' },
 
   // ── Midwest US: Ohio ──────────────────────────────────────────────────────
   { name: 'Franklin Park Conservatory',            lat: 39.9684, lng: -82.9535, region: 'mainland' },
@@ -197,7 +223,7 @@ var NA_GARDENS = [
   { name: 'Foellinger-Freimann Botanical Conservatory', lat: 41.0798, lng: -85.1423, region: 'mainland' },
   { name: 'Garfield Park Conservatory Indianapolis', lat: 39.7398, lng: -86.1234, region: 'mainland' },
 
-  // ── Midwest US: Minnesota, Missouri, Iowa & Kentucky ─────────────────────
+  // ── Midwest US: Nebraska, Minnesota, Missouri, Iowa & Kentucky ─────────────────────
   { name: 'Minnesota Landscape Arboretum',         lat: 44.8651, lng: -93.6134, region: 'mainland' },
   { name: 'Como Park Zoo and Conservatory',        lat: 44.9812, lng: -93.1526, region: 'mainland' },
   { name: 'Munsinger Gardens and Clemens Gardens', lat: 45.5623, lng: -94.1534, region: 'mainland' },
@@ -206,6 +232,25 @@ var NA_GARDENS = [
   { name: 'Lauritzen Gardens',                     lat: 41.2198, lng: -95.9634, region: 'mainland' },
   { name: 'Yew Dell Botanical Gardens',            lat: 38.3409, lng: -85.4401, region: 'mainland' },
   { name: 'State Botanical Garden of Kentucky',    lat: 38.0298, lng: -84.5128, region: 'mainland' },
+  { name: 'Shaw Nature Reserve',                   lat: 38.4623, lng: -90.8234, region: 'mainland' },
+  { name: 'Loose Park Rose Garden',                lat: 39.0334, lng: -94.5923, region: 'mainland' },
+  { name: 'University of Nebraska Botanical Garden', lat: 40.8198, lng: -96.7023, region: 'mainland' },
+  { name: 'Sunken Gardens Lincoln',                lat: 40.7934, lng: -96.7234, region: 'mainland' },
+  { name: 'Iowa State University Reiman Gardens', lat: 42.0234, lng: -93.6423, region: 'mainland' },
+  { name: 'Greater Des Moines Botanical Garden',  lat: 41.5934, lng: -93.6123, region: 'mainland' },
+  { name: 'Eloise Butler Wildflower Garden',       lat: 44.9823, lng: -93.3712, region: 'mainland' },
+  { name: 'Lyndale Park Rose Garden',              lat: 44.9334, lng: -93.3123, region: 'mainland' },
+  { name: 'University of Minnesota Landscape Arboretum Outreach', lat: 44.9734, lng: -93.4923, region: 'mainland' },
+  { name: 'Linnaeus Arboretum Gustavus',           lat: 44.3612, lng: -94.0123, region: 'mainland' },
+  { name: 'Duluth Rose Garden',                    lat: 46.7823, lng: -92.1034, region: 'mainland' },
+  { name: 'Overland Park Arboretum',               lat: 38.8612, lng: -94.7234, region: 'mainland' },
+  { name: 'Kauffman Memorial Garden',              lat: 39.0323, lng: -94.5712, region: 'mainland' },
+  { name: 'Gage Park Rose Garden Topeka',          lat: 39.0523, lng: -95.7234, region: 'mainland' },
+  { name: 'Dyck Arboretum of the Plains',          lat: 38.1423, lng: -97.4312, region: 'mainland' },
+  { name: 'Laumeier Sculpture Park Gardens',       lat: 38.5323, lng: -90.4212, region: 'mainland' },
+  { name: 'Missouri Botanical Garden Shaw Nature Reserve', lat: 38.4623, lng: -90.8234, region: 'mainland' },
+  { name: 'Bellefontaine Cemetery Gardens',        lat: 38.6823, lng: -90.2712, region: 'mainland' },
+  { name: 'Alton Arboretum',                       lat: 38.8912, lng: -90.1823, region: 'mainland' },
 
   // ── Mountain / Rocky Mountain: Colorado ───────────────────────────────────
   { name: 'Denver Botanic Gardens',                lat: 39.7325, lng: -104.9610, region: 'mainland' },
@@ -218,12 +263,33 @@ var NA_GARDENS = [
   { name: 'Montrose Botanic Gardens',              lat: 38.4823, lng: -107.8734, region: 'mainland' },
   { name: 'Durango Botanic Gardens',               lat: 37.2823, lng: -107.8812, region: 'mainland' },
   { name: 'Yampa River Botanic Park',              lat: 40.4923, lng: -106.8312, region: 'mainland' },
+  { name: 'Kendrick Lake Gardens',                 lat: 39.7012, lng: -105.1198, region: 'mainland' },
+  { name: 'Benson Sculpture Garden Loveland',      lat: 40.3923, lng: -105.0712, region: 'mainland' },
+
+  // ── Nevada ─────────────────────
+  { name: 'Springs Preserve Botanical Garden',     lat: 36.1734, lng: -115.1912, region: 'mainland' },
+  { name: 'Ethel M Botanical Cactus Garden',       lat: 36.0323, lng: -115.0134, region: 'mainland' },
+  { name: 'Wilbur D. May Arboretum',               lat: 39.5423, lng: -119.7823, region: 'mainland' },
+  { name: 'Bartley Ranch Regional Park Garden',    lat: 39.4823, lng: -119.8234, region: 'mainland' },
+  { name: 'Nevada Arboretum at UNR',               lat: 39.5423, lng: -119.8134, region: 'mainland' },
+  { name: 'Galena Creek Visitor Center Garden',    lat: 39.4123, lng: -119.8712, region: 'mainland' },
+  { name: 'Clark County Wetlands Park Garden',     lat: 36.0823, lng: -115.0534, region: 'mainland' },
+  { name: 'UNLV Arboretum',                        lat: 36.1023, lng: -115.1423, region: 'mainland' },
+  { name: 'Henderson Bird Viewing Preserve',       lat: 36.0023, lng: -115.0234, region: 'mainland' },
+  { name: 'Las Vegas Springs Preserve Ext',        lat: 36.1812, lng: -115.2023, region: 'mainland' },
 
   // ── Mountain / Rocky Mountain: Utah, Idaho & Wyoming ─────────────────────
   { name: 'Red Butte Garden',                      lat: 40.7673, lng: -111.8245, region: 'mainland' },
   { name: 'Thanksgiving Point Gardens',            lat: 40.4148, lng: -111.8945, region: 'mainland' },
   { name: 'Idaho Botanical Garden',                lat: 43.6015, lng: -116.1695, region: 'mainland' },
   { name: 'Cheyenne Botanic Gardens',              lat: 41.1412, lng: -104.7987, region: 'mainland' },
+  { name: 'Sawtooth Botanical Garden',             lat: 43.6823, lng: -114.3634, region: 'mainland' },
+  { name: 'Thanksgiving Point Ashton Gardens',     lat: 40.3923, lng: -111.9234, region: 'mainland' },
+  { name: 'Gilgal Sculpture Garden',               lat: 40.7512, lng: -111.8634, region: 'mainland' },
+  { name: 'Provo Temple Gardens',                  lat: 40.2423, lng: -111.6534, region: 'mainland' },
+  { name: 'Logan Botanical Garden',                lat: 41.7423, lng: -111.8334, region: 'mainland' },
+  { name: 'College of Southern Idaho Arboretum',   lat: 42.5623, lng: -114.4634, region: 'mainland' },
+  { name: 'Boise State University Arboretum',      lat: 43.6034, lng: -116.2023, region: 'mainland' },
 
   // ── Mountain / Rocky Mountain: New Mexico & Arizona ──────────────────────
   { name: 'Rio Grande Botanic Garden',             lat: 35.1050, lng: -106.6967, region: 'mainland' },
@@ -232,6 +298,26 @@ var NA_GARDENS = [
   { name: 'Boyce Thompson Arboretum',              lat: 33.2848, lng: -111.1587, region: 'mainland' },
   { name: 'Wallace Desert Garden',                 lat: 33.5923, lng: -111.8234, region: 'mainland' },
   { name: 'Tohono Chul Garden',                    lat: 32.3498, lng: -111.0134, region: 'mainland' },
+  { name: 'ABQ BioPark Botanic Garden',            lat: 35.0934, lng: -106.6823, region: 'mainland' },
+  { name: 'Santa Fe Botanical Garden',             lat: 35.6734, lng: -105.9423, region: 'mainland' },
+  
+  // ── Oklahoma ─────────────────────
+  { name: 'Myriad Botanical Gardens',              lat: 35.4662, lng: -97.5195, region: 'mainland' },
+  { name: 'Tulsa Botanic Garden',                  lat: 36.2334, lng: -96.0123, region: 'mainland' },
+  { name: 'Honor Heights Park',                    lat: 35.7423, lng: -95.3634, region: 'mainland' },
+  { name: 'Chickasaw Cultural Center Gardens',     lat: 34.6734, lng: -97.0023, region: 'mainland' },
+  { name: 'Will Rogers Gardens',                   lat: 35.5223, lng: -97.5712, region: 'mainland' },
+  { name: 'Woodward Park and Tulsa Arboretum',     lat: 36.1198, lng: -95.9734, region: 'mainland' },
+  { name: 'Philbrook Museum Gardens',              lat: 36.1123, lng: -95.9812, region: 'mainland' },
+  { name: 'Oklahoma Botanic Garden Stillwater',    lat: 36.1198, lng: -97.0823, region: 'mainland' },
+  { name: 'Hambrick Botanical Gardens',            lat: 35.5134, lng: -97.4923, region: 'mainland' },
+  { name: 'Albuquerque Garden Center',             lat: 35.1334, lng: -106.5923, region: 'mainland' },
+  { name: 'New Mexico State University Garden',    lat: 32.2823, lng: -106.7534, region: 'mainland' },
+  { name: 'Tohono Chul Garden Expansion',          lat: 32.3623, lng: -111.0023, region: 'mainland' },
+  { name: 'Civano Nursery Demonstration Garden',   lat: 32.1923, lng: -110.7834, region: 'mainland' },
+  { name: 'Tempe Botanical Garden',                lat: 33.4123, lng: -111.9234, region: 'mainland' },
+  { name: 'Mesa Arts Center Garden',               lat: 33.4223, lng: -111.8312, region: 'mainland' },
+  { name: 'Phoenix Desert Botanic Annex',          lat: 33.4712, lng: -111.9112, region: 'mainland' },
 
   // ── Pacific Northwest: Washington State ───────────────────────────────────
   { name: 'Washington Park Arboretum',             lat: 47.6390, lng: -122.2962, region: 'mainland' },
@@ -265,6 +351,8 @@ var NA_GARDENS = [
   { name: 'Quarryhill Botanical Garden',           lat: 38.3812, lng: -122.5145, region: 'mainland' },
   { name: 'Mendocino Coast Botanical Gardens',     lat: 39.3087, lng: -123.8123, region: 'mainland' },
   { name: 'UC Santa Cruz Arboretum',               lat: 36.9923, lng: -122.0634, region: 'mainland' },
+  { name: 'Sunset Garden Menlo Park',              lat: 37.4423, lng: -122.1823, region: 'mainland' },
+  { name: 'Turtle Bay Exploration Park',           lat: 40.5712, lng: -122.3923, region: 'mainland' },
 
   // ── California: Southern California ──────────────────────────────────────
   { name: 'The Huntington Library and Gardens',    lat: 34.1290, lng: -118.1143, region: 'mainland' },
@@ -278,6 +366,8 @@ var NA_GARDENS = [
   { name: 'Balboa Park Botanical Building',        lat: 32.7312, lng: -117.1512, region: 'mainland' },
   { name: 'UC Riverside Botanic Gardens',          lat: 33.9734, lng: -117.3276, region: 'mainland' },
   { name: 'Sherman Library and Gardens',           lat: 33.6165, lng: -117.8734, region: 'mainland' },
+  { name: 'Mildred E. Mathias Botanical Garden UCLA', lat: 34.0698, lng: -118.4423, region: 'mainland' },
+  { name: 'Quail Botanical Gardens Encinitas',     lat: 33.0862, lng: -117.2623, region: 'mainland' },
 
   // ── Canada: British Columbia ──────────────────────────────────────────────
   { name: 'Butchart Gardens',                      lat: 48.5648, lng: -123.4698, region: 'mainland' },
@@ -289,7 +379,7 @@ var NA_GARDENS = [
   { name: 'Milner Gardens and Woodland',           lat: 49.3712, lng: -124.3234, region: 'mainland' },
   { name: 'Tofino Botanical Gardens',              lat: 49.1445, lng: -125.9067, region: 'mainland' },
 
-  // ── Canada: Ontario ───────────────────────────────────────────────────────
+  // ── Canada: Ontario & Quebec───────────────────────────────────────────────────────
   { name: 'Royal Botanical Gardens Burlington',    lat: 43.3198, lng: -79.8623, region: 'mainland' },
   { name: 'Toronto Botanical Garden',              lat: 43.7312, lng: -79.3534, region: 'mainland' },
   { name: 'Niagara Parks Botanical Gardens',       lat: 43.1523, lng: -79.0587, region: 'mainland' },
@@ -298,18 +388,28 @@ var NA_GARDENS = [
   { name: 'Humber Arboretum',                      lat: 43.7523, lng: -79.5912, region: 'mainland' },
   { name: 'Parkwood Estate Gardens',               lat: 43.8923, lng: -78.8712, region: 'mainland' },
   { name: 'Centennial Park Conservatory',          lat: 43.6334, lng: -79.5687, region: 'mainland' },
-
-  // ── Canada: Quebec ────────────────────────────────────────────────────────
+  { name: 'Dominion Arboretum Ottawa',             lat: 45.3834, lng: -75.7134, region: 'mainland' },
+  { name: 'Fletcher Wildlife Garden',              lat: 45.3812, lng: -75.7198, region: 'mainland' },
   { name: 'Montreal Botanical Garden',             lat: 45.5590, lng: -73.5561, region: 'mainland' },
   { name: 'Jardins de Metis',                      lat: 48.6645, lng: -68.0823, region: 'mainland' },
   { name: 'Domaine Joly-De Lotbiniere',            lat: 46.6734, lng: -71.8212, region: 'mainland' },
   { name: 'Jardin botanique de Quebec',            lat: 46.8223, lng: -71.2234, region: 'mainland' },
+  { name: 'Jardins de Versailles Quebec',          lat: 46.8534, lng: -71.3423, region: 'mainland' },
+  { name: 'Parc de la Gorge de Coaticook',         lat: 45.1323, lng: -71.8012, region: 'mainland' },
+  { name: 'Arboretum Morgan Montreal',             lat: 45.4323, lng: -73.9534, region: 'mainland' },
+  { name: 'Arboretum des Sources Ottawa',          lat: 45.4234, lng: -75.7423, region: 'mainland' },
+  { name: 'Experimental Farm Ottawa',              lat: 45.3823, lng: -75.7123, region: 'mainland' },
+  { name: 'Kingston Botanical Garden',             lat: 44.2312, lng: -76.4923, region: 'mainland' },
 
   // ── Canada: Alberta ───────────────────────────────────────────────────────
   { name: 'University of Alberta Botanic Garden',  lat: 53.3748, lng: -113.7234, region: 'mainland' },
   { name: 'Muttart Conservatory',                  lat: 53.5334, lng: -113.4812, region: 'mainland' },
   { name: 'Reader Rock Garden',                    lat: 51.0223, lng: -114.0612, region: 'mainland' },
   { name: 'Nikka Yuko Japanese Garden',            lat: 49.6934, lng: -112.8387, region: 'mainland' },
+  { name: 'Calgary Zoo Botanical Garden',          lat: 51.0434, lng: -114.0312, region: 'mainland' },
+  { name: 'Inglewood Bird Sanctuary Garden',       lat: 51.0334, lng: -114.0123, region: 'mainland' },
+  { name: 'Olds College Botanic Garden',           lat: 51.7923, lng: -114.1034, region: 'mainland' },
+  { name: 'Lethbridge Nikka Yuko Japanese Garden', lat: 49.6934, lng: -112.8387, region: 'mainland' },
 
   // ── Canada: Nova Scotia & New Brunswick ──────────────────────────────────
   { name: 'Halifax Public Gardens',                lat: 44.6412, lng: -63.5823, region: 'mainland' },
@@ -317,6 +417,13 @@ var NA_GARDENS = [
   { name: 'Harriet Irving Botanical Gardens',      lat: 45.0634, lng: -64.3712, region: 'mainland' },
   { name: 'Kingsbrae Garden',                      lat: 45.0748, lng: -67.0523, region: 'mainland' },
   { name: 'New Brunswick Botanical Garden',        lat: 47.3612, lng: -68.3223, region: 'mainland' },
+
+   // ── Canada: Winnipeg & Manitoba ──────────────────────────────────
+  { name: 'Assiniboine Park Conservatory',         lat: 49.8823, lng: -97.2334, region: 'mainland' },
+  { name: 'English Garden at Assiniboine Park',    lat: 49.8812, lng: -97.2298, region: 'mainland' },
+  { name: 'Winnipeg Horticulture Society Gardens', lat: 49.8734, lng: -97.1423, region: 'mainland' },
+  { name: 'Living Prairie Museum',                 lat: 49.9023, lng: -97.2534, region: 'mainland' },
+  { name: 'Morden Research Centre Gardens',        lat: 49.1923, lng: -98.0823, region: 'mainland' },
 
 ];
 
