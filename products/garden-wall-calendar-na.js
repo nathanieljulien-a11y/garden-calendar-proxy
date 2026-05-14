@@ -43,6 +43,13 @@ var NA_GARDENS = [
   { name: 'Blithewood Garden',                     lat: 42.0234, lng: -73.9112, region: 'mainland' },
   { name: 'Cornell Botanic Gardens',               lat: 42.4512, lng: -76.4734, region: 'mainland' },
 
+// ── Hawaii ────────────────────────────────────────────────────────────────
+{ name: 'Foster Botanical Garden Honolulu',      lat: 21.3172, lng: -157.8628, region: 'mainland' },
+{ name: 'Lyon Arboretum Honolulu',               lat: 21.3328, lng: -157.8019, region: 'mainland' },
+{ name: 'Waimea Valley Botanical Garden',        lat: 21.6383, lng: -158.0508, region: 'mainland' },
+{ name: 'National Tropical Botanical Garden Kauai', lat: 21.9094, lng: -159.5281, region: 'mainland' },
+{ name: 'Maui Nui Botanical Gardens',            lat: 20.8894, lng: -156.4736, region: 'mainland' },
+
   // ── Northeast US: New England ─────────────────────────────────────────────
   { name: 'Arnold Arboretum',                      lat: 42.3041, lng: -71.1248, region: 'mainland' },
   { name: 'Boston Public Garden',                  lat: 42.3541, lng: -71.0699, region: 'mainland' },
@@ -113,6 +120,8 @@ var NA_GARDENS = [
   { name: 'Middleton Place',                       lat: 32.8928, lng: -80.1801, region: 'mainland' },
   { name: 'Riverbanks Botanical Garden',           lat: 34.0127, lng: -81.0487, region: 'mainland' },
   { name: 'Pearl Fryar Topiary Garden',            lat: 34.2198, lng: -80.2512, region: 'mainland' },
+  { name: 'Biltmore Estate Gardens',               lat: 35.5406, lng: -82.5519, region: 'mainland' },
+  { name: 'Vizcaya Museum and Gardens',            lat: 25.7453, lng: -80.2406, region: 'mainland' },
 
   // ── Southeast US: Georgia ─────────────────────────────────────────────────
   { name: 'Atlanta Botanical Garden',              lat: 33.7900, lng: -84.3732, region: 'mainland' },
