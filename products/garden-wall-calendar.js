@@ -1357,8 +1357,16 @@ function buildCoverPage(opts) {
     provLines.push('<em>' + parts[0] + '</em>' + (parts.length > 1 ? ' \u00b7 ' + parts.slice(1).join(' \u00b7 ') : ''));
   });
  
-  if (!provLines.length) {
+   if (!provLines.length) {
     provLines.push('All botanical illustrations are in the public domain.');
+   }
+
+  var provHtml = '<div class="cv-provenance-block">'
+    + '<span class="cv-section-label">About the illustrations</span>'
+    + '<div class="cv-provenance-text">' + provLines.join('<br/>') + '</div>'
+    + '</div>';
+
+  var bottomHtml = ...
 
   var bottomHtml = '<div class="cv-bottom-row">'
     + '<div class="cv-etsy-row">'
