@@ -1015,6 +1015,47 @@ async function buildSharedState(order, geo, apiKey, compressToJpegDataUri, makeQ
     var _src = _a.source.includes('Edwards') ? 'Edwards' : _a.source.includes('Redout') ? 'Redouté' : 'Köhler';
     console.log('[ART] ' + plants[pi] + ' → ' + _src);
   }
+
+  // ── Compress artwork to two sizes ─────────────────────────────────────
+  var artworks = [];
+  for (var ai = 0; ai < artworkRaw.length; ai++) {
+    var a = artworkRaw[ai];
+    if (!a) { artworks.push(null); continue; }
+    console.log('[ART] Compressing ' + plants[ai] + ' (' + Math.round(a.buf.length / 1024) + 'KB raw)...');
+    var fullB64  = await compressToJpegDataUri(a.buf, 1800, 82);
+    var thumbB64 = await compressToJpegDataUri(a.buf,  500, 75);
+    console.log('[ART] ' + plants[ai] + ' done');
+    artworks.push({ b64: fullB64, thumbB64: thumbB64, source: a.source });
+  }
+
+  var beforeKB = artworkRaw.reduce(function(s, a) { return s + (a ? a.buf.length : 0); }, 0) / 1024;
+  var afterKB  = artworks.reduce(function(s, a) {
+    if (!a) return s;
+    return s + (a.b64.length * 0.75 / 1024) + (a.thumbB64.length * 0.75 / 1024);
+  }, 0);
+  console.log('[garden] Artwork: ' + Math.round(beforeKB) + 'KB raw \u2192 ~' + Math.round(afterKB) + 'KB compressed');
+
+  // ── Inspo gardens ──────────────────────────────────────────────────────
+  console.log('[garden] Fetching 12 inspo gardens...');
+  var inspoMonthNames = [];
+  for (var ii = 0; ii < 12; ii++) inspoMonthNames.push(MONTH_NAMES[(startMonth + ii) % 12]);
+
+  var climate    = (geo && geo.displayName) || order.climate || '';
+  var userRegion = (geo && geo.userRegion)  || 'mainland';
+  var inspos = await fetchAllInspos(
+    plants, inspoMonthNames, climate,
+    geo && geo.lat, geo && geo.lng, userRegion, apiKey
+  );
+
+  // ── Inspo photos ───────────────────────────────────────────────────────
+  console.log('[garden] Loading & compressing inspo photos...');
+  var inspoPhotoBuffers = await Promise.all(inspos.map(function(inspo) {
+    if (!inspo || !inspo.name) return Promise.resolve(null);
+    var diskBuf = readGardenPhotoFromDisk(inspo.name);
+    if (diskBuf) return Promise.resolve(diskBuf);
+    return fetchWikipediaPhotoBuffer(inspo.wikipedia || inspo.name);
+  }));
+
   var inspoPhotos = await Promise.all(inspoPhotoBuffers.map(async function(buf) {
     if (!buf) return null;
     return await compressToJpegDataUri(buf, 400, 75);
