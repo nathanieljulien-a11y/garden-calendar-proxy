@@ -530,8 +530,6 @@ Task: "Summer prune wisteria laterals back to 5 leaves" → "how to summer prune
 
 
 // ── Artwork list ──────────────────────────────────────────────────────────────
-// Returns sorted array of plant names derived from filenames in artwork/ dir.
-// Strips koehler_/edwards_/redoute_ prefixes and .jpg/.png extensions.
 app.get('/api/artwork-list', (req, res) => {
   try {
     const artDir = require('path').join(__dirname, 'artwork');
@@ -539,10 +537,10 @@ app.get('/api/artwork-list', (req, res) => {
     const plants = files
       .filter(f => /\.(jpg|png)$/i.test(f))
       .map(f => f.toLowerCase()
-        .replace(/^(koehler|edwards|redoute)_/, '')
+        .replace(/^(koehler|edwards|redoute|curtis|besler|wellcome|rijks|nypl|florabatava|haarlem|childs|nas|flora1868|bhl)_/, '')
         .replace(/\.(jpg|png)$/, '')
       )
-      .filter(f => !f.startsWith('xx'))        // exclude WIP/test artwork
+      .filter(f => !f.startsWith('xx'))
       .filter((v, i, a) => a.indexOf(v) === i) // deduplicate
       .sort();
     res.json(plants);
