@@ -1,0 +1,163 @@
+name: Fix dahlia, tulip, clematis (confirmed URLs)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
+
+      - name: Download confirmed high-res sources
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io, time
+          from urllib.parse import quote
+          from PIL import Image
+
+          HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'}
+          os.makedirs('artwork', exist_ok=True)
+
+          def wikimedia_url(filename):
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def fetch_and_save(url, dest, max_px=3200):
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=60, allow_redirects=True)
+                  ct = r.headers.get('content-type', '')
+                  if not (r.ok and len(r.content) > 10000 and 'image' in ct):
+                      print(f"    bad response: {r.status_code} {ct[:40]}")
+                      return 0
+                  img = Image.open(io.BytesIO(r.content))
+                  if img.width > max_px:
+                      h = int(img.height * max_px / img.width)
+                      img = img.resize((max_px, h), Image.LANCZOS)
+                  if img.mode in ('RGBA', 'P', 'LA'):
+                      img = img.convert('RGB')
+                  img.save(dest, 'JPEG', quality=92, optimize=True)
+                  kb = os.path.getsize(dest) // 1024
+                  print(f"    ✓ {img.width}px, {kb}KB → {dest}")
+                  return img.width
+              except Exception as e:
+                  print(f"    error: {e}")
+                  return 0
+
+          TARGETS = [
+              {
+                  'key': 'tulip',
+                  'min_px': 2400,
+                  'sources': [
+                      # Album van Eeden Haarlem's flora (1872) — 6590×9000px tiff
+                      wikimedia_url("Late tulips. Album van Eeden- Haarlem's flora- afbeeldingen in kleurendruk van verschillende bol- en knolgewassen (1872).tiff"),
+                      # Fallback: Besler H.E. tulipa 2 — 1808×2187px (below target but best Besler)
+                      wikimedia_url("Besler H.E. tulipa 2.jpg"),
+                  ]
+              },
+              {
+                  'key': 'dahlia',
+                  'min_px': 1700,  # lowered — Curtis plate 762 is 1830px, best available
+                  'sources': [
+                      # Curtis's Botanical Magazine No. 762 — Dahlia coccinea, 1830×3200px
+                      wikimedia_url("Curtis's botanical magazine (No. 762) (8448648400).jpg"),
+                  ]
+              },
+              {
+                  'key': 'clematis',
+                  'min_px': 2400,
+                  'sources': [
+                      # The book of climbing plants (1903) — 3033×4701px
+                      wikimedia_url("The book of climbing plants and wall shrubs (1903) (20208610058).jpg"),
+                      # Hortus Eystettensis 1640 Clematis — 2634×3336px
+                      wikimedia_url("Hortus Eystettensis, 1640 (BHL 45339 238) - Classis Aestiva 86.jpg"),
+                  ]
+              },
+          ]
+
+          for plant in TARGETS:
+              key     = plant['key']
+              dest    = f"artwork/{key}.jpg"
+              min_px  = plant['min_px']
+
+              try:
+                  before = Image.open(dest).width
+              except:
+                  before = 0
+
+              if before >= 2400:
+                  print(f"OK {key} ({before}px) — skipping")
+                  continue
+
+              print(f"Fixing {key} ({before}px, target ≥{min_px}px)...")
+
+              for url in plant['sources']:
+                  print(f"  trying: ...{url[-55:]}")
+                  time.sleep(2)
+                  w = fetch_and_save(url, dest + '.tmp')
+                  if w >= min_px:
+                      os.replace(dest + '.tmp', dest)
+                      print(f"  ✓ {key}: {before}→{w}px")
+                      break
+                  elif w > before:
+                      os.replace(dest + '.tmp', dest)
+                      before = w
+                      print(f"  ~ partial {w}px, continuing...")
+                  else:
+                      if os.path.exists(dest + '.tmp'):
+                          os.remove(dest + '.tmp')
+              else:
+                  final_w = Image.open(dest).width if os.path.exists(dest) else 0
+                  if final_w != before:
+                      print(f"  ~ {key}: best achieved {final_w}px")
+                  else:
+                      print(f"  ✗ {key}: no improvement ({before}px)")
+
+          print("\n=== Final resolution check ===")
+          for key in ['tulip', 'dahlia', 'clematis']:
+              dest = f"artwork/{key}.jpg"
+              try:
+                  w = Image.open(dest).width
+                  flag = '✓' if w >= 2400 else ('~' if w >= 1700 else '✗')
+                  print(f"  {flag} {key}: {w}px")
+              except:
+                  print(f"  ✗ {key}: missing")
+          PYEOF
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "artwork: fix dahlia, tulip, clematis final pass [skip ci]"
+            git push
+          fi
+
+      - name: Delete xx-prefixed withdrawn files
+        run: |
+          cd artwork
+          removed=0
+          for f in xxalmond.jpg xxapricot.jpg xxmulberry.jpg xxpeach.jpg xxstrawberry.jpg; do
+            if [ -f "$f" ]; then
+              git rm "$f"
+              removed=$((removed+1))
+            fi
+          done
+          if [ $removed -gt 0 ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "artwork: remove $removed withdrawn xx-prefixed files [skip ci]"
+            git push
+          else
+            echo "No xx-prefixed files to remove"
+          fi
