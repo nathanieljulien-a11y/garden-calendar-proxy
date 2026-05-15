@@ -1,0 +1,365 @@
+name: Fix prefixed artwork resolution (koehler / edwards / redoute)
+
+# Run manually: Actions → this workflow → Run workflow
+# Targets only koehler_*, edwards_*, and redoute_* prefixed files.
+# Uses the Commons API to find the high-res "clean, no-description" versions
+# of Köhler's plates, and direct URLs for Edwards and Redouté.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-prefixed:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
+
+      - name: Fix koehler_, edwards_, redoute_ artwork files
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io, time
+          from urllib.parse import quote
+          from PIL import Image
+
+          HEADERS = {
+              'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'
+          }
+          DELAY = 2.5
+          TARGET_PX = 2400
+          os.makedirs('artwork', exist_ok=True)
+
+          def current_width(path):
+              try:
+                  return Image.open(path).width
+              except:
+                  return 0
+
+          def wikimedia_url(filename):
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def save_image(content, dest):
+              img = Image.open(io.BytesIO(content))
+              if img.width > 3200:
+                  h = int(img.height * 3200 / img.width)
+                  img = img.resize((3200, h), Image.LANCZOS)
+              if img.mode in ('RGBA', 'P', 'LA'):
+                  img = img.convert('RGB')
+              img.save(dest, 'JPEG', quality=92, optimize=True)
+              kb = os.path.getsize(dest) // 1024
+              print(f"    ✓ {dest} ({img.width}px, {kb}KB)")
+              return img.width
+
+          def try_url(url, dest):
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=40)
+                  ct = r.headers.get('content-type', '')
+                  if r.ok and len(r.content) > 10000 and 'image' in ct:
+                      return save_image(r.content, dest)
+              except Exception as e:
+                  print(f"    error: {e}")
+              return 0
+
+          def commons_api_search(query, limit=8):
+              url = (
+                  'https://commons.wikimedia.org/w/api.php'
+                  f'?action=query&list=search&srsearch={quote(query)}'
+                  f'&srnamespace=6&srlimit={limit}&format=json&origin=*'
+              )
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=15)
+                  return [h['title'].replace('File:', '')
+                          for h in r.json().get('query', {}).get('search', [])]
+              except Exception as e:
+                  print(f"    API error: {e}")
+                  return []
+
+          def try_api_highres(query, dest, min_px=TARGET_PX):
+              """Search Commons, try each result, accept first at or above min_px."""
+              for filename in commons_api_search(query):
+                  time.sleep(DELAY)
+                  w = try_url(wikimedia_url(filename), dest + '.tmp')
+                  if w >= min_px:
+                      os.replace(dest + '.tmp', dest)
+                      print(f"    matched: {filename} ({w}px)")
+                      return w
+                  elif w > 0:
+                      print(f"    skip ({w}px): {filename}")
+                  if os.path.exists(dest + '.tmp'):
+                      os.remove(dest + '.tmp')
+              return 0
+
+          # ── Plant definitions ──────────────────────────────────────────────
+          # Strategy for Köhler: Commons has a "clean, no-description" series
+          # at ~2500px with naming:
+          #   "{Latin name} (Köhler's Medizinal-Pflanzen Bd.N YYYY, BHL-XXXXXX, Tafel N) clean, no-description.jpg"
+          # Search query targets this specific series.
+          #
+          # Strategy for Edwards' Botanical Register: BHL Flickr uploads at
+          # ~2000–3000px, filename: "Edwards's botanical register (Plate NNN) (FLICKR_ID).jpg"
+          # The edwards_* files use plates from this series.
+          #
+          # Strategy for Redouté: Files vary. "Redoute - {species}.jpg" or
+          # higher-res scans on Commons from BHL.
+
+          PLANTS = [
+
+              # ══ KÖHLER'S MEDIZINAL-PFLANZEN ══════════════════════════════
+              # Each entry searches for the high-res "clean" version on Commons.
+              # Latin name is key to finding the right plate.
+
+              {'key': 'koehler_almond',
+               'queries': ["Prunus dulcis Köhler Medizinal clean no-description",
+                           "Prunus amygdalus Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_apple',
+               'queries': ["Malus domestica Köhler Medizinal clean no-description",
+                           "Malus communis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_beech',
+               'queries': ["Fagus sylvatica Köhler Medizinal clean no-description",
+                           "Fagus sylvatica Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_broom',
+               'queries': ["Cytisus scoparius Köhler Medizinal clean no-description",
+                           "Sarothamnus scoparius Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_cherry',
+               'queries': ["Prunus cerasus Köhler Medizinal clean no-description",
+                           "Prunus avium Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_elderflower',
+               'queries': ["Sambucus nigra Köhler Medizinal clean no-description",
+                           "Sambucus nigra Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_fennel',
+               'queries': ["Foeniculum vulgare Köhler Medizinal clean no-description",
+                           "Foeniculum vulgare Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_fig',
+               'queries': ["Ficus carica Köhler Medizinal clean no-description",
+                           "Ficus carica Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_foxglove',
+               'queries': ["Digitalis purpurea Köhler Medizinal clean no-description",
+                           "Digitalis purpurea Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_grape',
+               'queries': ["Vitis vinifera Köhler Medizinal clean no-description",
+                           "Vitis vinifera Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_iris',
+               'queries': ["Iris germanica Köhler Medizinal clean no-description",
+                           "Iris florentina Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_jasmine',
+               'queries': ["Jasminum officinale Köhler Medizinal clean no-description",
+                           "Jasminum officinale Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_laurel',
+               'queries': ["Laurus nobilis Köhler Medizinal clean no-description",
+                           "Laurus nobilis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_lavender',
+               'queries': ["Lavandula angustifolia Köhler Medizinal clean no-description",
+                           "Lavandula officinalis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_lemon',
+               'queries': ["Citrus limon Köhler Medizinal clean no-description",
+                           "Citrus medica Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_lilyofthevalley',
+               'queries': ["Convallaria majalis Köhler Medizinal clean no-description",
+                           "Convallaria majalis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_limetree',
+               'queries': ["Tilia europaea Köhler Medizinal clean no-description",
+                           "Tilia cordata Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_marigold',
+               'queries': ["Calendula officinalis Köhler Medizinal clean no-description",
+                           "Calendula officinalis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_mint',
+               'queries': ["Mentha piperita Köhler Medizinal clean no-description",
+                           "Mentha piperita Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_olive',
+               'queries': ["Olea europaea Köhler Medizinal clean no-description",
+                           "Olea europaea Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_poppy',
+               'queries': ["Papaver somniferum Köhler Medizinal clean no-description",
+                           "Papaver somniferum Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_quince',
+               'queries': ["Cydonia oblonga Köhler Medizinal clean no-description",
+                           "Cydonia vulgaris Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_raspberry',
+               'queries': ["Rubus idaeus Köhler Medizinal clean no-description",
+                           "Rubus idaeus Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_rhubarb',
+               'queries': ["Rheum rhabarbarum Köhler Medizinal clean no-description",
+                           "Rheum officinale Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_rose',
+               'queries': ["Rosa centifolia Köhler Medizinal clean no-description",
+                           "Rosa centifolia Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_rosemary',
+               'queries': ["Rosmarinus officinalis Köhler Medizinal clean no-description",
+                           "Rosmarinus officinalis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_sage',
+               'queries': ["Salvia officinalis Köhler Medizinal clean no-description",
+                           "Salvia officinalis Köhler Medizinal-Pflanzen botanical plate"]},
+
+              {'key': 'koehler_thyme',
+               'queries': ["Thymus vulgaris Köhler Medizinal clean no-description",
+                           "Thymus vulgaris Köhler Medizinal-Pflanzen botanical plate"]},
+
+              # ══ EDWARDS' BOTANICAL REGISTER ══════════════════════════════
+              # These are at 1333px — Edwards' Botanical Register plates on
+              # Commons are typically 1500–3000px via BHL Flickr uploads.
+              # The plates referenced are the exact ones already found.
+
+              {'key': 'edwards_camellia',
+               'queries': ["Edwards botanical register Camellia plate high resolution",
+                           "Edwards's botanical register Camellia japonica plate"]},
+
+              {'key': 'edwards_clematis',
+               'queries': ["Edwards botanical register Clematis plate high resolution",
+                           "Edwards's botanical register Clematis plate"]},
+
+              {'key': 'edwards_fuchsia',
+               'queries': ["Edwards botanical register Fuchsia plate high resolution",
+                           "Edwards's botanical register Fuchsia plate"]},
+
+              {'key': 'edwards_peony',
+               'queries': ["Edwards botanical register Paeonia plate high resolution",
+                           "Edwards's botanical register Paeonia plate"]},
+
+              {'key': 'edwards_sunflower',
+               'queries': ["Edwards botanical register Helianthus plate high resolution",
+                           "Edwards's botanical register Helianthus sunflower plate"]},
+
+              {'key': 'edwards_tulip',
+               'queries': ["Edwards botanical register Tulipa plate high resolution",
+                           "Edwards's botanical register Tulipa plate"]},
+
+              # ══ REDOUTÉ ═══════════════════════════════════════════════════
+              # Redouté plates on Commons are typically 1400–2000px.
+              # BHL has higher-res scans. Search for the specific species.
+
+              {'key': 'redoute_hydrangea',
+               'queries': ["Redoute Hydrangea botanical illustration high resolution BHL",
+                           "Redouté Hydrangea hortensis plate illustration"]},
+
+              {'key': 'redoute_magnolia',
+               'queries': ["Redoute Magnolia botanical illustration high resolution BHL",
+                           "Redouté Magnolia grandiflora plate illustration"]},
+
+              {'key': 'redoute_wisteria',
+               'queries': ["Redoute Wisteria botanical illustration high resolution BHL",
+                           "Redouté Glycine sinensis Wisteria plate illustration"]},
+          ]
+
+          results = {'improved': [], 'already_ok': [], 'partial': [], 'failed': []}
+
+          for plant in PLANTS:
+              key  = plant['key']
+              dest = f"artwork/{key}.jpg"
+
+              if not os.path.exists(dest):
+                  print(f"  SKIP {key} — file not found (not a live key?)")
+                  continue
+
+              before = current_width(dest)
+              if before >= TARGET_PX:
+                  results['already_ok'].append(f"{key}({before}px)")
+                  continue
+
+              print(f"  Fixing {key} ({before}px)...")
+              best_w = before
+              improved = False
+
+              for query in plant['queries']:
+                  print(f"    query: {query}")
+                  time.sleep(DELAY)
+                  w = try_api_highres(query, dest, min_px=TARGET_PX)
+                  if w >= TARGET_PX:
+                      results['improved'].append(f"{key}({before}→{w}px)")
+                      improved = True
+                      break
+                  elif w > best_w:
+                      best_w = w
+
+              if not improved:
+                  final_w = current_width(dest)
+                  if final_w > before:
+                      results['partial'].append(f"{key}({before}→{final_w}px)")
+                      print(f"  ~ {key}: partial {before}→{final_w}px")
+                  else:
+                      results['failed'].append(f"{key}({before}px)")
+                      print(f"  ✗ {key}: no improvement")
+
+          print()
+          print("=== Results ===")
+          if results['improved']:
+              print(f"  ✓ Improved ({len(results['improved'])}): {', '.join(results['improved'])}")
+          if results['already_ok']:
+              print(f"  OK already ({len(results['already_ok'])}): {', '.join(results['already_ok'])}")
+          if results['partial']:
+              print(f"  ~ Partial ({len(results['partial'])}): {', '.join(results['partial'])}")
+          if results['failed']:
+              print(f"  ✗ Failed ({len(results['failed'])}): {', '.join(results['failed'])}")
+          PYEOF
+
+      - name: Resolution summary (prefixed files only)
+        run: |
+          python3 << 'PYEOF'
+          import os
+          from PIL import Image
+          TARGET = 2400
+          files = sorted(
+              f for f in os.listdir('artwork')
+              if f.endswith('.jpg') and (
+                  f.startswith('koehler_') or
+                  f.startswith('edwards_') or
+                  f.startswith('redoute_')
+              )
+          )
+          ok, warn = [], []
+          for f in files:
+              img = Image.open(f"artwork/{f}")
+              (ok if img.width >= TARGET else warn).append(f"{f}: {img.width}px")
+          print(f"✓ {len(ok)}/{len(files)} prefixed files at {TARGET}px+")
+          for s in ok: print(f"  {s}")
+          if warn:
+              print(f"\n⚠ {len(warn)} still below {TARGET}px:")
+              for s in warn: print(f"  {s}")
+          PYEOF
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            COUNT=$(git diff --staged --name-only | wc -l)
+            git commit -m "artwork: replace $COUNT low-res koehler/edwards/redoute files [skip ci]"
+            git push
+            echo "Pushed $COUNT files"
+          fi
