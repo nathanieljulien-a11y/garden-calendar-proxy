@@ -1,0 +1,412 @@
+name: Fix low-resolution artwork files
+
+# Run manually: Actions → Fix low-resolution artwork files → Run workflow
+# Purpose: replaces the ~450px Köhler thumbnails and other low-res files
+# with high-resolution sources (target: ≥2400px wide).
+#
+# Plants needing replacement after initial download run:
+#   rose          476px  → Redouté Les Roses (high-res on Commons)
+#   lavender      438px  → NYPL Digital Collections (high-res tiff)
+#   foxglove      456px  → Curtis's Botanical Magazine plate (high-res)
+#   lilyofthevalley 457px → BHL Flora Batava or similar (high-res)
+#   camellia     1741px  → better Curtis's plate (target 2400+)
+#   hydrangea    1970px  → better Curtis's plate
+#   tulip        1896px  → better source
+#   iris         1785px  → better Curtis's plate
+#   peony        1858px  → better Curtis's plate
+#   oleander     FAILED  → needs any valid source
+#   sunflower    2143px  → close but can try better
+#   clematis     1405px  → better source
+#   dahlia       1987px  → better source
+#   magnolia     2312px  → already close; skip if action slow
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
+
+      - name: Download high-resolution replacements
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io, time
+          from urllib.parse import quote
+          from PIL import Image
+
+          HEADERS = {
+              'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'
+          }
+          DELAY = 2.5
+          TARGET_PX = 2400  # minimum acceptable width
+          os.makedirs('artwork', exist_ok=True)
+
+          # ── Helpers ────────────────────────────────────────────────────────
+
+          def current_width(path):
+              try:
+                  img = Image.open(path)
+                  return img.width
+              except:
+                  return 0
+
+          def wikimedia_url(filename):
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def save_image(content, dest):
+              img = Image.open(io.BytesIO(content))
+              w = img.width
+              if w > 3200:
+                  h = int(img.height * 3200 / w)
+                  img = img.resize((3200, h), Image.LANCZOS)
+              if img.mode in ('RGBA', 'P', 'LA'):
+                  img = img.convert('RGB')
+              img.save(dest, 'JPEG', quality=92, optimize=True)
+              kb = os.path.getsize(dest) // 1024
+              print(f"    ✓ {dest} ({img.width}px, {kb}KB)")
+              return img.width
+
+          def try_url(url, dest):
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=40)
+                  ct = r.headers.get('content-type', '')
+                  if r.ok and len(r.content) > 10000 and 'image' in ct:
+                      w = save_image(r.content, dest)
+                      return w
+              except Exception as e:
+                  print(f"    error: {e}")
+              return 0
+
+          def commons_api_search(query, limit=8):
+              url = (
+                  'https://commons.wikimedia.org/w/api.php'
+                  f'?action=query&list=search&srsearch={quote(query)}'
+                  f'&srnamespace=6&srlimit={limit}&format=json&origin=*'
+              )
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=15)
+                  hits = r.json().get('query', {}).get('search', [])
+                  return [h['title'].replace('File:', '') for h in hits]
+              except Exception as e:
+                  print(f"    API error: {e}")
+                  return []
+
+          def try_api(query, dest, min_px=TARGET_PX):
+              """Search Commons API, try each result, return width of first success ≥ min_px."""
+              hits = commons_api_search(query)
+              for filename in hits:
+                  url = wikimedia_url(filename)
+                  time.sleep(DELAY)
+                  w = try_url(url, dest + '.tmp')
+                  if w >= min_px:
+                      os.replace(dest + '.tmp', dest)
+                      print(f"    matched: {filename} ({w}px)")
+                      return w
+                  elif w > 0:
+                      print(f"    skip (only {w}px): {filename}")
+                  if os.path.exists(dest + '.tmp'):
+                      os.remove(dest + '.tmp')
+              return 0
+
+          # ── Plant replacement targets ──────────────────────────────────────
+          # Only replaces files that are currently below TARGET_PX.
+          # Strategies tried in order; first one reaching TARGET_PX wins.
+
+          REPLACEMENTS = [
+
+              # ── ROSE ──────────────────────────────────────────────────────
+              # Redouté "Les Roses" plates are 1400-1800px on Commons.
+              # Better: Pierre-Joseph Redouté Rosa centifolia from a better scan,
+              # or Curtis's Botanical Magazine rose plates.
+              {
+                  'key': 'rose',
+                  'strategies': [
+                      # Redouté high-res Rosa centifolia — 1408×2029 on Commons
+                      # Need even higher. Try BHL Botanical Register or Flora Graeca.
+                      ("Curtis's rose API — high-res",
+                       lambda d: try_api("Curtis's botanical magazine Rosa centifolia plate", d)),
+                      ("BHL Botanical Register rose",
+                       lambda d: try_api("Edwards botanical register Rosa plate", d, 1400)),
+                      # Fallback: best Redouté available
+                      ("Redouté Rosa centifolia direct",
+                       lambda d: try_url(wikimedia_url("Redoute - Rosa centifolia foliacea.jpg"), d)),
+                  ]
+              },
+
+              # ── LAVENDER ──────────────────────────────────────────────────
+              # NYPL has a 4266×6797px tiff of Lavandula spica — excellent quality
+              {
+                  'key': 'lavender',
+                  'strategies': [
+                      # NYPL Digital Collections — high-res tiff (public domain)
+                      ("NYPL Lavandula tiff",
+                       lambda d: try_url(
+                           "https://digitalcollections.nypl.org/items/510d47e3-5713-a3d9-e040-e00a18064a99/file#image",
+                           d
+                       )),
+                      # Commons — same NYPL file mirrored
+                      ("Commons NYPL lavender",
+                       lambda d: try_url(
+                           wikimedia_url("Lavandula spica - Lavande commune. (Broad-leaed lavander or aspic) (NYPL b14485031-1108904).tiff"),
+                           d
+                       )),
+                      # BHL search for lavender illustration
+                      ("BHL lavender high-res API",
+                       lambda d: try_api("Lavandula angustifolia botanical illustration plate high", d, 1800)),
+                      # Curtis's plate 594 — Lavandula spica
+                      ("Curtis's lavender API",
+                       lambda d: try_api("Curtis's botanical magazine Lavandula spica plate", d, 1800)),
+                  ]
+              },
+
+              # ── FOXGLOVE ──────────────────────────────────────────────────
+              # Curtis's Botanical Magazine has Digitalis purpurea at plate 3
+              # (Volume 1, 1787) — one of the original plates
+              {
+                  'key': 'foxglove',
+                  'strategies': [
+                      # Curtis's Vol 1 Plate 3 — Digitalis purpurea
+                      ("Curtis's foxglove plate 3 API",
+                       lambda d: try_api("Curtis's botanical magazine Digitalis purpurea plate", d, 1700)),
+                      # Blackwell Curious Herbal has foxglove
+                      ("BHL Digitalis API",
+                       lambda d: try_api("Digitalis purpurea botanical illustration plate BHL", d, 1700)),
+                      # Sturm flora Germany
+                      ("Sturm Flora foxglove API",
+                       lambda d: try_api("Digitalis purpurea Sturm flora Deutschland", d, 1500)),
+                  ]
+              },
+
+              # ── LILY OF THE VALLEY ────────────────────────────────────────
+              # Curtis's has Convallaria majalis at plate 313 (Vol 10, 1796)
+              {
+                  'key': 'lilyofthevalley',
+                  'strategies': [
+                      ("Curtis's lily of valley API",
+                       lambda d: try_api("Curtis's botanical magazine Convallaria majalis plate 313", d, 1700)),
+                      ("BHL Convallaria API",
+                       lambda d: try_api("Convallaria majalis botanical illustration plate BHL", d, 1700)),
+                      ("Flora Batava Convallaria API",
+                       lambda d: try_api("Convallaria majalis Flora Batava plate", d, 1500)),
+                  ]
+              },
+
+              # ── OLEANDER (failed entirely) ────────────────────────────────
+              # Curtis's plate 166 — Nerium oleander (Vol 6, 1792)
+              {
+                  'key': 'oleander',
+                  'strategies': [
+                      # Try direct Curtis's Volume 6 file formats
+                      ("Curtis's Vol 6 plate 166 direct",
+                       lambda d: try_url(
+                           wikimedia_url("The Botanical Magazine, Plate 166 (Volume 6, 1792).png"),
+                           d
+                       )),
+                      ("Curtis's oleander API broad",
+                       lambda d: try_api("Nerium oleander botanical plate illustration", d, 1500)),
+                      ("BHL Nerium API",
+                       lambda d: try_api("Nerium oleander Curtis botanical magazine", d, 1500)),
+                      # Köhler Vol 2 has oleander — search for high-res version
+                      ("Köhler oleander high-res API",
+                       lambda d: try_api("Nerium oleander Köhler Medizinal plate", d, 1000)),
+                      # Absolute fallback — any oleander botanical illustration
+                      ("any oleander API",
+                       lambda d: try_api("Nerium oleander botanical illustration", d, 800)),
+                  ]
+              },
+
+              # ── CAMELLIA (1741px → target 2400) ──────────────────────────
+              {
+                  'key': 'camellia',
+                  'strategies': [
+                      # The Botanical Magazine Plate 42 PNG version
+                      ("Curtis's camellia PNG direct",
+                       lambda d: try_url(
+                           wikimedia_url("The Botanical Magazine, Plate 42 (Volume 2, 1788).png"),
+                           d
+                       )),
+                      ("BHL camellia high-res API",
+                       lambda d: try_api("Camellia japonica botanical illustration plate high resolution", d, 2000)),
+                  ]
+              },
+
+              # ── HYDRANGEA (1970px → target 2400) ─────────────────────────
+              {
+                  'key': 'hydrangea',
+                  'strategies': [
+                      ("Curtis's hydrangea PNG direct",
+                       lambda d: try_url(
+                           wikimedia_url("The Botanical Magazine, Plate 438 (Volume 13, 1799).png"),
+                           d
+                       )),
+                      ("BHL Hydrangea high-res API",
+                       lambda d: try_api("Hydrangea botanical plate illustration BHL high resolution", d, 2000)),
+                  ]
+              },
+
+              # ── TULIP (1896px → target 2400) ──────────────────────────────
+              {
+                  'key': 'tulip',
+                  'strategies': [
+                      # Curtis's Vol 21 (No. 839) — try PNG version if available
+                      ("Curtis's tulip PNG",
+                       lambda d: try_url(
+                           wikimedia_url("The Botanical Magazine, Plate 839 (Volume 21, 1805).png"),
+                           d
+                       )),
+                      ("Redouté tulip high-res API",
+                       lambda d: try_api("Redoute tulipa botanical illustration high resolution", d, 1800)),
+                      ("BHL tulip high-res API",
+                       lambda d: try_api("Tulipa suaveolens botanical plate illustration BHL", d, 1800)),
+                  ]
+              },
+
+              # ── IRIS (1785px → target 2400) ───────────────────────────────
+              {
+                  'key': 'iris',
+                  'strategies': [
+                      ("Curtis's iris PNG direct",
+                       lambda d: try_url(
+                           wikimedia_url("The Botanical Magazine, Plate 50 (Volume 2, 1788).png"),
+                           d
+                       )),
+                      ("BHL Iris sibirica high-res API",
+                       lambda d: try_api("Iris sibirica botanical plate illustration BHL", d, 1800)),
+                  ]
+              },
+
+              # ── PEONY (1858px → target 2400) ──────────────────────────────
+              {
+                  'key': 'peony',
+                  'strategies': [
+                      ("Curtis's peony plate 1784 API",
+                       lambda d: try_api("Curtis's botanical magazine Paeonia plate 1784", d, 1900)),
+                      ("BHL Paeonia officinalis high-res API",
+                       lambda d: try_api("Paeonia officinalis botanical plate illustration high", d, 1900)),
+                  ]
+              },
+
+              # ── CLEMATIS (1405px → target 2400) ───────────────────────────
+              {
+                  'key': 'clematis',
+                  'strategies': [
+                      ("Curtis's clematis API high-res",
+                       lambda d: try_api("Curtis's botanical magazine Clematis plate", d, 1800)),
+                      ("BHL Clematis high-res API",
+                       lambda d: try_api("Clematis botanical plate illustration BHL high", d, 1600)),
+                  ]
+              },
+
+              # ── DAHLIA (1987px → target 2400) ─────────────────────────────
+              {
+                  'key': 'dahlia',
+                  'strategies': [
+                      ("Curtis's dahlia API high-res",
+                       lambda d: try_api("Curtis's botanical magazine Dahlia plate", d, 2000)),
+                      ("BHL Dahlia high-res API",
+                       lambda d: try_api("Dahlia botanical plate illustration BHL high", d, 2000)),
+                  ]
+              },
+
+              # ── SUNFLOWER (2143px → target 2400) ──────────────────────────
+              {
+                  'key': 'sunflower',
+                  'strategies': [
+                      ("Curtis's sunflower plate 1105 API",
+                       lambda d: try_api("Curtis's botanical magazine Helianthus annuus plate 1105", d, 2200)),
+                      ("BHL sunflower high-res API",
+                       lambda d: try_api("Helianthus annuus botanical plate illustration BHL high", d, 2200)),
+                  ]
+              },
+          ]
+
+          # ── Run replacements ───────────────────────────────────────────────
+          results = {'improved': [], 'unchanged': [], 'failed': []}
+
+          for plant in REPLACEMENTS:
+              key  = plant['key']
+              dest = f"artwork/{key}.jpg"
+              before = current_width(dest)
+
+              if before >= TARGET_PX:
+                  print(f"  OK {key} already {before}px — skipping")
+                  results['unchanged'].append(f"{key}({before}px)")
+                  continue
+
+              print(f"  Fixing {key} (currently {before}px)...")
+              improved = False
+
+              for label, fn in plant['strategies']:
+                  print(f"    trying: {label}")
+                  time.sleep(DELAY)
+                  w = fn(dest)
+                  if w >= TARGET_PX:
+                      results['improved'].append(f"{key}({before}→{w}px)")
+                      improved = True
+                      break
+                  elif w > before:
+                      print(f"    better ({w}px) but still below {TARGET_PX}px — continuing search")
+
+              if not improved:
+                  after = current_width(dest)
+                  if after > before:
+                      results['improved'].append(f"{key}({before}→{after}px, partial)")
+                      print(f"  ~ {key}: partial improvement {before}→{after}px")
+                  else:
+                      results['failed'].append(f"{key}({before}px)")
+                      print(f"  ✗ {key}: no improvement found")
+
+          print()
+          print("=== Results ===")
+          if results['improved']:
+              print(f"  Improved ({len(results['improved'])}): {', '.join(results['improved'])}")
+          if results['unchanged']:
+              print(f"  Already OK ({len(results['unchanged'])}): {', '.join(results['unchanged'])}")
+          if results['failed']:
+              print(f"  Still low-res ({len(results['failed'])}): {', '.join(results['failed'])}")
+          PYEOF
+
+      - name: Resolution check
+        run: |
+          python3 << 'PYEOF'
+          import os
+          from PIL import Image
+          TARGET = 2400
+          files = sorted(f for f in os.listdir('artwork') if f.endswith('.jpg'))
+          ok, warn = [], []
+          for f in files:
+              img = Image.open(f"artwork/{f}")
+              if img.width >= TARGET:
+                  ok.append(f"{f}: {img.width}px")
+              else:
+                  warn.append(f"{f}: {img.width}px")
+          print(f"✓ {len(ok)} files at {TARGET}px+")
+          for s in ok: print(f"  {s}")
+          print(f"\n⚠ {len(warn)} files below {TARGET}px")
+          for s in warn: print(f"  {s}")
+          PYEOF
+
+      - name: Commit improved files
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            COUNT=$(git diff --staged --name-only | wc -l)
+            git commit -m "artwork: replace $COUNT low-res illustrations with high-res sources [skip ci]"
+            git push
+            echo "Pushed $COUNT updated files"
+          fi
