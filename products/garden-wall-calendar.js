@@ -1005,9 +1005,9 @@ async function buildSharedState(order, geo, apiKey, compressToJpegDataUri, makeQ
     if (!_a) continue;
     if (_sharp) {
       try {
-        var _meta = await _sharp(_a.buf).metadata();
-        var _flag = _meta.width < 2400 ? ' ⚠ BELOW 2400px' : '';
-        console.log('[ART-QC] ' + plants[pi] + ' — ' + _meta.width + 'x' + _meta.height + ' ' + (_meta.format || '').toUpperCase() + _flag);
+        var _meta = await _sharp(_a.buf, { failOn: 'none' }).metadata();
+        var _flag = (_meta.width || 0) < 2400 ? ' ⚠ BELOW 2400px' : '';
+        console.log('[ART-QC] ' + plants[pi] + ' — ' + (_meta.width||'?') + 'x' + (_meta.height||'?') + ' ' + (_meta.format || '').toUpperCase() + _flag);
       } catch(e) {
         console.warn('[ART-QC] ' + plants[pi] + ' — metadata read failed: ' + e.message);
       }
