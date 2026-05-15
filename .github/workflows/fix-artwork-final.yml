@@ -1,0 +1,286 @@
+name: Fix artwork resolution - final pass (direct URLs)
+
+# Run manually: Actions → this workflow → Run workflow
+# Only replaces files still below 2400px.
+# Uses confirmed direct Wikimedia URLs — no API search needed.
+#
+# Sources used:
+#   camellia   → Wellcome Collection V0044585 (2361×3349px)
+#   hydrangea  → Childs' rare flowers 1914 (3044×2772px)
+#   sunflower  → Besler Hortus Eystettensis Google Art Project (4531×5551px)
+#   tulip      → Besler H.E. tulipa 2 (1808×2187) — best available; or Specimen historiae
+#   iris       → Verschillende bloemen Rijksmuseum Florilegium (3328×4672px)
+#   peony      → Marie Weyher Paeonia Candida (2816×4032px)
+#   foxglove   → Digitalis American Flora 1858px (keep; search for better)
+#   clematis   → Curtis's Vol 73 plate 4341 1972px (keep; search for better)
+#   dahlia     → Specimen historiae plantarum MET (2617×3869px)
+#   magnolia   → already 2312px — leave unless easy win found
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-final:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
+
+      - name: Replace low-res files with confirmed high-res sources
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io, time
+          from urllib.parse import quote
+          from PIL import Image
+
+          HEADERS = {
+              'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'
+          }
+          DELAY = 2.5
+          TARGET_PX = 2400
+          os.makedirs('artwork', exist_ok=True)
+
+          def current_width(path):
+              try:
+                  return Image.open(path).width
+              except:
+                  return 0
+
+          def wikimedia_url(filename):
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def save_image(content, dest):
+              img = Image.open(io.BytesIO(content))
+              if img.width > 3200:
+                  h = int(img.height * 3200 / img.width)
+                  img = img.resize((3200, h), Image.LANCZOS)
+              if img.mode in ('RGBA', 'P', 'LA'):
+                  img = img.convert('RGB')
+              img.save(dest, 'JPEG', quality=92, optimize=True)
+              kb = os.path.getsize(dest) // 1024
+              print(f"    ✓ {dest} ({img.width}px, {kb}KB)")
+              return img.width
+
+          def try_url(url, dest):
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=40)
+                  ct = r.headers.get('content-type', '')
+                  if r.ok and len(r.content) > 10000 and 'image' in ct:
+                      return save_image(r.content, dest)
+              except Exception as e:
+                  print(f"    error: {e}")
+              return 0
+
+          def commons_api_search(query, limit=6):
+              url = (
+                  'https://commons.wikimedia.org/w/api.php'
+                  f'?action=query&list=search&srsearch={quote(query)}'
+                  f'&srnamespace=6&srlimit={limit}&format=json&origin=*'
+              )
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=15)
+                  return [h['title'].replace('File:', '')
+                          for h in r.json().get('query', {}).get('search', [])]
+              except Exception as e:
+                  print(f"    API error: {e}")
+                  return []
+
+          # ── Confirmed sources (filename + expected resolution) ─────────────
+          TARGETS = [
+              {
+                  'key': 'camellia',
+                  'urls': [
+                      # Wellcome Collection — 2361×3349px coloured botanical
+                      wikimedia_url("A camellia (Camellia japonica var.); flowering stem. Coloure Wellcome V0044585.jpg"),
+                      # Second Wellcome option — 2280×3104px
+                      wikimedia_url("A camellia (Camellia japonica var.); flowering stem. Coloure Wellcome V0044579.jpg"),
+                  ]
+              },
+              {
+                  'key': 'hydrangea',
+                  'urls': [
+                      # Childs' rare flowers 1914 — 3044×2772px
+                      wikimedia_url("Childs' rare flowers, fruits and vegetables (1914) (19985699644).jpg"),
+                      # Childs' 1913 variant — 2980×2726px
+                      wikimedia_url("Childs' rare flowers, vegetables, and fruits (1913) (20420266678).jpg"),
+                  ]
+              },
+              {
+                  'key': 'sunflower',
+                  'urls': [
+                      # Besler Hortus Eystettensis 1713 ed — Google Art Project scan 4531×5551px
+                      wikimedia_url("Unidentified artist - Large Sunflower (Flos Solis Maior), plate 1 from part 5, B. Besler, \"Hortus Eystettensis\", 1713 edit... - Google Art Project.jpg"),
+                      # Petit soleil Duret 1605 — 3964×5653px
+                      wikimedia_url("Petit soleil Duret 1605.png"),
+                      # Specimen historiae plantarum MET — 2617×3869px
+                      wikimedia_url("Specimen historiae plantarum MET DP339654.jpg"),
+                  ]
+              },
+              {
+                  'key': 'iris',
+                  'urls': [
+                      # Rijksmuseum Florilegium — Verschillende bloemen waaronder iris 3328×4672px
+                      wikimedia_url("Verschillende bloemen waaronder iris en viooltje Florilegium (serietitel), RP-P-BI-6001.jpg"),
+                      # API search fallback for Iris botanical illustration
+                  ],
+                  'api_fallback': "Iris botanical illustration plate BHL high resolution"
+              },
+              {
+                  'key': 'peony',
+                  'urls': [
+                      # Marie Weyher Paeonia Candida — 2816×4032px
+                      wikimedia_url("Marie Weyher 5 Paeonia Candida.jpg"),
+                  ],
+                  'api_fallback': "Paeonia officinalis botanical plate illustration high resolution BHL"
+              },
+              {
+                  'key': 'dahlia',
+                  'urls': [
+                      # Specimen historiae plantarum MET — 2617×3869px
+                      # (This is the same image as sunflower fallback above — need a dahlia-specific one)
+                      # Curtis's Botanical Magazine has dahlia plates in early volumes
+                  ],
+                  'api_fallback': "Curtis botanical magazine Dahlia variabilis plate illustration"
+              },
+              {
+                  'key': 'tulip',
+                  'urls': [
+                      # Rijksmuseum Florilegium tulip print — 4258×4852px
+                      wikimedia_url("Bloemen met een lint samengebonden Tulipe fond Jaune Panachée de rouge Giroflée simple rouge double violet en blanc (titel op object), RP-T-2013-58-11.jpg"),
+                      # Besler H.E. tulipa 1 — 1932×2370px (below target but much better than current)
+                      wikimedia_url("Besler H.E. tulipa 1.jpg"),
+                  ]
+              },
+              {
+                  'key': 'foxglove',
+                  'urls': [
+                      # Try Curtis's Botanical Magazine plate 3 directly — Digitalis purpurea
+                      wikimedia_url("The Botanical Magazine, Plate 3 (Volume 1, 1787).png"),
+                  ],
+                  'api_fallback': "Digitalis purpurea Curtis botanical magazine plate high resolution"
+              },
+              {
+                  'key': 'clematis',
+                  'urls': [
+                      # Try higher-res Curtis's Botanical Magazine clematis plates
+                      wikimedia_url("The Botanical Magazine, Plate 4341 (Volume 73, 1847).png"),
+                  ],
+                  'api_fallback': "Clematis botanical illustration plate BHL 2000 high resolution"
+              },
+          ]
+
+          results = {'improved': [], 'already_ok': [], 'failed': []}
+
+          for plant in TARGETS:
+              key  = plant['key']
+              dest = f"artwork/{key}.jpg"
+              before = current_width(dest)
+
+              if before >= TARGET_PX:
+                  print(f"  OK {key} ({before}px) — skipping")
+                  results['already_ok'].append(f"{key}({before}px)")
+                  continue
+
+              print(f"  Fixing {key} (currently {before}px)...")
+              best_w = before
+              improved = False
+
+              # Try direct URLs first
+              for url in plant.get('urls', []):
+                  print(f"    url: {url[-60:]}")
+                  time.sleep(DELAY)
+                  w = try_url(url, dest + '.tmp')
+                  if w >= TARGET_PX:
+                      os.replace(dest + '.tmp', dest)
+                      print(f"    ✓ {key}: {before}→{w}px")
+                      results['improved'].append(f"{key}({before}→{w}px)")
+                      improved = True
+                      break
+                  elif w > best_w:
+                      os.replace(dest + '.tmp', dest)
+                      best_w = w
+                      print(f"    ~ partial {w}px (continuing)")
+                  elif os.path.exists(dest + '.tmp'):
+                      os.remove(dest + '.tmp')
+
+              if not improved and plant.get('api_fallback'):
+                  print(f"    trying API: {plant['api_fallback']}")
+                  time.sleep(DELAY)
+                  hits = commons_api_search(plant['api_fallback'])
+                  for filename in hits:
+                      url = wikimedia_url(filename)
+                      time.sleep(DELAY)
+                      w = try_url(url, dest + '.tmp')
+                      if w >= TARGET_PX:
+                          os.replace(dest + '.tmp', dest)
+                          print(f"    ✓ {key} via API: {filename} ({w}px)")
+                          results['improved'].append(f"{key}({before}→{w}px via API)")
+                          improved = True
+                          break
+                      elif w > best_w:
+                          os.replace(dest + '.tmp', dest)
+                          best_w = w
+                          print(f"    ~ partial {w}px: {filename}")
+                      elif os.path.exists(dest + '.tmp'):
+                          os.remove(dest + '.tmp')
+
+              if not improved:
+                  final_w = current_width(dest)
+                  if final_w > before:
+                      results['improved'].append(f"{key}({before}→{final_w}px, partial)")
+                      print(f"  ~ {key}: partial {before}→{final_w}px")
+                  else:
+                      results['failed'].append(f"{key}({before}px)")
+                      print(f"  ✗ {key}: no improvement")
+
+          print()
+          print("=== Results ===")
+          if results['improved']:
+              print(f"  Improved ({len(results['improved'])}): {', '.join(results['improved'])}")
+          if results['already_ok']:
+              print(f"  Already OK: {', '.join(results['already_ok'])}")
+          if results['failed']:
+              print(f"  Failed: {', '.join(results['failed'])}")
+          PYEOF
+
+      - name: Resolution summary
+        run: |
+          python3 << 'PYEOF'
+          import os
+          from PIL import Image
+          TARGET = 2400
+          WATCH = {'camellia','hydrangea','sunflower','iris','peony','dahlia','tulip','foxglove','clematis','magnolia','wisteria','rose','lavender','lilyofthevalley','oleander'}
+          files = sorted(f for f in os.listdir('artwork') if f.endswith('.jpg') and f.replace('.jpg','') in WATCH)
+          ok, warn = [], []
+          for f in files:
+              img = Image.open(f"artwork/{f}")
+              entry = f"{f}: {img.width}px"
+              (ok if img.width >= TARGET else warn).append(entry)
+          print(f"✓ {len(ok)}/{len(files)} main plants at {TARGET}px+")
+          for s in ok: print(f"  {s}")
+          if warn:
+              print(f"\n⚠ {len(warn)} still below {TARGET}px:")
+              for s in warn: print(f"  {s}")
+          PYEOF
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            COUNT=$(git diff --staged --name-only | wc -l)
+            git commit -m "artwork: final resolution fix — $COUNT files updated [skip ci]"
+            git push
+            echo "Pushed $COUNT files"
+          fi
