@@ -1,0 +1,65 @@
+name: Cleanup unprefixed artwork stubs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Remove _unprefixed stubs and verify
+        run: |
+          cd artwork
+          REMOVED=0
+
+          for STUB in mint olive valerian; do
+            UNPREF="koehler_${STUB}_unprefixed.jpg"
+            PROPER="koehler_${STUB}.jpg"
+
+            if [ -f "$UNPREF" ]; then
+              if [ -f "$PROPER" ]; then
+                SIZE_UNPREF=$(stat -c%s "$UNPREF")
+                SIZE_PROPER=$(stat -c%s "$PROPER")
+                echo "$STUB: unprefixed=${SIZE_UNPREF}B proper=${SIZE_PROPER}B"
+                if [ "$SIZE_UNPREF" -gt "$SIZE_PROPER" ]; then
+                  cp "$UNPREF" "$PROPER"
+                  git add "$PROPER"
+                  echo "  → replaced proper with larger unprefixed version"
+                else
+                  echo "  → keeping existing proper (larger or equal)"
+                fi
+                git rm --cached "$UNPREF" 2>/dev/null || true
+                rm -f "$UNPREF"
+                REMOVED=$((REMOVED+1))
+              else
+                # No proper version exists — rename
+                git mv "$UNPREF" "$PROPER"
+                echo "$STUB: renamed unprefixed → proper"
+                REMOVED=$((REMOVED+1))
+              fi
+            else
+              echo "$STUB: no unprefixed stub found"
+            fi
+          done
+
+          echo ""
+          echo "=== Remaining unprefixed files ==="
+          ls *.jpg 2>/dev/null | grep -vE '^(koehler_|edwards_|redoute_|curtis_|besler_|wellcome_|rijks_|nypl_|florabatava_|haarlem_|childs_|nas_|flora1868_|bhl_)' \
+            || echo "  None ✓"
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "artwork: remove unprefixed koehler stubs [skip ci]"
+            git push
+          fi
