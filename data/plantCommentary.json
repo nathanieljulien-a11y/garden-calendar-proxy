@@ -23,18 +23,7 @@
       "The UK has over 2,500 recorded apple varieties, many dating back several centuries."
     ]
   },
-  "apricot": {
-    "latin": "Prunus armeniaca",
-    "habit": "Small deciduous tree with a rounded crown.",
-    "features": "Heart-shaped leaves; early blossom makes it vulnerable to frost damage.",
-    "flowers": "White or pale pink blossoms in early spring; fruit is smooth or slightly velvety.",
-    "conditions": "Full sun; very sheltered spot; well-drained, neutral to slightly alkaline soil.",
-    "care": "Prune after fruiting to avoid disease. Protect blossom with horticultural fleece on frosty nights.",
-    "facts": [
-      "The apricot was once thought to have originated in Armenia (hence the latin name), but it likely came from China.",
-      "Dried apricots were a staple for travelers on the Silk Road due to their long shelf life."
-    ]
-  },
+  
   "beech": {
     "latin": "Fagus sylvatica",
     "habit": "Large deciduous tree reaching 20–40m at maturity; broadly domed crown with smooth grey bark.",
@@ -47,18 +36,7 @@
       "Beech mast is edible and was historically ground into flour or pressed for oil in times of scarcity."
     ]
   },
-  "borage": {
-    "latin": "Borago officinalis",
-    "habit": "Hairy, sprawling annual that self-seeds readily; 60–90cm tall.",
-    "features": "Large, bristly grey-green leaves; the whole plant has a cucumber-like scent.",
-    "flowers": "Exquisite star-shaped, bright blue flowers with black centers; June–September.",
-    "conditions": "Full sun to partial shade; will grow in almost any well-drained soil.",
-    "care": "Sow in spring. Little care needed. Pull up plants once they become tatty; they will likely return from seed.",
-    "facts": [
-      "The flowers are edible and a classic garnish for Pimm’s cocktails.",
-      "Known as 'bee bread' because it produces nectar so quickly that bees can visit the same flower multiple times a day."
-    ]
-  },
+  
   "broom": {
     "latin": "Cytisus scoparius",
     "habit": "Deciduous shrub, 1–2m; upright, arching green stems with a wispy, open habit.",
@@ -311,30 +289,7 @@
       "There are over 600 varieties of mint, including chocolate, pineapple, and ginger mint."
     ]
   },
-  "mulberry": {
-    "latin": "Morus nigra",
-    "habit": "Slow-growing, long-lived deciduous tree; often develops a picturesque, gnarled shape.",
-    "features": "Heart-shaped, rough leaves; fruit looks like a large, elongated blackberry.",
-    "flowers": "Inconspicuous catkins in spring; fruit ripens in late summer (August).",
-    "conditions": "Full sun; fertile, well-drained soil; needs plenty of space as it spreads wide.",
-    "care": "Prune in winter only. Mulch in spring. Be careful where you plant, as falling fruit stains surfaces deeply.",
-    "facts": [
-      "The Black Mulberry (M. nigra) was favored by King James I, who planted 10,000 of them in London.",
-      "Mulberry leaves are the sole food source for silkworms."
-    ]
-  },
-  "nasturtium": {
-    "latin": "Tropaeolum majus",
-    "habit": "Vigorous annual; can be trailing, climbing (to 2m), or compact and mounding.",
-    "features": "Distinctive circular (peltate) light green leaves; edible peppery flavor.",
-    "flowers": "Trumpet-shaped blooms in brilliant orange, yellow, and red; June until first frost.",
-    "conditions": "Full sun; poor soil actually encourages more flowers over foliage; well-drained.",
-    "care": "Sow directly in May. Very easy care; do not over-fertilize. Watch for black bean aphids.",
-    "facts": [
-      "Both the leaves and flowers are edible, tasting similar to watercress.",
-      "They are excellent companion plants, used as a 'trap crop' to lure pests away from vegetables."
-    ]
-  },
+  
   "oleander": {
     "latin": "Nerium oleander",
     "habit": "Vigorous evergreen shrub or small tree; upright and mounding to 2–4m.",
@@ -359,30 +314,7 @@
       "The olive branch has been a symbol of peace and victory since ancient times."
     ]
   },
-  "pansy": {
-    "latin": "Viola x wittrockiana",
-    "habit": "Low-growing, clump-forming short-lived perennial often grown as an annual.",
-    "features": "Heart-shaped, scalloped leaves; iconic 'face' markings on the petals.",
-    "flowers": "Large, flat-faced blooms in a vast array of colors and bicolors; peaks in spring and autumn.",
-    "conditions": "Full sun to partial shade; moist, well-drained soil; very cold hardy.",
-    "care": "Deadhead to keep flowers coming. Water regularly in dry spells. Plant in autumn for spring color.",
-    "facts": [
-      "The name comes from the French 'pensée', meaning 'thought' or 'remembrance'.",
-      "Pansies were the first flower used in large-scale commercial hybridizing."
-    ]
-  },
-  "peach": {
-    "latin": "Prunus persica",
-    "habit": "Small to medium deciduous tree; often fan-trained against walls in cooler climates.",
-    "features": "Long, slender leaves; beautiful pink blossom that appears very early in spring.",
-    "flowers": "Deep pink to pale rose flowers in March–April; fruit is fuzzy-skinned.",
-    "conditions": "Full sun; sheltered from frost; well-drained, fertile soil.",
-    "care": "Prune in summer. Thin fruit to ensure those remaining reach a good size. Watch for Peach Leaf Curl.",
-    "facts": [
-      "Peaches originated in China, where they were considered the fruit of the gods.",
-      "A nectarine is technically just a fuzzless variety of peach."
-    ]
-  },
+  
   "peony": {
     "latin": "Paeonia lactiflora",
     "habit": "Bushy herbaceous perennial or woody shrub (Tree Peony); long-lived and substantial.",
@@ -479,30 +411,7 @@
       "Ancient Romans used it as a digestive aid and a memory enhancer."
     ]
   },
-  "snapdragon": {
-    "latin": "Antirrhinum majus",
-    "habit": "Short-lived perennial usually grown as an annual; upright spikes 15cm to 1m tall.",
-    "features": "Lance-shaped leaves; unique 'hinged' flower structure that 'snaps' open when squeezed.",
-    "flowers": "Multi-colored spikes in almost every shade except blue; June–October.",
-    "conditions": "Full sun; well-drained, fertile soil; prefers cooler summer temperatures.",
-    "care": "Pinch out young plants to encourage bushiness. Deadhead regularly to prolong flowering.",
-    "facts": [
-      "The name 'Antirrhinum' means 'like a nose' in Greek.",
-      "Ancient people believed snapdragons could ward off witchcraft and aging."
-    ]
-  },
-  "strawberry": {
-    "latin": "Fragaria x ananassa",
-    "habit": "Low-growing, herbaceous perennial spreading by runners (stolons).",
-    "features": "Trifoliate green leaves; white flowers with yellow centers.",
-    "flowers": "Peaking in May–June, followed by red fruit; some varieties (everbearing) fruit until autumn.",
-    "conditions": "Full sun; fertile, well-drained soil; benefits from a mulch of straw to keep fruit clean.",
-    "care": "Replace plants every 3 years. Remove runners to focus energy on fruit. Feed in spring.",
-    "facts": [
-      "The strawberry is the only fruit that bears its seeds on the outside.",
-      "On average, there are about 200 seeds on a single strawberry."
-    ]
-  },
+  
   "sunflower": {
     "latin": "Helianthus annuus",
     "habit": "Fast-growing annual herb; can reach 1m to 4m depending on variety.",
