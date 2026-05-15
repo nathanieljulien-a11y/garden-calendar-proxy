@@ -1,0 +1,181 @@
+name: Rename artwork files with source prefixes
+
+# Run manually: Actions → this workflow → Run workflow
+#
+# 1. Renames all currently unprefixed artwork files with their correct source prefix
+# 2. Replaces oleander.jpg (currently a photograph) with the Edwards' Botanical
+#    Register plate 74 (BHL8497) at 4560×3877px
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rename:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
+
+      - name: Download Edwards oleander replacement
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io
+          from urllib.parse import quote
+          from PIL import Image
+
+          HEADERS = {'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'}
+
+          def wikimedia_url(filename):
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          # Edwards' Botanical Register Plate 74 (BHL8497) — Nerium oleander
+          # 4560×3877px confirmed from category listing
+          url  = wikimedia_url("The Botanical register (Plate 74) BHL8497.jpg")
+          dest = "artwork/edwards_oleander.jpg"
+
+          print(f"Downloading Edwards oleander plate...")
+          r = requests.get(url, headers=HEADERS, timeout=60)
+          if r.ok and 'image' in r.headers.get('content-type', ''):
+              img = Image.open(io.BytesIO(r.content))
+              if img.mode in ('RGBA', 'P', 'LA'):
+                  img = img.convert('RGB')
+              if img.width > 3200:
+                  h = int(img.height * 3200 / img.width)
+                  img = img.resize((3200, h), Image.LANCZOS)
+              img.save(dest, 'JPEG', quality=92, optimize=True)
+              print(f"  ✓ {dest} — {img.width}px")
+          else:
+              print(f"  ✗ Failed: {r.status_code}")
+          PYEOF
+
+      - name: Rename unprefixed artwork files
+        run: |
+          cd artwork
+
+          # ── Mapping: current unprefixed name → new prefixed name ────────────
+          # Sources determined from download action logs in this session.
+          #
+          # curtis_   = Curtis's Botanical Magazine
+          # edwards_  = Edwards' Botanical Register (BHL8XXX high-res series)
+          # besler_   = Hortus Eystettensis, Basilius Besler (1613)
+          # wellcome_ = Wellcome Collection
+          # rijks_    = Rijksmuseum Florilegium
+          # nypl_     = New York Public Library Digital Collections
+          # florabatava_ = Flora Batava
+          # haarlem_  = Album van Eeden, Haarlem's Flora (1872)
+          # childs_   = Childs' Rare Flowers Catalogue (1914)
+          # nas_      = North American Sylva
+          # flora1868_ = Flora (Witte-Heinrich, 1868)
+          # koehler_  = Köhler's Medizinal-Pflanzen (already prefixed — skip)
+          # edwards_  = Edwards' Botanical Register (already prefixed — skip)
+          # redoute_  = Redouté Traité (already prefixed — skip)
+
+          declare -A RENAMES=(
+            # plant key          → new prefix
+            ["tulip.jpg"]="haarlem_tulip.jpg"
+            ["rose.jpg"]="edwards_rose.jpg"
+            ["lavender.jpg"]="nypl_lavender.jpg"
+            ["foxglove.jpg"]="curtis_foxglove.jpg"
+            ["lilyofthevalley.jpg"]="florabatava_lilyofthevalley.jpg"
+            ["camellia.jpg"]="wellcome_camellia.jpg"
+            ["wisteria.jpg"]="flora1868_wisteria.jpg"
+            ["peony.jpg"]="bhl_peony.jpg"
+            ["magnolia.jpg"]="nas_magnolia.jpg"
+            ["hydrangea.jpg"]="childs_hydrangea.jpg"
+            ["sunflower.jpg"]="besler_sunflower.jpg"
+            ["dahlia.jpg"]="curtis_dahlia.jpg"
+            ["iris.jpg"]="rijks_iris.jpg"
+            ["clematis.jpg"]="bhl_clematis.jpg"
+            # oleander: old photograph → replaced by edwards_oleander.jpg (downloaded above)
+            # mint, olive, valerian: these are Köhler but unprefixed
+            ["mint.jpg"]="koehler_mint_unprefixed.jpg"
+            ["olive.jpg"]="koehler_olive_unprefixed.jpg"
+            ["valerian.jpg"]="koehler_valerian_unprefixed.jpg"
+          )
+
+          RENAMED=0
+          SKIPPED=0
+
+          for OLD in "${!RENAMES[@]}"; do
+            NEW="${RENAMES[$OLD]}"
+            if [ -f "$OLD" ]; then
+              # Don't overwrite if destination already exists with better content
+              if [ -f "$NEW" ]; then
+                echo "SKIP (dest exists): $OLD → $NEW"
+                SKIPPED=$((SKIPPED+1))
+              else
+                git mv "$OLD" "$NEW"
+                echo "RENAMED: $OLD → $NEW"
+                RENAMED=$((RENAMED+1))
+              fi
+            else
+              echo "NOT FOUND: $OLD (may already be renamed)"
+            fi
+          done
+
+          # Remove old oleander photograph (replaced by edwards_oleander.jpg)
+          if [ -f "oleander.jpg" ]; then
+            git rm "oleander.jpg"
+            echo "REMOVED: oleander.jpg (replaced by edwards_oleander.jpg)"
+          fi
+
+          # Rename the koehler_*_unprefixed files to proper koehler_* names
+          # (needed because koehler_mint already existed from previous run)
+          for STUB in mint olive valerian; do
+            UNPREF="koehler_${STUB}_unprefixed.jpg"
+            PROPER="koehler_${STUB}.jpg"
+            if [ -f "$UNPREF" ]; then
+              if [ -f "$PROPER" ]; then
+                # proper already exists — compare sizes, keep larger
+                SIZE_UNPREF=$(stat -c%s "$UNPREF")
+                SIZE_PROPER=$(stat -c%s "$PROPER")
+                if [ "$SIZE_UNPREF" -gt "$SIZE_PROPER" ]; then
+                  git mv "$UNPREF" "$PROPER"
+                  echo "REPLACED (larger): $UNPREF → $PROPER"
+                else
+                  git rm "$UNPREF"
+                  echo "REMOVED (smaller): $UNPREF (kept existing $PROPER)"
+                fi
+              else
+                git mv "$UNPREF" "$PROPER"
+                echo "RENAMED: $UNPREF → $PROPER"
+              fi
+            fi
+          done
+
+          echo ""
+          echo "=== Done: $RENAMED renamed, $SKIPPED skipped ==="
+
+      - name: Add new Edwards oleander file to git
+        run: git add artwork/edwards_oleander.jpg || true
+
+      - name: Verify final state
+        run: |
+          echo "=== Unprefixed files remaining (should be empty) ==="
+          ls artwork/*.jpg 2>/dev/null | grep -v '/' | \
+            grep -vE '^artwork/(koehler_|edwards_|redoute_|curtis_|besler_|wellcome_|rijks_|nypl_|florabatava_|haarlem_|childs_|nas_|flora1868_|bhl_)' \
+            || echo "  None — all files correctly prefixed ✓"
+
+          echo ""
+          echo "=== All prefixed artwork files ==="
+          ls artwork/*.jpg | sort
+
+      - name: Commit
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing to commit"
+          else
+            git commit -m "artwork: add source prefixes to all illustration filenames [skip ci]"
+            git push
+          fi
