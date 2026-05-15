@@ -1,112 +1,359 @@
-// download-artwork.js
-// Run once during build: node download-artwork.js
-// Downloads Köhler plates and saves as files in artwork/ directory
-// Render build environment can reach Wikimedia; runtime cannot
+name: Download Botanical Artwork (one-time run)
 
-const https = require('https');
-const http  = require('http');
-const fs    = require('fs');
-const path  = require('path');
-const crypto = require('crypto');
+# Run manually from GitHub Actions → this workflow → Run workflow
+on:
+  workflow_dispatch:
 
-const PLATES = {
-  'rose':        'Rosa_centifolia_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-257.jpg',
-  'wisteria':    'Wisteria_sinensis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-285.jpg',
-  'lavender':    'Lavandula_angustifolia_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-088.jpg',
-  'peony':       'Paeonia_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-164.jpg',
-  'iris':        'Iris_germanica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-187.jpg',
-  'tulip':       'Tulipa_gesneriana_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-272.jpg',
-  'sunflower':   'Helianthus_annuus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-078.jpg',
-  'camellia':    'Camellia_japonica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-025.jpg',
-  'magnolia':    'Magnolia_grandiflora_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-097.jpg',
-  'oleander':    'Nerium_oleander_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-124.jpg',
-  'foxglove':    'Digitalis_purpurea_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-052.jpg',
-  'rosemary':    'Rosmarinus_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-244.jpg',
-  'thyme':       'Thymus_vulgaris_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-271.jpg',
-  'sage':        'Salvia_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-246.jpg',
-  'mint':        'Mentha_piperita_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-112.jpg',
-  'fig':         'Ficus_carica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-057.jpg',
-  'peach':       'Prunus_persica_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-183.jpg',
-  'cherry':      'Prunus_cerasus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-180.jpg',
-  'strawberry':  'Fragaria_vesca_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-065.jpg',
-  'raspberry':   'Rubus_idaeus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-237.jpg',
-  'grape':       'Vitis_vinifera_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-280.jpg',
-  'lemon':       'Citrus_limon_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-036.jpg',
-  'olive':       'Olea_europaea_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-130.jpg',
-  'pansy':       'Viola_tricolor_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-278.jpg',
-  'nasturtium':  'Tropaeolum_majus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-273.jpg',
-  'borage':      'Borago_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-023.jpg',
-  'snapdragon':  'Antirrhinum_majus_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-013.jpg',
-  'valerian':    'Valeriana_officinalis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-275.jpg',
-  'fennel':      'Foeniculum_vulgare_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-063.jpg',
-  'elderflower': 'Sambucus_nigra_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-247.jpg',
-  'almond':      'Prunus_dulcis_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-177.jpg',
-  'quince':      'Cydonia_oblonga_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-047.jpg',
-  'mulberry':    'Morus_nigra_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-119.jpg',
-  'apricot':     'Prunus_armeniaca_-_K\u00f6hler\u2013s_Medizinal-Pflanzen-179.jpg',
-  'hydrangea':   'Hydrangea_macrophylla_SZ85.png',
-};
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
-function getUrl(filename) {
-  const md5 = crypto.createHash('md5').update(filename).digest('hex');
-  const a = md5[0], ab = md5.slice(0,2);
-  const enc = encodeURIComponent(filename);
-  const width = filename.endsWith('.png') ? '500' : '500';
-  return `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${enc}/${width}px-${enc}`;
-}
+    steps:
+      - uses: actions/checkout@v4
 
-function fetchFile(url, dest) {
-  return new Promise(function(resolve) {
-    const client = url.startsWith('https') ? https : http;
-    const opts = {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; GardenCalendarBuild/1.0)',
-        'Accept': 'image/jpeg,image/png,image/*',
-        'Referer': 'https://commons.wikimedia.org/',
-      }
-    };
-    const req = client.get(url, opts, function(res) {
-      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchFile(res.headers.location, dest).then(resolve);
-        return;
-      }
-      if (res.statusCode !== 200) {
-        console.log('  FAIL HTTP', res.statusCode, url.slice(0,80));
-        res.resume();
-        resolve(false);
-        return;
-      }
-      const out = fs.createWriteStream(dest);
-      res.pipe(out);
-      out.on('finish', function() { resolve(true); });
-      out.on('error', function() { resolve(false); });
-    });
-    req.on('error', function(e) { console.log('  ERR', e.message); resolve(false); });
-    req.setTimeout(20000, function() { req.destroy(); resolve(false); });
-  });
-}
+      - name: Install dependencies
+        run: pip install pillow requests --break-system-packages -q
 
-async function main() {
-  const dir = path.join(__dirname, 'artwork');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+      - name: Download plant illustrations
+        run: |
+          python3 << 'PYEOF'
+          import requests, hashlib, os, io, time, json
+          from urllib.parse import quote
+          from PIL import Image
 
-  let ok = 0, fail = 0;
-  for (const [name, filename] of Object.entries(PLATES)) {
-    const dest = path.join(dir, name + (filename.endsWith('.png') ? '.png' : '.jpg'));
-    if (fs.existsSync(dest) && fs.statSync(dest).size > 5000) {
-      console.log('  skip (exists):', name);
-      ok++;
-      continue;
-    }
-    const url = getUrl(filename);
-    process.stdout.write('  ' + name + '... ');
-    const success = await fetchFile(url, dest);
-    if (success) { console.log('OK'); ok++; }
-    else { fail++; }
-    await new Promise(r => setTimeout(r, 200)); // be polite
-  }
-  console.log(`\nDone: ${ok} OK, ${fail} failed`);
-  if (fail > 0) process.exit(1);
-}
+          HEADERS = {
+              'User-Agent': 'GardenCalendarBot/1.0 (https://github.com/nathanieljulien-a11y/garden-calendar-proxy)'
+          }
+          DELAY = 2.0
+          os.makedirs('artwork', exist_ok=True)
 
-main().catch(e => { console.error(e); process.exit(1); });
+          # ── Helpers ────────────────────────────────────────────────────────
+
+          def wikimedia_url(filename):
+              """Compute the CDN URL for a Wikimedia Commons file by filename."""
+              name = filename.replace(' ', '_')
+              md5  = hashlib.md5(name.encode('utf-8')).hexdigest()
+              a, ab = md5[0], md5[:2]
+              ext = filename.rsplit('.', 1)[-1].lower()
+              # For SVG, request a PNG render; for everything else use direct URL
+              if ext == 'svg':
+                  return f"https://upload.wikimedia.org/wikipedia/commons/thumb/{a}/{ab}/{quote(name, safe='')}/1200px-{quote(name, safe='')}.png"
+              return f"https://upload.wikimedia.org/wikipedia/commons/{a}/{ab}/{quote(name, safe='')}"
+
+          def save_image(content, dest):
+              """Save image bytes to dest as JPEG, max 2400px wide."""
+              img = Image.open(io.BytesIO(content))
+              if img.width < 800:
+                  print(f"    ⚠ Image only {img.width}px wide — may be too small for print")
+              if img.width > 2400:
+                  h = int(img.height * 2400 / img.width)
+                  img = img.resize((2400, h), Image.LANCZOS)
+              if img.mode in ('RGBA', 'P', 'LA'):
+                  img = img.convert('RGB')
+              img.save(dest, 'JPEG', quality=90, optimize=True)
+              kb = os.path.getsize(dest) // 1024
+              print(f"    ✓ Saved {dest} ({img.width}px, {kb}KB)")
+              return True
+
+          def try_url(url, dest):
+              """Attempt to download and save image from a direct URL."""
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=30)
+                  ct = r.headers.get('content-type', '')
+                  if r.ok and len(r.content) > 5000 and 'image' in ct:
+                      return save_image(r.content, dest)
+              except Exception as e:
+                  print(f"    fetch error: {e}")
+              return False
+
+          def commons_api_search(query, limit=5):
+              """Search Commons API for image filenames matching query."""
+              url = (
+                  'https://commons.wikimedia.org/w/api.php'
+                  f'?action=query&list=search&srsearch={quote(query)}'
+                  f'&srnamespace=6&srlimit={limit}&format=json&origin=*'
+              )
+              try:
+                  r = requests.get(url, headers=HEADERS, timeout=15)
+                  hits = r.json().get('query', {}).get('search', [])
+                  return [h['title'].replace('File:', '') for h in hits]
+              except Exception as e:
+                  print(f"    API error: {e}")
+                  return []
+
+          def download_plant(key, strategies, dest):
+              """Try each strategy in order until one succeeds."""
+              if os.path.exists(dest):
+                  kb = os.path.getsize(dest) // 1024
+                  print(f"  SKIP {key} — already exists ({kb}KB)")
+                  return True
+
+              print(f"  Downloading {key}...")
+              for label, fn in strategies:
+                  print(f"    trying: {label}")
+                  time.sleep(DELAY)
+
+                  if callable(fn):
+                      result = fn(dest)
+                  else:
+                      # fn is a direct URL string
+                      result = try_url(fn, dest)
+
+                  if result:
+                      return True
+
+              print(f"  ✗ FAILED: {key} — all strategies exhausted")
+              return False
+
+          # ── Plant definitions ──────────────────────────────────────────────
+          # Each plant has:
+          #   key          → artwork filename (without .jpg)
+          #   strategies   → ordered list of (label, url_or_callable) to try
+          #
+          # Strategy types:
+          #   Direct URL   — known good Wikimedia Commons URL
+          #   API search   — search Commons API and try first result
+          #
+          # Curtis's Botanical Magazine filenames on Commons:
+          #   Early vols (1-14, 1787-1800): "Curtis's botanical magazine (No. NNN) (FLICKR_ID).jpg"
+          #   Later vols (15+, 1801+):      "Curtis's botanical magazine (Plate NNN) (FLICKR_ID).jpg"
+          #   Flickr IDs vary — use API search rather than guessing them.
+          #
+          # Confirmed Flickr IDs found during research session (May 2026):
+          #   Plate 839  (tulip)    → 8471003234   [Vol 21, No. format]
+          #
+          # For other plates, the API search will find the correct filename.
+
+          def api_first(query):
+              """Return a callable that searches Commons API and tries the first result."""
+              def _fn(dest):
+                  hits = commons_api_search(query)
+                  for filename in hits:
+                      url = wikimedia_url(filename)
+                      if try_url(url, dest):
+                          print(f"    ✓ matched: {filename}")
+                          return True
+                  return False
+              return _fn
+
+          PLANTS = [
+              # ── Confirmed Curtis's plate numbers (from previous research) ──
+              # These use the Commons API search to find the correct Flickr ID
+              {
+                  'key': 'tulip',
+                  'strategies': [
+                      # Vol 21, plate 839 — confirmed Flickr ID 8471003234
+                      ("Curtis's No.839 direct",
+                       wikimedia_url("Curtis's botanical magazine (No. 839) (8471003234).jpg")),
+                      ("Curtis's plate 839 API search",
+                       api_first("Curtis's botanical magazine Plate 839 tulip")),
+                      ("Redouté tulip API search",
+                       api_first("Redoute tulipa botanical illustration")),
+                  ]
+              },
+              {
+                  'key': 'rose',
+                  'strategies': [
+                      # Köhler's Medizinal-Pflanzen has a high-res rose plate
+                      ("Köhler rose direct",
+                       wikimedia_url("Köhler's Medizinal-Pflanzen in naturgetreuen Abbildungen mit kurz erläuterndem Texte (Plate 18) (6245064768).jpg")),
+                      ("Köhler rose API search",
+                       api_first("Köhler Medizinal-Pflanzen Rosa")),
+                      ("Curtis rose API search",
+                       api_first("Curtis's botanical magazine Rosa gallica")),
+                  ]
+              },
+              {
+                  'key': 'lavender',
+                  'strategies': [
+                      # Köhler's has Lavandula angustifolia
+                      ("Köhler lavender direct",
+                       wikimedia_url("Köhler's Medizinal-Pflanzen in naturgetreuen Abbildungen mit kurz erläuterndem Texte (Plate 60) (6306093657).jpg")),
+                      ("Köhler lavender API search",
+                       api_first("Köhler Medizinal-Pflanzen Lavandula angustifolia")),
+                      ("BHL lavender API search",
+                       api_first("Lavandula angustifolia botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'foxglove',
+                  'strategies': [
+                      # Köhler's has Digitalis purpurea
+                      ("Köhler foxglove direct",
+                       wikimedia_url("Köhler's Medizinal-Pflanzen in naturgetreuen Abbildungen mit kurz erläuterndem Texte (Plate 7) (6114740406).jpg")),
+                      ("Köhler foxglove API search",
+                       api_first("Köhler Medizinal-Pflanzen Digitalis purpurea")),
+                      ("BHL foxglove API search",
+                       api_first("Digitalis purpurea botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'lilyofthevalley',
+                  'strategies': [
+                      # Köhler's has Convallaria majalis
+                      ("Köhler lily of the valley direct",
+                       wikimedia_url("Köhler's Medizinal-Pflanzen in naturgetreuen Abbildungen mit kurz erläuterndem Texte (Plate 170) (6283116397).jpg")),
+                      ("Köhler LOTV API search",
+                       api_first("Köhler Medizinal-Pflanzen Convallaria majalis")),
+                      ("BHL LOTV API search",
+                       api_first("Convallaria majalis botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'camellia',
+                  'strategies': [
+                      # Curtis's Vol 2 Plate 42 — Camellia japonica
+                      ("Curtis's plate 42 API search",
+                       api_first("Curtis's botanical magazine Plate 42 camellia japonica")),
+                      ("BHL camellia API search",
+                       api_first("Camellia japonica botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'wisteria',
+                  'strategies': [
+                      # Curtis's plate 2083 — Wisteria sinensis
+                      ("Curtis's plate 2083 API search",
+                       api_first("Curtis's botanical magazine Plate 2083 wisteria sinensis")),
+                      # Good fallback: Redouté or other BHL source
+                      ("BHL wisteria API search",
+                       api_first("Wisteria sinensis botanical illustration plate")),
+                      ("Childs catalogue wisteria",
+                       wikimedia_url("Childs' rare flowers, vegetables, and fruits (1903) (20418608798).jpg")),
+                  ]
+              },
+              {
+                  'key': 'peony',
+                  'strategies': [
+                      # Curtis's plate 1784 — Paeonia officinalis
+                      ("Curtis's plate 1784 API search",
+                       api_first("Curtis's botanical magazine Plate 1784 paeonia")),
+                      ("BHL peony API search",
+                       api_first("Paeonia officinalis botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'magnolia',
+                  'strategies': [
+                      # Curtis's plate 977 — Magnolia grandiflora
+                      ("Curtis's plate 977 API search",
+                       api_first("Curtis's botanical magazine Plate 977 magnolia grandiflora")),
+                      ("BHL magnolia API search",
+                       api_first("Magnolia grandiflora botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'hydrangea',
+                  'strategies': [
+                      # Curtis's plate 438 — Hydrangea hortensis
+                      ("Curtis's plate 438 API search",
+                       api_first("Curtis's botanical magazine Plate 438 hydrangea")),
+                      ("BHL hydrangea API search",
+                       api_first("Hydrangea hortensis botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'sunflower',
+                  'strategies': [
+                      # Curtis's plate 1105 — Helianthus annuus
+                      ("Curtis's plate 1105 API search",
+                       api_first("Curtis's botanical magazine Plate 1105 helianthus")),
+                      ("BHL sunflower API search",
+                       api_first("Helianthus annuus botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'oleander',
+                  'strategies': [
+                      # Curtis's plate 166 — Nerium oleander
+                      ("Curtis's plate 166 API search",
+                       api_first("Curtis's botanical magazine Plate 166 nerium oleander")),
+                      ("Köhler oleander API search",
+                       api_first("Köhler Medizinal-Pflanzen Nerium oleander")),
+                  ]
+              },
+              {
+                  'key': 'dahlia',
+                  'strategies': [
+                      # No confirmed plate — search BHL broadly
+                      ("BHL dahlia API search",
+                       api_first("Dahlia variabilis botanical illustration plate BHL")),
+                      ("Curtis dahlia API search",
+                       api_first("Curtis's botanical magazine Dahlia")),
+                  ]
+              },
+              {
+                  'key': 'iris',
+                  'strategies': [
+                      # Curtis's Vol 2 Plate 50 — Iris sibirica
+                      ("Curtis's plate 50 API search",
+                       api_first("Curtis's botanical magazine Plate 50 iris sibirica")),
+                      ("BHL iris API search",
+                       api_first("Iris sibirica botanical illustration plate")),
+                  ]
+              },
+              {
+                  'key': 'clematis',
+                  'strategies': [
+                      ("BHL clematis API search",
+                       api_first("Clematis botanical illustration plate BHL")),
+                      ("Curtis clematis API search",
+                       api_first("Curtis's botanical magazine Clematis")),
+                  ]
+              },
+          ]
+
+          # ── Run downloads ──────────────────────────────────────────────────
+          results = {'ok': [], 'failed': []}
+
+          for plant in PLANTS:
+              key  = plant['key']
+              dest = f"artwork/{key}.jpg"
+              ok   = download_plant(key, plant['strategies'], dest)
+              (results['ok'] if ok else results['failed']).append(key)
+
+          print()
+          print(f"=== Complete: {len(results['ok'])} OK, {len(results['failed'])} failed ===")
+          if results['ok']:
+              print(f"  Downloaded: {', '.join(results['ok'])}")
+          if results['failed']:
+              print(f"  Failed:     {', '.join(results['failed'])}")
+              # Don't exit 1 — partial success is still useful
+          PYEOF
+
+      - name: Verify downloaded files
+        run: |
+          echo "=== Artwork directory ==="
+          ls -lh artwork/*.jpg 2>/dev/null || echo "No jpg files found"
+          echo ""
+          echo "=== Resolution check ==="
+          python3 << 'PYEOF'
+          import os
+          from PIL import Image
+          artwork_dir = 'artwork'
+          files = sorted(f for f in os.listdir(artwork_dir) if f.endswith('.jpg'))
+          for f in files:
+              path = os.path.join(artwork_dir, f)
+              try:
+                  img = Image.open(path)
+                  flag = '⚠ BELOW 2400px' if img.width < 2400 else '✓'
+                  print(f"  {flag}  {f}: {img.width}×{img.height}px")
+              except Exception as e:
+                  print(f"  ✗ ERROR reading {f}: {e}")
+          PYEOF
+
+      - name: Commit artwork files
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add artwork/
+          if git diff --staged --quiet; then
+            echo "Nothing new to commit"
+          else
+            COUNT=$(git diff --staged --name-only | wc -l)
+            git commit -m "artwork: add/update $COUNT botanical illustration files [skip ci]"
+            git push
+            echo "Pushed $COUNT files"
+          fi
