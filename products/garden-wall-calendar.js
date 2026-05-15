@@ -87,41 +87,64 @@ var PLANT_DISPLAY = {
 };
 
 var ARTWORK_SOURCES = {
-  'koehler': 'K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden',
-  'edwards': 'Edwards\u2019 Botanical Register, 1815\u20131847 \u00b7 Public Domain',
-  'redoute': 'Trait\u00e9 des Arbres et Arbustes, Redout\u00e9 (1801\u20131819) \u00b7 Public Domain',
+  // ── Prefixed sources (filename prefix → display string) ──────────────────
+  'koehler':     'K\u00f6hler\u2019s Medizinal-Pflanzen (1887\u20131898) \u00b7 Public domain \u00b7 Missouri Botanical Garden',
+  'edwards':     'Edwards\u2019 Botanical Register (1815\u20131847) \u00b7 Public domain',
+  'redoute':     'Trait\u00e9 des Arbres et Arbustes, Redout\u00e9 (1801\u20131819) \u00b7 Public domain',
+  'curtis':      'Curtis\u2019s Botanical Magazine (1787\u20131904) \u00b7 Public domain',
+  'besler':      'Hortus Eystettensis, Basilius Besler (1613) \u00b7 Public domain',
+  'wellcome':    'Wellcome Collection \u00b7 Public domain',
+  'rijks':       'Rijksmuseum Florilegium \u00b7 Public domain',
+  'nypl':        'New York Public Library Digital Collections \u00b7 Public domain',
+  'florabatava': 'Flora Batava (1800\u20131934) \u00b7 Public domain',
+  'haarlem':     'Album van Eeden, Haarlem\u2019s Flora (1872) \u00b7 Public domain',
+  'childs':      'Childs\u2019 Rare Flowers Catalogue (1914) \u00b7 Public domain',
+  'nas':         'North American Sylva, Michaux (1817\u20131819) \u00b7 Public domain',
+  'flora1868':   'Flora (Witte\u2013Heinrich, 1868) \u00b7 Public domain',
+  'bhl':         'Biodiversity Heritage Library \u00b7 Public domain',
 };
-var ARTWORK_SOURCE_DEFAULT = 'K\u00f6hler\u2019s Medizinal-Pflanzen, 1887 \u00b7 Public Domain \u00b7 Missouri Botanical Garden';
-
+// Lookup order — determines which source wins when multiple prefixed files
+// exist for the same plant key. Also the order checked before unprefixed fallback.
+var _PREFIX_ORDER = [
+  'koehler', 'edwards', 'redoute', 'curtis', 'besler',
+  'wellcome', 'rijks', 'nypl', 'florabatava', 'haarlem',
+  'childs', 'nas', 'flora1868', 'bhl',
+];
+ 
 function readArtworkBuffer(plant) {
   if (!plant) return null;
-  var key     = plant.toLowerCase().trim();
-  var exts    = ['.jpg', '.png'];
-  var prefixes = ['koehler', 'edwards', 'redoute'];
-
-  for (var p = 0; p < prefixes.length; p++) {
+  var key  = plant.toLowerCase().trim();
+  var exts = ['.jpg', '.png'];
+ 
+  // Try prefixed filenames in order
+  for (var p = 0; p < _PREFIX_ORDER.length; p++) {
+    var prefix = _PREFIX_ORDER[p];
     for (var e = 0; e < exts.length; e++) {
-      var target = prefixes[p] + '_' + key + exts[e];
+      var target = prefix + '_' + key + exts[e];
       var actual = _artworkFileMap[target];
       if (actual) {
         return {
           buf:    fs.readFileSync(path.join(__dirname, '..', 'artwork', actual)),
-          source: ARTWORK_SOURCES[prefixes[p]] || ARTWORK_SOURCE_DEFAULT,
+          source: ARTWORK_SOURCES[prefix],
+          prefix: prefix,
         };
       }
     }
   }
-  // Fallback: legacy unprefixed filename
+// Fallback: unprefixed legacy filename (should be empty once all files renamed)
   for (var e = 0; e < exts.length; e++) {
     var target = key + exts[e];
     var actual = _artworkFileMap[target];
     if (actual) {
+      console.warn('[garden] Unprefixed artwork fallback used for:', key, '— rename file to add source prefix');
       return {
         buf:    fs.readFileSync(path.join(__dirname, '..', 'artwork', actual)),
-        source: ARTWORK_SOURCE_DEFAULT,
+        source: ARTWORK_SOURCES['bhl'],  // generic fallback attribution
+        prefix: null,
       };
     }
   }
+ 
   console.warn('[garden] Artwork not found on disk:', key);
   return null;
 }
@@ -1302,19 +1325,40 @@ function buildCoverPage(opts) {
     + '</div>'
     + '</div>';
 
-  var hasKoehler = artworkSources.some(function(s) { return s && s.indexOf('K\u00f6hler')  !== -1; });
-  var hasEdwards = artworkSources.some(function(s) { return s && s.indexOf('Edwards') !== -1; });
-  var hasRedoute = artworkSources.some(function(s) { return s && s.indexOf('Redout')  !== -1; });
-  var provLines  = [];
-  if (hasKoehler) provLines.push('<em>K\u00f6hler\u2019s Medizinal-Pflanzen</em> (1887\u20131898) \u00b7 Public domain \u00b7 Missouri Botanical Garden');
-  if (hasEdwards) provLines.push('<em>Edwards\u2019 Botanical Register</em> (1815\u20131847) \u00b7 Public domain');
-  if (hasRedoute) provLines.push('<em>Trait\u00e9 des Arbres et Arbustes</em>, Pierre Joseph Redout\u00e9 (1801\u20131819) \u00b7 Public domain');
-  if (!provLines.length) provLines.push('All botanical illustrations are in the public domain.');
-
-  var provHtml = '<div class="cv-provenance-block">'
-    + '<span class="cv-section-label">About the illustrations</span>'
-    + '<div class="cv-provenance-text">' + provLines.join('<br/>') + '</div>'
-    + '</div>';
+ // ── REPLACEMENT: provenance detection in buildCoverPage ───────────────────────
+// (replaces lines 1305–1317 in current file)
+// The existing hasKoehler/hasEdwards/hasRedoute pattern is extended to cover
+// all new sources. Each source gets a line in the provenance block if at least
+// one month uses it.
+ 
+  var sourcesSeen = {};
+  artworkSources.forEach(function(s) {
+    if (!s) return;
+    Object.keys(ARTWORK_SOURCES).forEach(function(prefix) {
+      if (s.indexOf(ARTWORK_SOURCES[prefix].split(' \u00b7')[0]) !== -1) {
+        sourcesSeen[prefix] = true;
+      }
+    });
+  });
+ 
+  // Ordered display — most prestigious / most common first
+  var _PROVENANCE_ORDER = [
+    'koehler', 'edwards', 'redoute', 'curtis', 'besler',
+    'wellcome', 'rijks', 'florabatava', 'haarlem', 'childs',
+    'nypl', 'nas', 'flora1868', 'bhl',
+  ];
+ 
+  var provLines = [];
+  _PROVENANCE_ORDER.forEach(function(prefix) {
+    if (!sourcesSeen[prefix]) return;
+    var src = ARTWORK_SOURCES[prefix];
+    // Wrap publication title in <em> (everything before first ·)
+    var parts = src.split(' \u00b7 ');
+    provLines.push('<em>' + parts[0] + '</em>' + (parts.length > 1 ? ' \u00b7 ' + parts.slice(1).join(' \u00b7 ') : ''));
+  });
+ 
+  if (!provLines.length) {
+    provLines.push('All botanical illustrations are in the public domain.');
 
   var bottomHtml = '<div class="cv-bottom-row">'
     + '<div class="cv-etsy-row">'
