@@ -1366,8 +1366,6 @@ function buildCoverPage(opts) {
     + '<div class="cv-provenance-text">' + provLines.join('<br/>') + '</div>'
     + '</div>';
 
-  var bottomHtml = ...
-
   var bottomHtml = '<div class="cv-bottom-row">'
     + '<div class="cv-etsy-row">'
     + '<div class="cv-etsy-stack">'
