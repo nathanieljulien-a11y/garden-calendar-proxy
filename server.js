@@ -341,37 +341,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ── OpenFarm crop data ────────────────────────────────────────────────────────
-// Source: OpenFarm · openfarm.cc · CC BY licence
-app.get('/api/openfarm', async (req, res) => {
-  const q = req.query.q;
-  if (!q || typeof q !== 'string' || q.length > 100) {
-    return res.status(400).json({ error: 'invalid_query' });
-  }
-  try {
-    const url = `https://openfarm.cc/api/v1/crops/?filter=${encodeURIComponent(q.trim())}`;
-    const upstream = await fetch(url, {
-      headers: { 'Accept': 'application/json' },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!upstream.ok) return res.status(upstream.status).json({ error: 'openfarm_error' });
-    const data = await upstream.json();
-    const crop = data.data?.[0];
-    if (!crop) return res.json({ found: false });
-    const attrs = crop.attributes || {};
-    res.json({
-      found: true,
-      name: attrs.name,
-      description: attrs.description,
-      sowing_method: attrs.sowing_method,
-      spread: attrs.spread,
-      row_spacing: attrs.row_spacing,
-      height: attrs.height,
-    });
-  } catch (e) {
-    res.status(502).json({ error: 'openfarm_unreachable', message: e.message });
-  }
-});
 
 // Non-streaming: meta, inspiration, insights
 app.post('/api/call', (req, res) => {
