@@ -1410,4 +1410,6 @@ module.exports = {
   buildCoverPage:   buildCoverPage,
   // Exposed for calendarTemplate.js setPlantCommentary compatibility (startup only)
   _deriveUserRegion: _deriveUserRegion,
+  // Exposed for nearbyGardensService.js
+  GARDENS:          GARDENS,
 };
