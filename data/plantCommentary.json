@@ -23,7 +23,30 @@
       "The UK has over 2,500 recorded apple varieties, many dating back several centuries."
     ]
   },
-  
+  "autumncrocus": {
+    "latin": "Colchicum autumnale",
+    "habit": "Bulbous perennial; leaves appear in spring, flowers emerge leafless from bare ground in autumn.",
+    "features": "Produces goblet-shaped flowers in September–November when most other plants are fading; leaves die back by midsummer.",
+    "flowers": "Pale lilac-pink, goblet-shaped flowers, September–November; each corm can produce up to six blooms.",
+    "conditions": "Full sun to partial shade; well-drained soil; naturalises well in grass or under deciduous trees; fully hardy.",
+    "care": "Plant corms in late summer, 10cm deep. Allow foliage to die back naturally in spring. Divide congested clumps every few years.",
+    "facts": [
+      "Despite being called 'autumn crocus', it is not related to true crocuses — it belongs to its own family, Colchicaceae.",
+      "All parts are highly toxic; colchicine extracted from the plant is used in gout treatment and cancer research."
+    ]
+  },
+  "baylaurel": {
+    "latin": "Laurus nobilis",
+    "habit": "Evergreen tree or large shrub, 5–15m if unpruned; dense, broadly conical habit.",
+    "features": "Glossy, aromatic, dark-green leaves year-round; responds well to clipping into formal shapes.",
+    "flowers": "Small, creamy-yellow flowers in April–May, followed by black berries on female plants.",
+    "conditions": "Full sun to partial shade; any well-drained soil; tolerates drought once established; hardy to -10°C.",
+    "care": "Clip to shape in late spring and again in late summer. Use secateurs rather than shears to avoid browning cut leaves.",
+    "facts": [
+      "Bay laurel is the original source of the victor's laurel wreath in ancient Greece and Rome.",
+      "The dried leaves are a classic culinary herb — a key ingredient in bouquet garni and essential to a good stock."
+    ]
+  },
   "beech": {
     "latin": "Fagus sylvatica",
     "habit": "Large deciduous tree reaching 20–40m at maturity; broadly domed crown with smooth grey bark.",
@@ -36,7 +59,6 @@
       "Beech mast is edible and was historically ground into flour or pressed for oil in times of scarcity."
     ]
   },
-  
   "broom": {
     "latin": "Cytisus scoparius",
     "habit": "Deciduous shrub, 1–2m; upright, arching green stems with a wispy, open habit.",
@@ -49,6 +71,18 @@
       "Broom has nitrogen-fixing root nodules, making it a natural soil improver on poor ground."
     ]
   },
+  "buckthorn": {
+    "latin": "Rhamnus cathartica",
+    "habit": "Deciduous large shrub or small tree, 3–6m; dense, twiggy habit with slightly spiny branches.",
+    "features": "Provides excellent wildlife value — flowers for insects, berries for birds; attractive autumn leaf colour.",
+    "flowers": "Small, yellow-green, four-petalled flowers in May–June; followed by glossy black berries in autumn.",
+    "conditions": "Full sun to partial shade; tolerates most soils including chalk and clay; very hardy; good hedging plant.",
+    "care": "Prune after berry season in late winter if needed. Excellent as part of a mixed native hedge.",
+    "facts": [
+      "Buckthorn berries were historically used as a strong purgative — hence the species name 'cathartica'.",
+      "It is the sole foodplant of the Brimstone butterfly, one of the first butterflies seen each spring."
+    ]
+  },
   "camellia": {
     "latin": "Camellia japonica",
     "habit": "Evergreen shrub or small tree; dense, rounded habit with glossy, leathery dark green leaves.",
@@ -59,6 +93,18 @@
     "facts": [
       "The tea we drink (Camellia sinensis) is a close relative of the ornamental camellia.",
       "In the 19th century, they were the ultimate luxury flower, often worn in buttonholes of formal attire."
+    ]
+  },
+  "chamomile": {
+    "latin": "Chamaemelum nobile / Matricaria chamomilla",
+    "habit": "Low-growing annual or perennial herb; mat-forming with feathery, apple-scented foliage.",
+    "features": "Cheerful daisy-like flowers over a long season; the foliage releases a sweet apple fragrance when crushed.",
+    "flowers": "White ray petals around a raised yellow dome; June–September; attractive to hoverflies and small bees.",
+    "conditions": "Full sun; poor to moderately fertile, well-drained soil; drought tolerant once established; fully hardy.",
+    "care": "Deadhead to prolong flowering. Trim back after flowering. Non-flowering 'Treneague' variety makes a fragrant lawn.",
+    "facts": [
+      "The ancient Egyptians dedicated chamomile to the sun god Ra and used it to treat fevers.",
+      "A chamomile lawn was planted at Buckingham Palace — chamomile releases its scent when walked upon."
     ]
   },
   "cherry": {
@@ -85,6 +131,30 @@
       "The silky seed heads of wild clematis, Clematis vitalba, gave rise to its common name 'Old Man's Beard'."
     ]
   },
+  "dandelion": {
+    "latin": "Taraxacum officinale",
+    "habit": "Herbaceous perennial with a deep taproot; forms a flat rosette of jagged leaves.",
+    "features": "One of the most important early-season food sources for pollinators; clock-like seedheads are iconic.",
+    "flowers": "Bright yellow composite flower heads, March–October; close at night and in dull weather.",
+    "conditions": "Full sun to partial shade; any soil; extremely hardy and adaptable.",
+    "care": "If grown deliberately, allow to flower freely for pollinators. Roots can be harvested and roasted as a coffee substitute.",
+    "facts": [
+      "A single dandelion seedhead can carry up to 200 seeds, each capable of travelling miles on the wind.",
+      "Every part of the dandelion is edible — leaves in salads, flowers in wine, and roots as a herbal remedy."
+    ]
+  },
+  "elder": {
+    "latin": "Sambucus nigra",
+    "habit": "Large deciduous shrub or small tree, 3–6m; upright, arching, with corky, furrowed bark.",
+    "features": "Two seasons of ornamental interest — foamy white flower plates in early summer, then heavy clusters of deep purple-black berries in autumn.",
+    "flowers": "Large, flat-topped corymbs of tiny, fragrant, creamy-white flowers; May–June; highly attractive to insects.",
+    "conditions": "Full sun to partial shade; tolerant of most soils including wet or chalky ground; very hardy.",
+    "care": "Prune hard in winter to control size, or leave as a specimen tree. Berries must be cooked before eating.",
+    "facts": [
+      "Folklore warns that cutting down an elder without asking the 'Elder Mother' permission brings bad luck.",
+      "Every part of the plant is used: flowers for cordial and fritters, berries for wine and syrup, bark in folk medicine."
+    ]
+  },
   "elderflower": {
     "latin": "Sambucus nigra",
     "habit": "Large deciduous shrub or small tree; upright and arching with corky bark.",
@@ -107,6 +177,18 @@
     "facts": [
       "In the Middle Ages, fennel was hung over doors on Midsummer's Eve to ward off evil spirits.",
       "The town of Marathon in Greece gets its name from 'marathos', the Greek word for fennel."
+    ]
+  },
+  "fern": {
+    "latin": "Dryopteris filix-mas",
+    "habit": "Deciduous or semi-evergreen perennial; forms a shuttlecock of arching fronds, 60–120cm.",
+    "features": "Brings lush, architectural greenery to shaded spots; unfurling croziers in spring are ornamental in their own right.",
+    "flowers": "Non-flowering; reproduces by spores produced in sori (brown dots) on the undersides of fronds.",
+    "conditions": "Partial to full shade; moist, humus-rich soil; excellent under trees; fully hardy to -20°C.",
+    "care": "Remove old fronds in early spring before new growth emerges. Mulch annually to retain moisture.",
+    "facts": [
+      "Ferns are among the oldest plant groups on earth, predating dinosaurs by over 200 million years.",
+      "Before their reproductive spores were understood, ferns were thought to have invisible seeds — gathering them on Midsummer's Eve was said to make you invisible."
     ]
   },
   "fig": {
@@ -145,6 +227,18 @@
       "Fuchsia berries are edible and slightly sweet — they were eaten by the Māori people of New Zealand."
     ]
   },
+  "gardenmint": {
+    "latin": "Mentha spicata",
+    "habit": "Vigorous, spreading herbaceous perennial; upright stems 30–90cm, spreading by underground stolons.",
+    "features": "Bright, spearmint-scented foliage; one of the most useful culinary herbs in the kitchen garden.",
+    "flowers": "Whorls of tiny lilac-pink flowers on tapering spikes, June–September; excellent for bees and butterflies.",
+    "conditions": "Full sun to partial shade; moist, fertile soil; best grown in a container to prevent invasive spread.",
+    "care": "Pinch out flower buds to keep foliage production going. Cut hard after flowering for a flush of fresh leaves.",
+    "facts": [
+      "Spearmint gets its name from its spear-shaped leaves, and has been used as a breath freshener since Roman times.",
+      "Ancient Greeks rubbed mint on their arms before athletic competition, believing it increased strength."
+    ]
+  },
   "grape": {
     "latin": "Vitis vinifera",
     "habit": "Vigorous deciduous woody climber; uses tendrils to scale supports up to 10m+.",
@@ -155,6 +249,42 @@
     "facts": [
       "Vitis vinifera has been cultivated for over 8,000 years, beginning in the Caucasus region.",
       "A single grapevine can produce enough grapes for 40 to 60 glasses of wine."
+    ]
+  },
+  "grapevine": {
+    "latin": "Vitis vinifera",
+    "habit": "Vigorous deciduous woody climber; uses tendrils to scale supports up to 10m+.",
+    "features": "Large, lobed leaves with beautiful autumn colour; can clothe walls, pergolas, and arches magnificently.",
+    "flowers": "Inconspicuous green flowers in spring, followed by bunches of edible or ornamental fruit in late summer.",
+    "conditions": "Full sun; deep, well-drained soil; needs a warm, sheltered spot to ripen fruit reliably in the UK.",
+    "care": "Prune in early winter while dormant to prevent excessive 'bleeding'. Thin fruit bunches in summer for quality.",
+    "facts": [
+      "Vitis vinifera has been cultivated for over 8,000 years, beginning in the Caucasus region.",
+      "A single grapevine can produce enough grapes for 40 to 60 glasses of wine."
+    ]
+  },
+  "hollyhock": {
+    "latin": "Alcea rosea",
+    "habit": "Tall biennial or short-lived perennial; upright, architectural stems reaching 1.5–2.5m.",
+    "features": "Classic cottage garden plant; stately vertical spikes of saucer-shaped flowers are a midsummer icon.",
+    "flowers": "Large, tissue-paper flowers in shades of white, pink, red, purple, or near-black; June–September.",
+    "conditions": "Full sun; well-drained soil; sheltered from strong winds to prevent stem damage; hardy to -15°C.",
+    "care": "Stake tall varieties. Remove flowering stems after blooming to encourage perennial behaviour. Prone to rust — remove affected leaves promptly.",
+    "facts": [
+      "Hollyhocks were brought to Britain from the Holy Land by Crusaders — 'holy' plus 'hoc' (mallow) gives its name.",
+      "Hollyhock flowers are edible and were used to add colour to wine in the Middle Ages."
+    ]
+  },
+  "hop": {
+    "latin": "Humulus lupulus",
+    "habit": "Vigorous climbing herbaceous perennial; twining bines grow up to 6m in a single season.",
+    "features": "Bold, lobed, bright-green leaves create excellent rapid seasonal cover; papery cone-like flowers are highly decorative.",
+    "flowers": "Female plants produce pale green, cone-like strobiles (hops) in August–September; wonderfully ornamental when dried.",
+    "conditions": "Full sun; fertile, well-drained soil; requires strong support; fully hardy to -20°C.",
+    "care": "Cut all growth to the ground in autumn. Train new bines up supports in spring. Golden-leafed 'Aureus' variety is less vigorous.",
+    "facts": [
+      "Hops have been used to flavour and preserve beer since the 9th century.",
+      "The hop plant is related to cannabis and nettles — all members of the family Cannabaceae."
     ]
   },
   "hydrangea": {
@@ -193,6 +323,18 @@
       "In many cultures jasmine symbolises love and beauty; it is the national flower of Pakistan and the Philippines."
     ]
   },
+  "juniper": {
+    "latin": "Juniperus communis",
+    "habit": "Evergreen coniferous shrub or small tree; hugely variable in form from prostrate to columnar.",
+    "features": "Provides year-round structural interest; attractive silver-blue berries persist through winter; one of only three native UK conifers.",
+    "flowers": "Inconspicuous yellow male cones in spring; female plants produce round green berries that ripen to blue-black over two to three years.",
+    "conditions": "Full sun; any well-drained soil including chalk and poor ground; very hardy to -30°C.",
+    "care": "Requires little pruning. Remove dead or diseased wood as needed. Extremely drought-tolerant once established.",
+    "facts": [
+      "Juniper berries are the defining botanical flavour of gin — they are not true berries but fleshy seed cones.",
+      "Juniper wood was burned in Scottish folk tradition to protect against evil spirits and disease."
+    ]
+  },
   "laurel": {
     "latin": "Laurus nobilis",
     "habit": "Evergreen tree or large shrub, 5–15m if unpruned; dense, broadly conical habit.",
@@ -227,6 +369,18 @@
     "facts": [
       "A single lemon tree can produce up to 600 pounds of lemons in a year.",
       "During the Renaissance, lemons were used as a cosmetic to redden lips and as a cleaning agent."
+    ]
+  },
+  "lemonbalm": {
+    "latin": "Melissa officinalis",
+    "habit": "Bushy herbaceous perennial, 60–90cm; forms a dense clump of lemon-scented foliage.",
+    "features": "Intensely lemon-scented leaves useful fresh or dried; excellent bee plant; easy to grow.",
+    "flowers": "Small, two-lipped, white to pale yellow flowers in whorls along the stems, June–September; highly attractive to bees.",
+    "conditions": "Full sun to partial shade; any moderately fertile, well-drained soil; fully hardy to -20°C.",
+    "care": "Cut back hard after flowering to prevent self-seeding and encourage fresh foliage. Divide in spring or autumn.",
+    "facts": [
+      "Melissa is the Greek word for bee — lemon balm was rubbed inside hives to encourage swarms to settle.",
+      "Lemon balm has been used as a calming herbal remedy since at least the 14th century."
     ]
   },
   "lilyofthevalley": {
@@ -277,6 +431,18 @@
       "A companion planting favourite — marigolds deter whitefly and attract beneficial hoverflies to the vegetable garden."
     ]
   },
+  "marshmallow": {
+    "latin": "Althaea officinalis",
+    "habit": "Tall herbaceous perennial, 1–2m; upright, branching stems with soft, velvety, grey-green leaves.",
+    "features": "Elegant cottage garden plant with soft, downy foliage and a long flowering season; deeply rooted and drought tolerant.",
+    "flowers": "Pale pink, five-petalled mallow flowers, 3–4cm across, in the upper leaf axils; June–August.",
+    "conditions": "Full sun; moist, deep soil — tolerates wet or salty conditions; excellent for coastal gardens; fully hardy.",
+    "care": "Cut back to ground level in autumn. Self-seeds gently — allow a few seedlings to replace ageing plants.",
+    "facts": [
+      "The original marshmallow confection was made from the mucilaginous root of this plant mixed with sugar.",
+      "The roots have been used medicinally for over 2,000 years to soothe sore throats and digestive complaints."
+    ]
+  },
   "mint": {
     "latin": "Mentha piperita",
     "habit": "Vigorous, invasive herbaceous perennial spreading via underground runners.",
@@ -289,7 +455,6 @@
       "There are over 600 varieties of mint, including chocolate, pineapple, and ginger mint."
     ]
   },
-  
   "oleander": {
     "latin": "Nerium oleander",
     "habit": "Vigorous evergreen shrub or small tree; upright and mounding to 2–4m.",
@@ -314,7 +479,6 @@
       "The olive branch has been a symbol of peace and victory since ancient times."
     ]
   },
-  
   "peony": {
     "latin": "Paeonia lactiflora",
     "habit": "Bushy herbaceous perennial or woody shrub (Tree Peony); long-lived and substantial.",
@@ -325,6 +489,18 @@
     "facts": [
       "Peonies can live for over 100 years if left undisturbed in the right conditions.",
       "In Chinese culture, it is known as the 'King of Flowers' and symbolizes honor and wealth."
+    ]
+  },
+  "peppermint": {
+    "latin": "Mentha × piperita",
+    "habit": "Vigorous herbaceous perennial, 30–90cm; spreading by underground stolons.",
+    "features": "Strongly aromatic dark green or purple-tinged leaves; one of the most cooling and recognisable of all herb garden scents.",
+    "flowers": "Dense, blunt spikes of tiny lilac-pink flowers, July–September; highly attractive to bees and butterflies.",
+    "conditions": "Full sun to partial shade; moist, fertile soil; best grown in a pot to contain spreading habit; fully hardy.",
+    "care": "Cut hard after flowering for a second flush of fresh leaves. Replace plants every 3–4 years as they lose vigour.",
+    "facts": [
+      "Peppermint is a natural hybrid between water mint and spearmint, first described in England in 1696.",
+      "The world's largest peppermint oil producer is the Willamette Valley in Oregon, USA."
     ]
   },
   "poppy": {
@@ -411,7 +587,18 @@
       "Ancient Romans used it as a digestive aid and a memory enhancer."
     ]
   },
-  
+  "sourcherry": {
+    "latin": "Prunus cerasus",
+    "habit": "Small deciduous tree or large shrub, 3–5m; suckering habit with a spreading crown.",
+    "features": "Masses of white blossom in spring; bright red, slightly tart cherries in summer; excellent wall-trained specimen.",
+    "flowers": "White, five-petalled blossom in clusters, April–May; a superb early source of nectar for bees.",
+    "conditions": "Full sun to partial shade; fertile, well-drained soil; one of the few fruit trees that crops reliably on a north-facing wall.",
+    "care": "Prune after fruiting in summer — never in winter — to prevent Silver Leaf disease. Net against birds.",
+    "facts": [
+      "Sour cherries self-fertilise, unlike sweet cherries which need a pollination partner.",
+      "The Morello cherry, a variety of sour cherry, has been grown in British gardens since the 17th century."
+    ]
+  },
   "sunflower": {
     "latin": "Helianthus annuus",
     "habit": "Fast-growing annual herb; can reach 1m to 4m depending on variety.",
@@ -460,6 +647,30 @@
       "Cats are often as attracted to valerian as they are to catnip."
     ]
   },
+  "wildpansy": {
+    "latin": "Viola tricolor",
+    "habit": "Annual or short-lived perennial; low, spreading or slightly climbing, 10–45cm.",
+    "features": "Charming, old-fashioned flowers with distinctive 'faces'; an ancestor of the cultivated garden pansy.",
+    "flowers": "Small tricoloured flowers in combinations of purple, yellow, and white, with darker veining; April–September.",
+    "conditions": "Full sun to partial shade; well-drained to moderately moist soil; self-seeds freely; fully hardy.",
+    "care": "Allow to self-seed for a naturalistic effect. Deadhead to prolong flowering if preferred.",
+    "facts": [
+      "Also known as 'heartsease', it has been a symbol of love and remembrance since medieval times.",
+      "Shakespeare references it in A Midsummer Night's Dream as the magic flower used by Oberon."
+    ]
+  },
+  "wildthyme": {
+    "latin": "Thymus serpyllum",
+    "habit": "Prostrate, mat-forming evergreen sub-shrub; creeping stems, 2–10cm tall.",
+    "features": "Forms a fragrant, flowering carpet that tolerates light foot traffic; ideal for cracks in paving or dry banks.",
+    "flowers": "Masses of tiny, tubular pink-purple flowers covering the plant, May–August; one of the best plants for bees.",
+    "conditions": "Full sun; poor, gritty, sharply drained soil; tolerates drought; fully hardy to -20°C.",
+    "care": "Trim lightly after flowering to keep compact. Propagate from cuttings or by dividing rooted stems.",
+    "facts": [
+      "Wild thyme was believed to be a resting place for fairies in English folklore.",
+      "The ancient Greeks burned thyme as incense in their temples, and 'thymos' may relate to the Greek word for courage."
+    ]
+  },
   "wisteria": {
     "latin": "Wisteria sinensis",
     "habit": "Vigorous deciduous woody climber; requires strong support for its twining woody stems.",
@@ -470,6 +681,18 @@
     "facts": [
       "Wisteria can take up to 20 years to flower if grown from seed; always buy grafted plants.",
       "A single wisteria plant in Sierra Madre, California, is known as the 'largest blossoming plant in the world'."
+    ]
+  },
+  "wormwood": {
+    "latin": "Artemisia absinthium",
+    "habit": "Semi-evergreen perennial sub-shrub; upright, mounding habit, 60–90cm.",
+    "features": "Intensely aromatic, silver-grey, finely divided foliage is among the most beautiful of any garden plant.",
+    "flowers": "Small, unremarkable yellow-grey button flowers in late summer; the foliage is the real ornamental feature.",
+    "conditions": "Full sun; poor, very well-drained, even dry soil; drought tolerant; fully hardy.",
+    "care": "Cut back hard in spring to prevent woodiness and maintain a compact silver mound. Avoid wet, heavy soils.",
+    "facts": [
+      "Wormwood is the key botanical flavouring in absinthe, the notorious 19th-century liqueur.",
+      "The active compound thujone gives it a powerful bitterness that has been used to repel moths and parasitic worms for centuries."
     ]
   }
 }
