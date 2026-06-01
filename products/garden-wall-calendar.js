@@ -83,7 +83,15 @@ function getCommentary(plant) {
 // Display name overrides for plant keys that don't match their common name
 var PLANT_DISPLAY = {
   lilyofthevalley: 'Lily of the Valley',
-  limetree:        'Lime Tree',
+  limetree: 'Lime Tree',
+  autumncrocus: 'Autumn Crocus',
+  baylaurel: 'Bay Laurel',
+  wildpansy: 'Wild Pansy',
+  wildthyme: 'Wild Thyme',
+  sourcherry: 'Sour Cherry',
+  gardenmint: 'Garden Mint',  // worth adding while you're there
+  lemonbalm: 'Lemon Balm',   // and this one
+  wildpansy: 'Wild Pansy',
 };
 
 var ARTWORK_SOURCES = {
