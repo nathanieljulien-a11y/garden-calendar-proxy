@@ -201,6 +201,11 @@ async function proxy(req, res, stream, model) {
 }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+// TEMP — artwork quality check PDF download — remove after use
+app.get('/tmp-artwork-pdf', (req, res) => {
+  res.sendFile(require('path').resolve('./artwork-quality-check.pdf'));
+});
+
 // ── Geocoding ────────────────────────────────────────────────────────────────
 // Photon (komoot) — city string → lat, lng, country_code
 // Source: OpenStreetMap contributors · ODbL  https://www.openstreetmap.org/copyright
