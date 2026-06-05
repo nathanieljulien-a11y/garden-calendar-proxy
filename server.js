@@ -60,6 +60,7 @@ app.use(require('./creditService.js'));
 app.use('/api/stripe', require('./stripeService.js'));
 app.use(require('./contactService.js'));
 app.use(require('./nearbyGardensService.js'));
+app.use('/api', libraryRoutes);
 
 // ── In-memory rate stores (reset on restart — fine for demo scale) ────────────
 // Per-IP hourly requests
