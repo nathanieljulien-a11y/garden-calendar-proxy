@@ -37,7 +37,7 @@ router.get('/youtube-transcript', async (req, res) => {
   }
 
   try {
-    const { YoutubeTranscript } = require('youtube-transcript');
+    const { YoutubeTranscript } = require('@danielxceron/youtube-transcript');
 
     // Extract video ID from various YouTube URL formats
     const videoIdMatch = url.match(
