@@ -19,7 +19,6 @@
     "sharp": "^0.33.4",
     "resend": "^4.0.0",
     "stripe": "^17.0.0",
-    "@danielxceron/youtube-transcript": "^1.0.0",
     "@mozilla/readability": "^0.5.0",
     "jsdom": "^24.0.0",
     "node-fetch": "^3.3.2"
