@@ -1,19 +1,17 @@
 /**
  * libraryRoutes.js — Backend endpoints for Garden Library content ingestion
  *
- * Two endpoints:
- *   GET /api/youtube-transcript?url=...   — fetch YouTube auto-captions as text
+ * One endpoint:
  *   GET /api/fetch-url?url=...            — fetch article text from a URL
  *
  * Content is passed straight through to the client — never stored server-side.
- * Both endpoints are rate-limited by the caller's token (enforced upstream).
+ * Endpoint is rate-limited by the caller's token (enforced upstream).
  *
  * Mount in server.js:
  *   const libraryRoutes = require('./libraryRoutes');
  *   app.use('/api', libraryRoutes);
  *
  * Dependencies to add to package.json:
- *   "youtube-transcript": "^1.2.1"
  *   "@mozilla/readability": "^0.5.0"
  *   "node-fetch": "^3.3.2"   (if not already present)
  *   "jsdom": "^24.0.0"
@@ -21,80 +19,6 @@
 
 const express = require('express');
 const router = express.Router();
-
-// ─── YouTube transcript ───────────────────────────────────────────────────────
-
-router.get('/youtube-transcript', async (req, res) => {
-  const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).json({ error: 'url parameter required' });
-  }
-
-  // Validate it's actually a YouTube URL
-  if (!/youtube\.com|youtu\.be/.test(url)) {
-    return res.status(400).json({ error: 'Not a YouTube URL' });
-  }
-
-  try {
-    const { YoutubeTranscript } = require('@danielxceron/youtube-transcript');
-
-    // Extract video ID from various YouTube URL formats
-    const videoIdMatch = url.match(
-      /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/
-    );
-
-    if (!videoIdMatch) {
-      return res.status(400).json({ error: 'Could not extract video ID from URL' });
-    }
-
-    const videoId = videoIdMatch[1];
-    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
-
-    if (!transcriptItems || transcriptItems.length === 0) {
-      return res.status(404).json({
-        error: 'No transcript available for this video. It may not have captions.'
-      });
-    }
-
-    // Join transcript items into readable text
-    // Add punctuation-friendly spacing; YouTube transcripts lack sentence boundaries
-    const transcript = transcriptItems
-      .map(item => item.text.trim())
-      .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    // Try to get video title via oEmbed (no API key needed)
-    let title = 'YouTube video';
-    try {
-      const { default: fetch } = await import('node-fetch');
-      const oembedRes = await fetch(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`
-      );
-      if (oembedRes.ok) {
-        const oembedData = await oembedRes.json();
-        title = oembedData.title || title;
-      }
-    } catch (_) {
-      // Title fetch is best-effort; don't fail the whole request
-    }
-
-    return res.json({ transcript, title, wordCount: transcript.split(' ').length });
-
-  } catch (err) {
-    console.error('[libraryRoutes] YouTube transcript error:', err.message);
-
-    if (err.message?.includes('disabled') || err.message?.includes('no transcripts')) {
-      return res.status(404).json({
-        error: 'Transcripts are disabled for this video. Try a different video or paste the text.'
-      });
-    }
-
-    return res.status(500).json({ error: 'Could not fetch transcript. Please try again.' });
-  }
-});
 
 // ─── URL article fetch ────────────────────────────────────────────────────────
 
