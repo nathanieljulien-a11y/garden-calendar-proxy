@@ -56,7 +56,24 @@ router.post('/orders', function(req, res) {
     return res.status(400).json({ error: 'Validation failed', details: errors });
   }
 
+  // A buyer can re-submit the form (e.g. via the "customise" link) to replace their proof.
+  // Refuse if an earlier order for the same Etsy receipt has already been approved for print.
+  var receiptId = req.body.etsy_receipt_id ? String(req.body.etsy_receipt_id) : null;
+  var earlier   = receiptId
+    ? store.listOrders().filter(function(o) { return o.formData && String(o.formData.etsy_receipt_id) === receiptId; })
+    : [];
+  if (earlier.some(function(o) { return o.approved; })) {
+    return res.status(409).json({ error: 'Already approved', details: ['This order has already been approved and sent to print. Please message us on Etsy if you need a change.'] });
+  }
+
   var order    = store.createOrder(req.body);
+  // Replace earlier, not-yet-approved proofs for this receipt: their approve links stop working
+  earlier.forEach(function(o) {
+    if (!o.superseded) {
+      store.updateOrder(o.id, { superseded: true, supersededBy: order.id });
+      console.log('[orders] Order', o.id, 'superseded by', order.id, '(receipt', receiptId + ')');
+    }
+  });
   var enqueued = queue.enqueue(order.id);
   var status   = queue.getStatus();
 
@@ -106,6 +123,9 @@ router.post('/orders/:id/approve', async function(req, res) {
   }
   if (!req.body.token || req.body.token !== order.token) {
     return res.status(403).json({ error: 'Invalid approval token' });
+  }
+  if (order.superseded) {
+    return res.status(409).json({ error: 'A newer version of this calendar has been submitted — please use the latest preview link.' });
   }
   if (order.status !== 'done') {
     return res.status(409).json({ error: 'PDF not ready yet — status: ' + order.status });
@@ -201,6 +221,8 @@ router.get('/orders/:id/approve', async function(req, res) {
     return res.status(404).send(_approvePage('\u{1F33F}', 'Order not found', "We couldn't find this order. If you think this is an error, please get in touch via Etsy."));
   if (!req.query.token || req.query.token !== order.token)
     return res.status(403).send(_approvePage('\u{1F512}', 'Link not valid', 'This approval link is invalid or has expired. Please use the link from your original preview email.'));
+  if (order.superseded)
+    return res.status(409).send(_approvePage('\u{1F501}', 'A newer version exists', "You've since submitted a newer version of your calendar, so this proof has been replaced. Please use the link in your latest preview message."));
   if (order.status !== 'done')
     return res.status(409).send(_approvePage('\u23F3', "Your preview isn't ready yet", "We're still generating your calendar — this usually takes about 3 minutes. Please try the link again shortly."));
   if (order.approved)

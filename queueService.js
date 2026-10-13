@@ -12,6 +12,9 @@
 var store     = require('./orderStore.js');
 var r2        = require('./r2.js');
 var messaging = require('./etsyMessaging.js');
+var intake    = require('./etsyIntake.js');
+
+var ORDER_FORM_URL = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 
 // Lazy-require pdfService internals to avoid circular deps at startup.
 var _pdfService = null;
@@ -63,6 +66,14 @@ async function _processJob(orderId) {
     return;
   }
 
+  // The buyer submitted a newer version of this order while it was waiting — don't spend a PDF on it
+  if (order.superseded) {
+    console.log('[queue] Order', orderId, 'was superseded before it started — skipping');
+    store.updateOrder(orderId, { status: 'superseded' });
+    _finish();
+    return;
+  }
+
   // product is required on every order (ADR-009) — hard error if missing
   if (!order.formData || !order.formData.product) {
     console.error('[queue] Order', orderId, 'is missing required product field — cannot process');
@@ -86,14 +97,27 @@ async function _processJob(orderId) {
     store.updateOrder(orderId, { status: 'done', pdfUrl: publicUrl });
     console.log('[queue] Job done:', orderId, '→', publicUrl);
 
-    // Notify buyer via Etsy Conversations (non-blocking — failure doesn't fail the job)
-    _sendEtsyPreview(order, publicUrl).catch(function(e) {
-      console.error('[queue] Etsy preview message failed for', orderId, ':', e.message);
-    });
+    // Notify buyer via Etsy Conversations (non-blocking — failure doesn't fail the job).
+    // Skip if the buyer submitted a newer version while this one was generating.
+    var latest = store.getOrder(orderId);
+    if (latest && latest.superseded) {
+      console.log('[queue] Order', orderId, 'was superseded during generation — not sending preview');
+    } else {
+      _sendEtsyPreview(order, publicUrl).catch(function(e) {
+        console.error('[queue] Etsy preview message failed for', orderId, ':', e.message);
+      });
+    }
 
   } catch(e) {
     console.error('[queue] Job failed:', orderId, e.message);
     store.updateOrder(orderId, { status: 'failed', error: e.message });
+    // Auto-created (proof-first) orders have no form submission behind them — if generation
+    // fails the buyer would otherwise hear nothing. Send them the full form instead.
+    if (order.formData && order.formData.source === 'etsy-intake') {
+      _sendIntakeFailure(order).catch(function(e2) {
+        console.error('[queue] Intake fallback message failed for', orderId, ':', e2.message);
+      });
+    }
   }
 
   _finish();
@@ -142,6 +166,9 @@ async function _sendEtsyPreview(order, pdfUrl) {
     '',
     'Once approved, your calendar goes straight to print and Gelato will send you tracking information.',
     '',
+    'Want to change something \u2014 the plants, special dates, the cover message? Use this link (it\u2019s pre-filled with your current choices). Submitting it creates a new proof and replaces this one:',
+    intake.buildFormUrl(ORDER_FORM_URL, order.formData, { includePlants: true }),
+    '',
     'If anything looks wrong, just reply to this message and we\u2019ll sort it out.',
     '',
     'Warm wishes,',
@@ -150,6 +177,31 @@ async function _sendEtsyPreview(order, pdfUrl) {
 
   await messaging.sendEtsyMessage(receiptId, buyerUserId, message);
   console.log('[queue] Etsy preview message sent for order', order.id, 'receipt', receiptId);
+}
+
+// ── Internal: proof-first generation failed → send the full form link ────────
+async function _sendIntakeFailure(order) {
+  var receiptId   = order.formData && order.formData.etsy_receipt_id;
+  var receiptMap  = store.getMeta('etsyReceiptMap') || {};
+  var buyerUserId = receiptId && receiptMap[String(receiptId)];
+  if (!buyerUserId) {
+    console.warn('[queue] Cannot send intake fallback for', order.id, '— no buyer_user_id for receipt', receiptId);
+    return;
+  }
+  var link = intake.buildFormUrl(ORDER_FORM_URL, order.formData, { includePlants: false });
+  var message = [
+    'Hi again \u2014 we hit a snag creating your calendar proof automatically, and we\u2019re sorry about that.',
+    '',
+    'Could you fill in this short form instead (it takes about 2 minutes and is already filled in with your details)?',
+    link,
+    '',
+    'We\u2019ll send your proof as soon as it\u2019s submitted. Nothing goes to print until you approve it.',
+    '',
+    'Warm wishes,',
+    'The Garden Calendar team',
+  ].join('\n');
+  await messaging.sendEtsyMessage(receiptId, buyerUserId, message);
+  console.log('[queue] Intake fallback form link sent for order', order.id, 'receipt', receiptId);
 }
 
 module.exports = {
