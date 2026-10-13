@@ -16,8 +16,7 @@ const DAILY_GEN_CAP = parseInt(process.env.DAILY_GEN_CAP  || '30');
 const IP_HOURLY_CAP = parseInt(process.env.IP_HOURLY_CAP  || '10');
 const IP_DAILY_GEN  = parseInt(process.env.IP_DAILY_GEN   || '3');
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL_STREAM  = 'claude-sonnet-4-20250514';  // 12-month generation — needs Sonnet quality
-const MODEL_CALL    = 'claude-haiku-4-5-20251001'; // today tasks, insights, lenses — Haiku sufficient
+const { MODEL_STREAM, MODEL_CALL } = require('./models'); // env-configurable, see models.js
 const libraryRoutes = require('./libraryRoutes');
 
 if (!API_KEY) { console.error('ANTHROPIC_API_KEY not set'); process.exit(1); }
@@ -133,7 +132,8 @@ function checkTokenValid(req) {
 // ── Input validation ──────────────────────────────────────────────────────────
 function validateBody(body) {
   if (!body || typeof body !== 'object') return 'Invalid body';
-  if (body.model && body.model !== MODEL_STREAM && body.model !== MODEL_CALL) return 'Invalid model';
+  // body.model is ignored: the server always chooses the model (see proxy()), so a
+  // stale model string in an old frontend build can no longer cause a 400.
   if (!Array.isArray(body.messages) || body.messages.length === 0) return 'Missing messages';
   // Check combined prompt length — raised to 40k chars to accommodate climate context
   const totalLen = body.messages.reduce((s, m) => {
@@ -449,7 +449,7 @@ Task: "Summer prune wisteria laterals back to 5 leaves" → "how to summer prune
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',  // cheapest — this is a tiny task
+        model:      MODEL_CALL,  // cheapest tier — this is a tiny task
         max_tokens: 30,
         messages:   [{ role: 'user', content: prompt }],
       }),
