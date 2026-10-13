@@ -157,10 +157,13 @@ function parseReceipt(receipt) {
     nameDefaulted = true;
   }
 
+  // Optional cover message (the order form allows up to 200 characters)
+  var personalMessage = String(f.message || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+
   return {
     ok: reasons.length === 0,
     reasons: reasons,
-    data: { city: city, startMonth: startMonth, calendarName: calendarName, nameDefaulted: nameDefaulted },
+    data: { city: city, startMonth: startMonth, calendarName: calendarName, nameDefaulted: nameDefaulted, personalMessage: personalMessage },
   };
 }
 
@@ -175,7 +178,7 @@ function buildFormData(parsedData, receiptId, productId, now) {
     product:         productId,
     calendarName:    parsedData.calendarName,
     recipientName:   parsedData.calendarName,
-    personalMessage: '',
+    personalMessage: parsedData.personalMessage || '',
     city:            parsedData.city,
     startMonth:      start,
     year:            year,

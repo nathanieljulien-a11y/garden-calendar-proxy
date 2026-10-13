@@ -51,7 +51,7 @@ console.log('parseReceipt');
 test('variation + labelled personalization (the recommended setup)', function() {
   var r = intake.parseReceipt(receipt([START('January'), P('Location: Bath, UK / Name: The Smith Garden')]));
   assert.ok(r.ok, r.reasons.join('; '));
-  assert.deepStrictEqual(r.data, { city: 'Bath, UK', startMonth: 1, calendarName: 'The Smith Garden', nameDefaulted: false });
+  assert.deepStrictEqual(r.data, { city: 'Bath, UK', startMonth: 1, calendarName: 'The Smith Garden', nameDefaulted: false, personalMessage: '' });
 });
 test('everything in the personalization box', function() {
   var r = intake.parseReceipt(receipt([P('Location: Leeds\nName: Gran\nStart: June')]));
@@ -65,6 +65,21 @@ test('separate personalization questions named by field', function() {
   assert.ok(r.ok, r.reasons.join('; '));
   assert.strictEqual(r.data.city, 'Edinburgh, UK');
   assert.strictEqual(r.data.calendarName, 'The Wee Garden');
+});
+test('four separate personalization questions incl. a personal message', function() {
+  var r = intake.parseReceipt(receipt([
+    P('Bath, UK', 'Location'), P('The Smith Garden', 'Calendar name'),
+    P('March', 'Start month'), P('Happy retirement, Dad!\nLove from all of us', 'Personal message'),
+  ]));
+  assert.ok(r.ok, r.reasons.join('; '));
+  assert.strictEqual(r.data.startMonth, 3);
+  assert.strictEqual(r.data.personalMessage, 'Happy retirement, Dad! Love from all of us');
+  var fd = intake.buildFormData(r.data, 7, 'garden-wall-calendar', new Date(2026, 9, 13));
+  assert.strictEqual(fd.personalMessage, 'Happy retirement, Dad! Love from all of us');
+});
+test('personal message is capped at 200 characters', function() {
+  var r = intake.parseReceipt(receipt([P('Bath, UK', 'Location'), P('March', 'Start month'), P(new Array(400).join('x'), 'Personal message')]));
+  assert.strictEqual(r.data.personalMessage.length, 200);
 });
 test('missing name defaults from location', function() {
   var r = intake.parseReceipt(receipt([START('May'), P('Location: Bath, UK')]));
