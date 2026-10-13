@@ -48,7 +48,7 @@ Verdict:
 peak_months: month numbers (1=Jan...12=Dec) when most visually prominent in UK garden.`;
 
     const body = JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
+      model: require('./models').MODEL_CALL,
       max_tokens: 150,
       messages: [{
         role: 'user',
