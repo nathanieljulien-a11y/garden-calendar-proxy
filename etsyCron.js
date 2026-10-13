@@ -11,14 +11,21 @@
 //   ETSY_LISTING_PRODUCTS    — comma-separated listingId:productId pairs, e.g.:
 //                              "1234567890:garden-wall-calendar,9876543210:garden-wall-calendar-na"
 //                              Required for every active listing (ADR-009).
+//   ETSY_AUTO_PROOF          — set to "1" to enable proof-first intake: read start month,
+//                              location and calendar name from the Etsy order, generate the
+//                              proof immediately and message the buyer, instead of sending
+//                              the order-form link first. Off by default. If the order
+//                              details can't be read, the old form-link message is sent.
 
 var store      = require('./orderStore.js');
 var messaging  = require('./etsyMessaging.js');
+var intake     = require('./etsyIntake.js');
 
 var ETSY_API_KEY       = process.env.ETSY_API_KEY   || '';
 var ETSY_SHOP_ID       = process.env.ETSY_SHOP_ID   || '';
 var ORDER_FORM_URL     = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 var POLL_INTERVAL_MS   = 5 * 60 * 1000; // 5 minutes
+var AUTO_PROOF         = process.env.ETSY_AUTO_PROOF === '1';
 
 // ── Parse ETSY_LISTING_PRODUCTS env var ───────────────────────────────────────
 // Format: "listingId1:productId1,listingId2:productId2"
@@ -72,6 +79,68 @@ function _buildMessage(order, formUrl, productId) {
     'Once submitted we\u2019ll send you a PDF preview to approve before anything goes to print.',
     '',
     'If you have any questions in the meantime, just reply to this message.',
+    '',
+    'Warm wishes,',
+    'The Garden Calendar team',
+  ].join('\n');
+}
+
+// ── Proof-first intake ────────────────────────────────────────────────────────
+// Returns the intake order record { orderId, ackSent } for this receipt, creating
+// and enqueueing the order if it does not exist yet. Returns null when the order
+// details can't be read or the location can't be found — the caller then falls
+// back to the form-link message.
+async function _startProofFirst(order, receiptId, productId) {
+  var intakeOrders = store.getMeta('etsyIntakeOrders') || {};
+  if (intakeOrders[receiptId]) return intakeOrders[receiptId];   // already created (retry of a failed ack)
+
+  var parsed = intake.parseReceipt(order);
+  if (!parsed.ok) {
+    console.warn('[etsy] Auto-proof: could not read order details for receipt', receiptId, '—', parsed.reasons.join('; '), '— falling back to form link');
+    return null;
+  }
+
+  // The location must geocode, otherwise the proof would silently have no climate data.
+  var geo = null;
+  try { geo = await require('./pdfService.js').geocodeCity(parsed.data.city); } catch (e) { geo = null; }
+  if (!geo) {
+    console.warn('[etsy] Auto-proof: location "' + parsed.data.city + '" not found for receipt', receiptId, '— falling back to form link');
+    return null;
+  }
+
+  try { require('./products/index.js').getProduct(productId); }
+  catch (e) {
+    console.warn('[etsy] Auto-proof: unknown product', productId, 'for receipt', receiptId, '— falling back to form link');
+    return null;
+  }
+
+  var formData = intake.buildFormData(parsed.data, receiptId, productId);
+  var created  = store.createOrder(formData);
+  intakeOrders[receiptId] = { orderId: created.id };
+  store.setMeta('etsyIntakeOrders', intakeOrders);        // persist BEFORE enqueue/message so a crash can't double-create
+  require('./queueService.js').enqueue(created.id);
+  console.log('[etsy] Auto-proof: order', created.id, 'created for receipt', receiptId,
+    '— city:', formData.city, '— start:', formData.startMonth, '— name:', formData.calendarName,
+    parsed.data.nameDefaulted ? '(name defaulted)' : '');
+  return intakeOrders[receiptId];
+}
+
+function _buildAckMessage(formData) {
+  var customiseUrl = intake.buildFormUrl(ORDER_FORM_URL, formData, { includePlants: true });
+  return [
+    'Hi there! Thank you so much for your Garden Calendar order \u2014 we\u2019re excited to make something special for you.',
+    '',
+    'We\u2019ve got your details:',
+    '\u2022 Location: ' + formData.city,
+    '\u2022 Calendar name: ' + formData.calendarName,
+    '\u2022 Starting: ' + intake.MONTH_LABELS[formData.startMonth - 1] + ' ' + formData.year,
+    '',
+    'We\u2019re creating your proof now \u2014 you\u2019ll get it here in this conversation in a few minutes.',
+    '',
+    'Want to add special dates, change the plants or add a message on the cover? Use this link (it\u2019s already filled in with the details above). Submitting it replaces the proof we\u2019re making:',
+    customiseUrl,
+    '',
+    'Nothing goes to print until you approve your proof. If you have any questions, just reply to this message.',
     '',
     'Warm wishes,',
     'The Garden Calendar team',
@@ -146,7 +215,19 @@ async function _poll() {
       }
 
       try {
-        var message = _buildMessage(order, ORDER_FORM_URL, productId);
+        var message = null;
+
+        // Proof-first intake (ETSY_AUTO_PROOF=1): create the order from the Etsy answers
+        if (AUTO_PROOF && productId !== 'UNKNOWN') {
+          var started = await _startProofFirst(order, receiptId, productId);
+          if (started) {
+            var intakeOrder = store.getOrder(started.orderId);
+            message = _buildAckMessage(intakeOrder.formData);
+          }
+        }
+        // Otherwise (flag off, or details unreadable): the existing form-link message
+        if (!message) message = _buildMessage(order, ORDER_FORM_URL, productId);
+
         await messaging.sendEtsyMessage(order.receipt_id, order.buyer_user_id, message);
 
         if (!meta.messagedReceipts) meta.messagedReceipts = [];

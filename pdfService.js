@@ -874,3 +874,4 @@ router.buildFullHTML          = buildFullHTML;
 router.buildFullHTMLFromState = buildFullHTMLFromState;
 router.generatePDF            = generatePDF;
 router.deleteSharedState      = deleteSharedState;
+router.geocodeCity            = geocodeCity;   // used by Etsy proof-first intake to validate a location
