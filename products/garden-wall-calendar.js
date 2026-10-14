@@ -765,7 +765,7 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
 
     var body = JSON.stringify({
       model:      require('../models').MODEL_CALL,
-      max_tokens: 400,
+      max_tokens: 1500,   // was 400 — headroom in case the model thinks first (thinking shares this budget)
       messages:   [{ role: 'user', content: prompt }],
     });
     var opts = {
@@ -785,10 +785,15 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
         try {
           var p = JSON.parse(data);
           if (p.error) { console.error('[garden] inspo API error:', JSON.stringify(p.error)); resolve(null); return; }
-          var text    = (p.content && p.content[0] && p.content[0].text || '').trim();
+          var text    = require('../models').extractText(p.content);
           var cleaned = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
           var jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) { console.error('[garden] inspo no JSON found in:', text.slice(0, 100)); resolve(null); return; }
+          if (!jsonMatch) {
+            console.error('[garden] inspo no JSON found — stop_reason:', p.stop_reason,
+              '— blocks:', (p.content || []).map(function(b) { return b.type; }).join(',') || 'none',
+              '— text:', text.slice(0, 100));
+            resolve(null); return;
+          }
           resolve(JSON.parse(jsonMatch[0]));
         } catch(e) {
           console.error('[garden] inspo parse error:', e.message, 'raw:', data.slice(0, 200));
