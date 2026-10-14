@@ -2,7 +2,7 @@
 // In-memory job queue for PDF generation.
 // Processes one job at a time to avoid OOM crashes from concurrent Chromium instances.
 // Jobs are persisted in orderStore.js so their status survives a status check even
-// if the server restarts mid-queue (the job will re-queue on next submission).
+// if the server restarts mid-queue; recoverInterrupted() re-queues them on startup.
 //
 // Usage:
 //   var queue = require('./queueService.js');
@@ -82,7 +82,8 @@ async function _processJob(orderId) {
     return;
   }
 
-  store.updateOrder(orderId, { status: 'processing' });
+  // attempts lets restart-recovery stop a job that keeps crashing the server (e.g. out of memory)
+  store.updateOrder(orderId, { status: 'processing', attempts: (order.attempts || 0) + 1 });
 
   try {
     var apiKey = process.env.ANTHROPIC_API_KEY || '';
@@ -204,7 +205,51 @@ async function _sendIntakeFailure(order) {
   console.log('[queue] Intake fallback form link sent for order', order.id, 'receipt', receiptId);
 }
 
+// ── Public: recover jobs interrupted by a restart/deploy ─────────────────────
+// The queue is in memory, but every order is saved to disk the moment it is created.
+// Call once at startup: any order still 'queued' or 'processing' was cut off, so put it
+// back on the queue. Guards:
+//   • only orders created in the last RECOVER_MAX_AGE_MS (old test orders are ignored)
+//   • superseded orders are skipped
+//   • an order already tried MAX_ATTEMPTS times is marked failed instead of looping
+//     (and proof-first orders get the fallback form link, as for any failed generation)
+// The buyer preview message is only sent after a job reaches 'done', so re-running an
+// interrupted job cannot send a duplicate message.
+var RECOVER_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+var MAX_ATTEMPTS       = 2;
+
+function recoverInterrupted(now) {
+  now = now || Date.now();
+  var pending = store.listByStatus(['queued', 'processing']);
+  var recovered = 0;
+  pending.forEach(function(o) {
+    if (o.superseded) return;
+    if (o.id === _currentJobId || _queue.indexOf(o.id) !== -1) return;
+    var age = now - Date.parse(o.createdAt);
+    if (!(age <= RECOVER_MAX_AGE_MS)) {
+      console.log('[queue] Recovery: skipping stale order', o.id, '(' + o.status + ', created ' + o.createdAt + ')');
+      return;
+    }
+    if ((o.attempts || 0) >= MAX_ATTEMPTS) {
+      console.error('[queue] Recovery: order', o.id, 'already attempted', o.attempts, 'times — marking failed');
+      store.updateOrder(o.id, { status: 'failed', error: 'Interrupted ' + o.attempts + ' times by restarts; not retried' });
+      if (o.formData && o.formData.source === 'etsy-intake') {
+        _sendIntakeFailure(o).catch(function(e) {
+          console.error('[queue] Intake fallback message failed for', o.id, ':', e.message);
+        });
+      }
+      return;
+    }
+    console.log('[queue] Recovery: re-queueing interrupted order', o.id, '(was ' + o.status + ', attempts ' + (o.attempts || 0) + ')');
+    enqueue(o.id);
+    recovered++;
+  });
+  console.log('[queue] Recovery complete — ' + recovered + ' order(s) re-queued');
+  return recovered;
+}
+
 module.exports = {
-  enqueue:   enqueue,
-  getStatus: getStatus,
+  enqueue:             enqueue,
+  getStatus:           getStatus,
+  recoverInterrupted:  recoverInterrupted,
 };
