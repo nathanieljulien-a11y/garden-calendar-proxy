@@ -744,8 +744,8 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
     var gardenHint;
     if (candidates.length > 0) {
       gardenHint = '\n\nChoose from these verified gardens near ' + climate + ' (all are real and within day-trip distance): '
-        + candidates.slice(0, 12).join(', ') + '.'
-        + ' Pick the one that is most interesting specifically in ' + monthName + '.';
+        + candidates.slice(0, 20).join(', ') + '.'
+        + ' Prefer one you are confident is at its best in ' + monthName + ', but if you are not sure of any, choose the garden you know best.';
     } else {
       console.log('[garden] inspo: candidates exhausted for ' + climate + ', using free-choice fallback');
       gardenHint = '\n\nSuggest a real, well-known, publicly accessible garden within a comfortable day trip of '
@@ -759,9 +759,11 @@ function fetchInspoOne(plant, monthName, climate, lat, lng, userRegion, apiKey, 
       + ' It must be within a comfortable day trip \u2014 preferably under 1.5 hours away.'
       + gardenHint
       + excludeClause
-      + '\n\nThe highlight should mention something specific happening in that garden in ' + monthName + '.'
+      + '\n\nHonesty rule: only state a seasonal feature for ' + monthName + ' if you are confident it is true for this garden (for example a well-known collection and its usual season).'
+      + ' If you are not confident, describe what the garden is genuinely known for in general terms and do not claim it peaks in ' + monthName + '.'
+      + ' Never invent events, displays, exhibitions or dates. Vague but true is better than specific but wrong.'
       + '\n\nReturn ONLY valid JSON with no markdown fences, no explanation, nothing before or after the JSON object:'
-      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One specific sentence about what makes it worth visiting in ' + monthName + '.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
+      + '\n{"name":"Full official garden name","location":"Town, County","highlight":"One sentence on what the garden is known for, with a seasonal note for ' + monthName + ' only if you are confident of it.","wikipedia":"Wikipedia article title for this garden if one exists, else null"}';
 
     var body = JSON.stringify({
       model:      require('../models').MODEL_CALL,
