@@ -450,14 +450,14 @@ Task: "Summer prune wisteria laterals back to 5 leaves" → "how to summer prune
       },
       body: JSON.stringify({
         model:      MODEL_CALL,  // cheapest tier — this is a tiny task
-        max_tokens: 30,
+        max_tokens: 300,  // was 30 — headroom in case the model thinks first
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
 
     if (claudeRes.ok) {
       const data = await claudeRes.json();
-      query = data.content?.[0]?.text?.trim().replace(/^["']|["']$/g, '') || null;
+      query = (require('./models').extractText(data.content)).replace(/^["']|["']$/g, '') || null;
     }
   } catch (e) {
     // Claude call failed — fall back to simple extraction below
