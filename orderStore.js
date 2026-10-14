@@ -118,6 +118,15 @@ function countByStatus(status) {
 // Stores arbitrary key/value metadata alongside orders (e.g. etsyCron state).
 // Kept in the same orders.json file under a reserved '_meta' key.
 
+// Orders whose status is one of `statuses`, oldest first. Skips the reserved '_meta' key.
+function listByStatus(statuses) {
+  var orders = _read();
+  return Object.keys(orders)
+    .filter(function(k) { return k.charAt(0) !== '_' && orders[k] && statuses.indexOf(orders[k].status) !== -1; })
+    .map(function(k) { return orders[k]; })
+    .sort(function(x, y) { return String(x.createdAt).localeCompare(String(y.createdAt)); });
+}
+
 function getMeta(key) {
   var orders = _read();
   return (orders._meta && orders._meta[key]) || null;
@@ -137,6 +146,7 @@ module.exports = {
   updateOrder:      updateOrder,
   listOrders:       listOrders,
   countByStatus:    countByStatus,
+  listByStatus:     listByStatus,
   getMeta:          getMeta,
   setMeta:          setMeta,
 };

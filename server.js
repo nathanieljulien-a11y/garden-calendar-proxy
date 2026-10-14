@@ -543,6 +543,12 @@ app.listen(PORT, () => {
     console.warn('[etsy] Cron failed to load:', e.message);
   }
 
+  // Re-queue any PDF job that a restart/deploy cut off (orders are saved to disk; the queue is not)
+  setTimeout(function() {
+    try { require('./queueService.js').recoverInterrupted(); }
+    catch(e) { console.warn('[queue] Recovery failed:', e.message); }
+  }, 5000);
+
   // Start daily disk backup to R2
   try {
     var backupService = require('./backupService.js');
