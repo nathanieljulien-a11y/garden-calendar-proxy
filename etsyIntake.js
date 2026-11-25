@@ -73,6 +73,8 @@ function classifyLabel(label) {
   var l = String(label || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!l) return null;
   if (/^(your |garden |calendar )?(location|city|town|place|where)( of (the )?garden)?$/.test(l)) return 'city';
+  // Longer question wording, e.g. "Garden location - town, country"
+  if (l.length <= 50 && /\b(location|town|city)\b/.test(l) && !/\b(name|start|month|message|note|date)\b/.test(l)) return 'city';
   if (/^(start|starts|starting|start month|starting month|calendar starts|begin|begins|first month)$/.test(l)) return 'start';
   if (/^(your |garden |calendar |recipient )?(name|title)( on (the )?calendar)?$/.test(l) ||
       /^(calendar name|garden name|name of (the )?(garden|calendar)|recipient|for|calendar for)$/.test(l)) return 'name';
