@@ -58,7 +58,19 @@ function postcodeMatches(entered, actual) {
   return a.length >= 3 && a === b;
 }
 
+// "1234:garden-wall-calendar,5678:garden-wall-calendar-na" → { '1234': 'garden-wall-calendar', ... }
+// (same format as the ETSY_LISTING_PRODUCTS env var read by etsyCron.js)
+function parseListingProductMap(raw) {
+  var map = {};
+  String(raw || '').split(',').forEach(function(pair) {
+    var parts = pair.trim().split(':');
+    if (parts.length === 2 && parts[0].trim() && parts[1].trim()) map[parts[0].trim()] = parts[1].trim();
+  });
+  return map;
+}
+
 module.exports = {
+  parseListingProductMap: parseListingProductMap,
   fetchReceipt:      fetchReceipt,
   splitName:         splitName,
   addressFromReceipt: addressFromReceipt,

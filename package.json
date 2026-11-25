@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/etsyIntake.test.js && node test/queueRecovery.test.js && node test/etsyReceipt.test.js && node test/notify.test.js && node test/approveOnline.test.js"
+    "test": "node test/etsyIntake.test.js && node test/queueRecovery.test.js && node test/etsyReceipt.test.js && node test/notify.test.js && node test/approveOnline.test.js && node test/etsyLookup.test.js"
   },
   "engines": {
     "node": "20.x"
