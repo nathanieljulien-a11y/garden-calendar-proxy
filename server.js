@@ -54,6 +54,7 @@ app.use('/upload-to-r2', express.raw({ type: 'application/pdf', limit: '30mb' })
 app.use(pdfRouter);
 app.use(gelatoRouter);
 app.use(require('./orderService.js'));
+app.use(require('./etsyLookup.js'));
 app.use(require('./eventService.js'));
 app.use(require('./creditService.js'));
 app.use('/api/stripe', require('./stripeService.js'));
