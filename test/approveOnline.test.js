@@ -161,6 +161,30 @@ var server = app.listen(0, async function() {
     assert.ok(mail.text.indexOf('buyer email') !== -1, 'warns that Etsy withheld the buyer email');
   });
 
+  console.log('POST /orders');
+  await test('submitting the form emails the operator; a re-submission says it replaces the earlier proof', async function() {
+    operatorEmails.length = 0;
+    var body = { product: 'garden-wall-calendar', city: 'Carshalton, UK', calendarName: 'The Hall Family Garden', startMonth: 1, year: 2027,
+                 plants: ['rose','apple','iris','tulip','lavender','thyme','sage','mint','fern','fig','hop','elder'], etsy_receipt_id: '8888' };
+    var r = await call(port, 'POST', '/orders', body);
+    assert.strictEqual(r.status, 202);
+    await new Promise(function(x) { setTimeout(x, 50); });
+    var mail = operatorEmails.find(function(m) { return m.subject.indexOf('Form submitted') !== -1; });
+    assert.ok(mail && mail.subject.indexOf('Etsy order 8888') !== -1);
+    assert.ok(mail.text.indexOf('Carshalton, UK') !== -1 && mail.text.indexOf('January 2027') !== -1);
+    assert.ok(mail.text.indexOf('replaces') === -1);
+    operatorEmails.length = 0;
+    await call(port, 'POST', '/orders', body);
+    await new Promise(function(x) { setTimeout(x, 50); });
+    assert.ok(operatorEmails[0].text.indexOf('replaces their earlier proof') !== -1);
+  });
+  await test('an invalid submission sends no email', async function() {
+    operatorEmails.length = 0;
+    assert.strictEqual((await call(port, 'POST', '/orders', { product: 'garden-wall-calendar' })).status, 400);
+    await new Promise(function(x) { setTimeout(x, 30); });
+    assert.strictEqual(operatorEmails.length, 0);
+  });
+
   console.log('GET /orders/:id');
   await test('exposes canApproveOnline/approved but never the token', async function() {
     var o = doneOrder();

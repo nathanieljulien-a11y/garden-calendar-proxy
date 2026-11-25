@@ -14,6 +14,7 @@ var r2        = require('./r2.js');
 var messaging = require('./etsyMessaging.js');
 var intake    = require('./etsyIntake.js');
 var buyerNotify = require('./buyerNotify.js');
+var operator    = require('./operatorNotify.js');
 
 var ORDER_FORM_URL = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 
@@ -28,6 +29,23 @@ function _getPdf() {
 var _busy         = false;
 var _queue        = []; // array of order IDs waiting to be processed
 var _currentJobId = null;
+
+// ── Internal: tell the operator a proof could not be made ─────────────────────
+// Without this a failed job only shows in the logs and the buyer is left waiting.
+function _alertFailure(order, reason) {
+  var fd = order.formData || {};
+  operator.notify(
+    '[Garden Calendar] PROOF FAILED \u2014 order ' + order.id + (fd.etsy_receipt_id ? ' (Etsy ' + fd.etsy_receipt_id + ')' : ''),
+    ['A calendar proof could not be generated.',
+     '',
+     'Order:      ' + order.id,
+     'Etsy order: ' + (fd.etsy_receipt_id || 'n/a'),
+     'Location:   ' + (fd.city || ''),
+     'Reason:     ' + reason,
+     '',
+     'Message the buyer on Etsy to let them know. They can resubmit the form to try again; check the Render logs for "[queue] Job failed".'].join('\n')
+  ).catch(function() {});
+}
 
 // ── Public: enqueue ───────────────────────────────────────────────────────────
 function enqueue(orderId) {
@@ -113,6 +131,7 @@ async function _processJob(orderId) {
   } catch(e) {
     console.error('[queue] Job failed:', orderId, e.message);
     store.updateOrder(orderId, { status: 'failed', error: e.message });
+    _alertFailure(order, e.message);
     // Auto-created (proof-first) orders have no form submission behind them — if generation
     // fails the buyer would otherwise hear nothing. Send them the full form instead.
     if (order.formData && order.formData.source === 'etsy-intake') {
@@ -234,6 +253,7 @@ function recoverInterrupted(now) {
     if ((o.attempts || 0) >= MAX_ATTEMPTS) {
       console.error('[queue] Recovery: order', o.id, 'already attempted', o.attempts, 'times — marking failed');
       store.updateOrder(o.id, { status: 'failed', error: 'Interrupted ' + o.attempts + ' times by restarts; not retried' });
+      _alertFailure(o, 'Interrupted ' + o.attempts + ' times by restarts; not retried');
       if (o.formData && o.formData.source === 'etsy-intake') {
         _sendIntakeFailure(o).catch(function(e) {
           console.error('[queue] Intake fallback message failed for', o.id, ':', e.message);

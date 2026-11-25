@@ -12,7 +12,7 @@ function stub(rel, exportsObj) {
 }
 var built = [], sentMsgs = [];
 stub('../pdfService.js', {
-  buildFullHTML: async function(fd) { built.push(fd._id); return '<html/>'; },
+  buildFullHTML: async function(fd) { if (fd.city === 'BOOM') throw new Error('chromium crashed'); built.push(fd._id); return '<html/>'; },
   generatePDF:   async function() { return Buffer.from('pdf'); },
 });
 stub('../r2.js', { uploadToR2: async function(b, name) { return 'https://r2.example/' + name; } });
@@ -80,6 +80,29 @@ var H = 3600 * 1000;
   });
   await test('no Etsy messages sent for orders without a receipt', function() {
     assert.strictEqual(sentMsgs.length, 0);
+  });
+
+  console.log('operator alerts');
+  var alerts = [];
+  process.env.RESEND_API_KEY = 'k'; process.env.EMAIL_FROM = 'f@x.test'; process.env.OPERATOR_EMAIL = 'me@x.test';
+  require('../operatorNotify.js')._setTransport(async function(p) { alerts.push(p); });
+  await test('a proof that fails to build emails the operator (order, Etsy number, reason)', async function() {
+    var o = store.createOrder({ product: 'garden-wall-calendar', city: 'BOOM', etsy_receipt_id: '4246343135' });
+    queue.enqueue(o.id);
+    await sleep(300);
+    assert.strictEqual(store.getOrder(o.id).status, 'failed');
+    var mail = alerts.find(function(m) { return m.subject.indexOf('PROOF FAILED') !== -1; });
+    assert.ok(mail, 'no failure email sent');
+    assert.ok(mail.subject.indexOf(o.id) !== -1 && mail.subject.indexOf('4246343135') !== -1);
+    assert.ok(mail.text.indexOf('chromium crashed') !== -1);
+  });
+  await test('a successful proof sends no failure email', async function() {
+    alerts.length = 0;
+    var o = store.createOrder({ product: 'garden-wall-calendar', city: 'Bath, UK' });
+    queue.enqueue(o.id);
+    await sleep(300);
+    assert.strictEqual(store.getOrder(o.id).status, 'done');
+    assert.ok(!alerts.some(function(m) { return m.subject.indexOf('PROOF FAILED') !== -1; }));
   });
 
   console.log('\n' + passed + ' passed' + (process.exitCode ? ', some FAILED' : ''));
