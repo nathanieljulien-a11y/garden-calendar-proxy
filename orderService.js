@@ -51,6 +51,24 @@ function validateFormData(body) {
   return errors;
 }
 
+// Tell the operator a buyer has submitted the form (the proof is now being built).
+function _alertSubmitted(order, body, position, replacesEarlier) {
+  var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  operator.notify(
+    '[Garden Calendar] Form submitted \u2014 ' + (body.etsy_receipt_id ? 'Etsy order ' + body.etsy_receipt_id : 'order ' + order.id),
+    ['A buyer has submitted their calendar choices' + (replacesEarlier ? ' (this replaces their earlier proof)' : '') + '.',
+     '',
+     'Order:      ' + order.id,
+     'Etsy order: ' + (body.etsy_receipt_id || 'n/a'),
+     'Calendar:   ' + (body.calendarName || ''),
+     'Location:   ' + (body.city || ''),
+     'Starts:     ' + (months[(body.startMonth || 1) - 1] || '') + ' ' + (body.year || ''),
+     'Queue:      position ' + position,
+     '',
+     'The proof takes about 3 minutes. You\'ll get another email when it\'s ready, and the buyer can approve it on the form page.'].join('\n')
+  ).catch(function() {});
+}
+
 // ── POST /orders — submit form ────────────────────────────────────────────────
 router.post('/orders', function(req, res) {
   var errors = validateFormData(req.body);
@@ -78,6 +96,7 @@ router.post('/orders', function(req, res) {
   });
   var enqueued = queue.enqueue(order.id);
   var status   = queue.getStatus();
+  _alertSubmitted(order, req.body, enqueued.position, earlier.length > 0);
 
   console.log('[orders] New order:', order.id, '— product:', req.body.product, '— queue position:', enqueued.position);
 
