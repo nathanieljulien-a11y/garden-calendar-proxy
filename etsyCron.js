@@ -20,8 +20,9 @@
 var store      = require('./orderStore.js');
 var messaging  = require('./etsyMessaging.js');
 var intake     = require('./etsyIntake.js');
+var buyerNotify = require('./buyerNotify.js');
 
-var ETSY_API_KEY       = process.env.ETSY_API_KEY   || '';
+var ETSY_API_KEY      = process.env.ETSY_API_KEY   || '';
 var ETSY_SHOP_ID       = process.env.ETSY_SHOP_ID   || '';
 var ORDER_FORM_URL     = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 var POLL_INTERVAL_MS   = 5 * 60 * 1000; // 5 minutes
@@ -67,16 +68,23 @@ async function _fetchNewOrders(sinceTimestamp) {
 // ── Build personalised form-link message ──────────────────────────────────────
 // productId is required — caller must resolve it from the listing map before calling.
 function _buildMessage(order, formUrl, productId) {
-  var link = formUrl
-    + '?etsy_receipt_id=' + order.receipt_id
-    + '&product=' + encodeURIComponent(productId);
+  // Pre-fill the form with the answers the buyer already gave on Etsy (whatever can be read)
+  var parsed = intake.parseReceipt(order).data;
+  var link = intake.buildFormUrl(formUrl, {
+    etsy_receipt_id: order.receipt_id,
+    product:         productId,
+    city:            parsed.city,
+    calendarName:    parsed.calendarName,
+    startMonth:      parsed.startMonth,
+    personalMessage: parsed.personalMessage,
+  });
   return [
     'Hi there! Thank you so much for your Garden Calendar order \u2014 we\u2019re excited to make something special for you.',
     '',
-    'To personalise your calendar, please fill in this short form (it takes about 2 minutes):',
+    'We\u2019ve filled in what you told us on Etsy. Please open this short form to choose your 12 plants (about 2 minutes):',
     link,
     '',
-    'Once submitted we\u2019ll send you a PDF preview to approve before anything goes to print.',
+    'Once submitted, your PDF preview appears on that same page for you to approve before anything goes to print.',
     '',
     'If you have any questions in the meantime, just reply to this message.',
     '',
@@ -228,7 +236,13 @@ async function _poll() {
         // Otherwise (flag off, or details unreadable): the existing form-link message
         if (!message) message = _buildMessage(order, ORDER_FORM_URL, productId);
 
-        await messaging.sendEtsyMessage(order.receipt_id, order.buyer_user_id, message);
+        // The Etsy API can't send messages — this emails the operator the text to paste
+        // into Etsy (see buyerNotify.js). Never throws, so the receipt is marked done.
+        var sent = await buyerNotify.deliver({
+          receiptId: order.receipt_id, buyerUserId: order.buyer_user_id,
+          message: message, kind: AUTO_PROOF ? 'proof acknowledgement' : 'form link',
+        });
+        console.log('[etsy] Buyer message for receipt', receiptId, 'delivered via', sent.via);
 
         if (!meta.messagedReceipts) meta.messagedReceipts = [];
         meta.messagedReceipts.push(receiptId);

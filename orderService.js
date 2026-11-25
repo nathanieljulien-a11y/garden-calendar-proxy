@@ -12,6 +12,8 @@ var store       = require('./orderStore.js');
 var tokenStore  = require('./tokenStore.js');
 var queue       = require('./queueService.js');
 var products    = require('./products/index.js');
+var receiptSvc  = require('./etsyReceipt.js');
+var operator    = require('./operatorNotify.js');
 
 var router  = express.Router();
 
@@ -109,6 +111,11 @@ router.get('/orders/:id', function(req, res) {
     message:   _statusMessage(order),
     pdfUrl:    order.status === 'done' ? order.pdfUrl : null,
     error:     order.status === 'failed' ? order.error : null,
+    approved:  Boolean(order.approved),
+    superseded: Boolean(order.superseded),
+    // true when the buyer can approve on the order-form page (needs an Etsy receipt to verify them)
+    canApproveOnline: order.status === 'done' && !order.approved && !order.superseded
+      && Boolean(order.pdfUrl) && Boolean(order.formData && order.formData.etsy_receipt_id),
   };
   res.json(safe);
 });
@@ -179,6 +186,92 @@ router.post('/orders/:id/approve', async function(req, res) {
     console.error('[orders] Gelato submission failed for', order.id, ':', e.message);
     store.updateOrder(order.id, { gelatoError: e.message });
     res.status(502).json({ error: 'Approval saved but Gelato submission failed — we\'ll retry shortly.', detail: e.message });
+  }
+});
+
+// ── POST /orders/:id/approve-online — buyer approves on the order-form page ───
+// The Etsy API can't message buyers, so the proof is shown on the page the buyer submitted
+// the form on, with an Approve button. The order id is not a secret, so the buyer proves
+// it is them by entering the delivery postcode on their Etsy order (checked against the
+// receipt). Body: { postcode }. After 5 wrong tries the order must be approved by link.
+// The approval steps below mirror POST /orders/:id/approve (left untouched on purpose).
+var APPROVE_ONLINE_MAX_ATTEMPTS = 5;
+
+router.post('/orders/:id/approve-online', async function(req, res) {
+  var order = store.getOrder(req.params.id);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  var receiptId = order.formData && order.formData.etsy_receipt_id;
+  if (!receiptId)
+    return res.status(403).json({ error: 'Online approval is not available for this order — please use the approval link we send you.' });
+  if (order.superseded)
+    return res.status(409).json({ error: 'A newer version of this calendar has been submitted — please use the latest preview.' });
+  if (order.approved)
+    return res.status(409).json({ error: 'Order already approved' });
+  if (order.status !== 'done' || !order.pdfUrl)
+    return res.status(409).json({ error: 'Your preview is not ready yet — status: ' + order.status });
+  if ((order.approveAttempts || 0) >= APPROVE_ONLINE_MAX_ATTEMPTS)
+    return res.status(429).json({ error: 'Too many attempts. Please message us on Etsy and we will approve it for you.' });
+
+  var postcode = req.body && req.body.postcode;
+  if (!postcode || typeof postcode !== 'string')
+    return res.status(400).json({ error: 'Please enter the delivery postcode from your Etsy order.' });
+
+  var receipt;
+  try {
+    receipt = await receiptSvc.fetchReceipt(receiptId);
+  } catch (e) {
+    console.error('[orders] approve-online: receipt lookup failed for', order.id, ':', e.message);
+    return res.status(502).json({ error: 'We could not check your order just now — please try again in a minute.' });
+  }
+
+  if (!receiptSvc.postcodeMatches(postcode, receipt.zip)) {
+    store.updateOrder(order.id, { approveAttempts: (order.approveAttempts || 0) + 1 });
+    console.warn('[orders] approve-online: postcode mismatch for', order.id);
+    return res.status(403).json({ error: 'That postcode does not match the delivery address on your Etsy order.' });
+  }
+
+  // State may have changed while we were talking to Etsy
+  var fresh = store.getOrder(order.id);
+  if (!fresh || fresh.approved || fresh.superseded)
+    return res.status(409).json({ error: 'This order has already been approved or replaced.' });
+
+  store.updateOrder(order.id, { approved: true, approvedAt: new Date().toISOString(), approvedVia: 'order-form' });
+
+  if (!tokenStore.getTokenBySourceRef(order.id)) {
+    var printToken = tokenStore.createPrintToken(order.id);
+    store.updateOrder(order.id, { printToken: printToken.token });
+  }
+
+  var cleanPdfUrl;
+  try {
+    var pdf = require('./pdfService.js');
+    var r2  = require('./r2.js');
+    var cleanBuilt  = await pdf.buildFullHTMLFromState(order.id, order.formData, { approved: true });
+    var cleanPdfBuf = await pdf.generatePDF(cleanBuilt);
+    cleanPdfUrl = await r2.uploadToR2(cleanPdfBuf, order.id + '-final.pdf');
+    store.updateOrder(order.id, { finalPdfUrl: cleanPdfUrl });
+    pdf.deleteSharedState(order.id);
+    console.log('[orders] Clean PDF generated:', cleanPdfUrl);
+  } catch (e) {
+    console.error('[orders] Clean PDF generation failed:', e.message);
+    return res.status(500).json({ error: 'Approved, but we could not prepare the print file. We will sort this out and be in touch via Etsy.' });
+  }
+
+  try {
+    var gelatoResult = await _submitToGelato(order, cleanPdfUrl);
+    store.updateOrder(order.id, {
+      gelatoOrderId: gelatoResult.id,
+      gelatoDashboardUrl: 'https://dashboard.gelato.com/orders/' + gelatoResult.id,
+    });
+    console.log('[orders] Gelato draft created:', gelatoResult.id, 'for order:', order.id);
+    return res.json({ success: true, message: 'Your calendar has been approved and sent to print.' });
+  } catch (e) {
+    console.error('[orders] Gelato submission failed for', order.id, ':', e.message);
+    store.updateOrder(order.id, { gelatoError: e.message });
+    operator.notify('[Garden Calendar] Approved but Gelato failed — order ' + order.id,
+      'Order ' + order.id + ' (Etsy receipt ' + receiptId + ') was approved but the Gelato draft failed:\n' + e.message).catch(function() {});
+    return res.status(502).json({ error: 'Approved — but we hit a hiccup sending it to print. We will sort this out and be in touch via Etsy.' });
   }
 });
 
@@ -286,7 +379,51 @@ router.get('/orders', function(req, res) {
 // ── Internal: Gelato draft order ──────────────────────────────────────────────
 var https = require('https');
 
-function _submitToGelato(order, pdfUrl) {
+// Buyer name/address/email for the Gelato draft. The order form no longer collects an address
+// (it flows Etsy → Gelato), so fetch it from the Etsy receipt now, use it, and do not store it.
+async function _resolveShippingAddress(order) {
+  var fd = order.formData || {};
+  if (fd.shippingAddress && fd.shippingAddress.addressLine1) {
+    return { addr: fd.shippingAddress, email: fd.email || '', source: 'form' };
+  }
+  if (fd.etsy_receipt_id) {
+    try {
+      var receipt = await receiptSvc.fetchReceipt(fd.etsy_receipt_id);
+      var addr = receiptSvc.addressFromReceipt(receipt, {
+        fallbackEmail: process.env.GELATO_FALLBACK_EMAIL || process.env.CONTACT_EMAIL || '',
+      });
+      return { addr: addr, email: addr.email, source: 'etsy', buyerEmailFromEtsy: Boolean(receipt.buyer_email) };
+    } catch (e) {
+      console.error('[orders] Could not fetch delivery address from Etsy for order', order.id, ':', e.message);
+    }
+  }
+  return { addr: {}, email: fd.email || '', source: 'none' };
+}
+
+// Tell the operator an order reached Gelato, and what (if anything) to check there.
+function _notifyApproved(order, gelatoResult, resolved) {
+  var checks = [];
+  if (resolved.source === 'none' || !(resolved.addr && resolved.addr.addressLine1))
+    checks.push('! No delivery address could be read — fill it in on the Gelato draft from the Etsy order.');
+  if (resolved.source === 'etsy' && !resolved.buyerEmailFromEtsy)
+    checks.push('Etsy did not provide the buyer email, so Gelato tracking emails go to ' + (resolved.email || '(nobody)') + '. Send the buyer their tracking via Etsy.');
+  checks.push('Open the draft in Gelato, check it, and confirm it for production — nothing prints until you do.');
+  operator.notify(
+    '[Garden Calendar] Order approved — Gelato draft ready (receipt ' + ((order.formData && order.formData.etsy_receipt_id) || 'n/a') + ')',
+    ['Order ' + order.id + ' was approved by the buyer.',
+     'Gelato draft: https://dashboard.gelato.com/orders/' + gelatoResult.id,
+     ''].concat(checks).join('\n')
+  ).catch(function() {});
+}
+
+async function _submitToGelato(order, pdfUrl) {
+  var resolved = await _resolveShippingAddress(order);
+  var result   = await _postGelatoDraft(order, pdfUrl, resolved);
+  _notifyApproved(order, result, resolved);
+  return result;
+}
+
+function _postGelatoDraft(order, pdfUrl, resolved) {
   return new Promise(function(resolve, reject) {
     if (!GELATO_API_KEY) {
       reject(new Error('GELATO_API_KEY not configured'));
@@ -302,7 +439,7 @@ function _submitToGelato(order, pdfUrl) {
       console.warn('[orders] Could not resolve product SKU for order', order.id, '— using fallback:', e.message);
     }
 
-    var addr = order.formData.shippingAddress || {};
+    var addr = resolved.addr || {};
     var payload = JSON.stringify({
       orderType:           'draft',
       orderReferenceId:    order.id,
@@ -325,7 +462,7 @@ function _submitToGelato(order, pdfUrl) {
         state:        addr.state        || '',
         postCode:     addr.postCode     || '',
         country:      addr.country      || 'GB',
-        email:        order.formData.email || '',
+        email:        resolved.email || '',
         phone:        addr.phone        || '',
       },
     });
@@ -375,4 +512,5 @@ function _statusMessage(order) {
   }
 }
 
+router._test = { resolveShippingAddress: _resolveShippingAddress };
 module.exports = router;

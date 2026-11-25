@@ -13,6 +13,7 @@ var store     = require('./orderStore.js');
 var r2        = require('./r2.js');
 var messaging = require('./etsyMessaging.js');
 var intake    = require('./etsyIntake.js');
+var buyerNotify = require('./buyerNotify.js');
 
 var ORDER_FORM_URL = (process.env.ORDER_FORM_URL || 'https://garden-calendar-order-form.vercel.app').replace(/\/$/, '');
 
@@ -145,8 +146,8 @@ async function _sendEtsyPreview(order, pdfUrl) {
   var receiptMap = store.getMeta('etsyReceiptMap') || {};
   var buyerUserId = receiptMap[String(receiptId)];
   if (!buyerUserId) {
-    console.warn('[queue] No buyer_user_id found for receipt', receiptId, '— skipping Etsy preview message');
-    return;
+    // Not fatal any more: the message is emailed to the operator to paste into Etsy
+    console.warn('[queue] No buyer_user_id found for receipt', receiptId, '— message will go to the operator by email');
   }
 
   var approveUrl = (process.env.BACKEND_URL || 'https://garden-calendar-proxy.onrender.com')
@@ -176,8 +177,8 @@ async function _sendEtsyPreview(order, pdfUrl) {
     'The Garden Calendar team',
   ].join('\n');
 
-  await messaging.sendEtsyMessage(receiptId, buyerUserId, message);
-  console.log('[queue] Etsy preview message sent for order', order.id, 'receipt', receiptId);
+  var sent = await buyerNotify.deliver({ receiptId: receiptId, buyerUserId: buyerUserId, message: message, kind: 'proof + approve link' });
+  console.log('[queue] Etsy preview message sent for order', order.id, 'receipt', receiptId, '— via', sent.via);
 }
 
 // ── Internal: proof-first generation failed → send the full form link ────────
@@ -185,8 +186,8 @@ async function _sendIntakeFailure(order) {
   var receiptId   = order.formData && order.formData.etsy_receipt_id;
   var receiptMap  = store.getMeta('etsyReceiptMap') || {};
   var buyerUserId = receiptId && receiptMap[String(receiptId)];
-  if (!buyerUserId) {
-    console.warn('[queue] Cannot send intake fallback for', order.id, '— no buyer_user_id for receipt', receiptId);
+  if (!receiptId) {
+    console.warn('[queue] Cannot send intake fallback for', order.id, '— no receipt id');
     return;
   }
   var link = intake.buildFormUrl(ORDER_FORM_URL, order.formData, { includePlants: false });
@@ -201,8 +202,8 @@ async function _sendIntakeFailure(order) {
     'Warm wishes,',
     'The Garden Calendar team',
   ].join('\n');
-  await messaging.sendEtsyMessage(receiptId, buyerUserId, message);
-  console.log('[queue] Intake fallback form link sent for order', order.id, 'receipt', receiptId);
+  var sent2 = await buyerNotify.deliver({ receiptId: receiptId, buyerUserId: buyerUserId, message: message, kind: 'form link (proof failed)' });
+  console.log('[queue] Intake fallback form link sent for order', order.id, 'receipt', receiptId, '— via', sent2.via);
 }
 
 // ── Public: recover jobs interrupted by a restart/deploy ─────────────────────

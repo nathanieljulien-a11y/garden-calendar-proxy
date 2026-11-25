@@ -166,4 +166,27 @@ test('plants omitted unless requested', function() {
   assert.ok(intake.buildFormUrl('https://f', fd).indexOf('plants=') === -1);
 });
 
+console.log('real listing labels (order 4246343135 shape)');
+test('reads all four answers from separate variations, all property_id 54', function() {
+  var r = intake.parseReceipt(receipt([
+    { property_id: 54, formatted_name: 'Start Month', formatted_value: 'January' },
+    { property_id: 54, formatted_name: 'Garden location - town, country', formatted_value: 'Carshalton, UK' },
+    { property_id: 54, formatted_name: 'Calendar name', formatted_value: 'The Hall Family Garden' },
+    { property_id: 54, formatted_name: 'Personal message', formatted_value: 'Dear Hel, Merry Christmas! A xxx' },
+  ]));
+  assert.strictEqual(r.ok, true, r.reasons.join('; '));
+  assert.strictEqual(r.data.city, 'Carshalton, UK');
+  assert.strictEqual(r.data.startMonth, 1);
+  assert.strictEqual(r.data.calendarName, 'The Hall Family Garden');
+  assert.strictEqual(r.data.personalMessage, 'Dear Hel, Merry Christmas! A xxx');
+});
+test('location wording variants are recognised, name/message labels are not mistaken for it', function() {
+  ['Garden location - town, country', 'Where is the garden (town)?', 'Your town or city'].forEach(function(label) {
+    var r = intake.parseReceipt(receipt([P('Bath, UK', label), START('March')]));
+    assert.strictEqual(r.data.city, 'Bath, UK', label);
+  });
+  var r2 = intake.parseReceipt(receipt([P('The Smiths', 'Calendar name'), P('Hello', 'Personal message'), START('March')]));
+  assert.strictEqual(r2.data.city, '');
+});
+
 console.log('\n' + passed + ' passed' + (process.exitCode ? ', some FAILED' : ''));
